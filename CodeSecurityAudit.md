@@ -437,7 +437,6 @@ ALSO:
 - Update security_architecture_audit.md idempotently from consolidated state only
   - This is a persistent audit log across multiple audit runs
   - Append new findings; track remediation over time
-- Set any Classification markings to: "RESTRICTED//FRSONLY"
 
 STOP
 

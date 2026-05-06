@@ -21,7 +21,9 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 1. **Phase discipline.** Execute phases **strictly in order**. At the end of each phase (and each Phase 2 sub-phase), STOP, print the completion banner, update STATE.md, and wait for the user to type `proceed` before starting the next step. Do not chain phases. Do not "get ahead."
 
-2. **Evidence or it didn't happen.** Every architectural claim, component, trust boundary, and threat MUST cite concrete evidence using the form `[evidence: <path>:<start-line>-<end-line>]`. Evidence paths are relative to the workspace root (which is the source repo root) and must use forward slashes for portability, e.g. `[evidence: src/api/handler.go:42-78]`. If you cannot cite evidence, you must either (a) read more files, or (b) mark the item as `ASSUMED` and list it in the Assumptions Log. Never invent code that does not exist in the repo.
+2. **Evidence or it didn't happen.** Every architectural claim, component, trust boundary, data flow, and threat MUST cite concrete evidence using the form `[evidence: <path>:<start-line>-<end-line>]`. Evidence paths are relative to the workspace root (which is the source repo root) and must use forward slashes for portability, e.g. `[evidence: src/api/handler.go:42-78]`. If you cannot cite evidence, you must either (a) read more files, or (b) mark the item as `ASSUMED` and list it in the Assumptions Log. Never invent code that does not exist in the repo.
+
+   This rule is enforced through schemas: every output table that captures a threat-modeling artifact has an explicit `Evidence` column. Populating that column is mandatory — a row with an empty `Evidence` cell is a rule violation, not an oversight. A single cell may contain multiple citations separated by `;` when one claim draws on more than one location (e.g., `[evidence: src/api/handler.go:42-78]; [evidence: terraform/iam.tf:10-22]`).
 
 3. **No hallucinated CVEs, CWEs, or versions.** Only reference a CVE if you literally see the identifier in the source (e.g., in a lockfile comment or SECURITY.md). CWE references are allowed because they are a stable taxonomy; CVEs are not.
 
@@ -331,10 +333,25 @@ Each component gets a stable ID: `C-<NNN>` assigned in the order components are 
 - Runs as: (user/service account, container, lambda, ...)
 
 ## 3. Data Stores
-`DS-<NNN>` IDs. Include type, data classification, encryption-at-rest status (from IaC), access pattern.
+Each data store gets a stable ID: `DS-<NNN>` assigned in the order data stores are discovered.
+
+### DS-001: <Data Store Name>
+- Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
+- Data classification: (PII | credentials | financial | health | telemetry | public | ...)
+- Encryption at rest: (yes | no | unknown) — cite IaC evidence
+- Encryption in transit: (yes | no | unknown) — cite evidence
+- Access pattern: which components read/write, e.g. `read-write from C-003, read-only from C-005`
+- Evidence: [evidence: terraform/rds.tf:1-30]
 
 ## 4. External Integrations
-`EXT-<NNN>` IDs. Include protocol, authentication method, direction (inbound/outbound/both).
+Each external integration gets a stable ID: `EXT-<NNN>` assigned in the order integrations are discovered.
+
+### EXT-001: <Integration Name>
+- Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)
+- Authentication method: (API key | OAuth client credentials | mTLS | bearer token | basic auth | none | ...)
+- Direction: (inbound | outbound | both)
+- Data exchanged: (brief description and classification)
+- Evidence: [evidence: src/clients/payment_gateway.go:12-44]
 
 ## 5. Trust Boundaries
 `TB-<NNN>` IDs. A trust boundary exists wherever data crosses between principals with different trust levels. At minimum consider:
@@ -492,9 +509,9 @@ Structure:
 | TB-001 | Internet → edge | anonymous users / WAF | AWS WAF rule set | [evidence: terraform/waf.tf:1-44] |
 
 ## Data Flows
-| DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? |
-|-------|--------|-------------|------|----------|-------|------------|-------------|
-| DF-001 | C-001 (Edge) | C-003 (API) | Auth tokens, request bodies | HTTPS | mTLS | TLS 1.3 | TB-002 |
+| DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? | Evidence |
+|-------|--------|-------------|------|----------|-------|------------|-------------|----------|
+| DF-001 | C-001 (Edge) | C-003 (API) | Auth tokens, request bodies | HTTPS | mTLS | TLS 1.3 | TB-002 | [evidence: src/edge/router.go:88-104]; [evidence: terraform/alb.tf:1-30] |
 ```
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2a: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2B (STRIDE threat enumeration). Required rehydration: 01-inventory.md, 02a-context.md.`
@@ -541,7 +558,8 @@ For each selected threat, fill in every column of the threat table schema below.
 | COMPONENT NAME | The architectural component from the inventory. Use the same name as in the inventory and in the diagrams (Phase 4) for traceability. |
 | THREAT NAME | Specific, detailed name. Not "SQL Injection" but "SQL injection in Contact search API due to unparameterized query in `searchContacts()`." |
 | STRIDE CATEGORY | Exactly one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, or Elevation of Privilege. |
-| WHY APPLICABLE | Why this threat matters for this component in the context of the inventory and 02a-context.md. Cite evidence. |
+| WHY APPLICABLE | Why this threat matters for this component in the context of the inventory and 02a-context.md. |
+| EVIDENCE | One or more `[evidence: path:lines]` citations supporting this threat. Mandatory per Operating Rule 2. Multiple citations separated by `;`. |
 | HOW MITIGATED | How this threat is already mitigated in the architecture, with reference to the inventory. If not mitigated, say so explicitly. |
 | MITIGATION | Recommended mitigation, specific to this system. |
 | LIKELIHOOD EXPLANATION | Likelihood of exploitation given the architecture and real-world risk. |
@@ -566,9 +584,9 @@ Structure:
 - Threats excluded as out of scope: <N>
 
 ## Threat Table
-| Threat ID | OWASP Top 10 | Component | Threat Name | STRIDE | Why Applicable | How Mitigated | Mitigation | Likelihood | Impact | Risk Severity |
-|-----------|--------------|-----------|-------------|--------|----------------|---------------|------------|------------|--------|---------------|
-| 0001 | A01:2021 | C-003 (Auth Service) | ... | Spoofing | ... | ... | ... | ... | ... | Critical |
+| Threat ID | OWASP Top 10 | Component | Threat Name | STRIDE | Why Applicable | Evidence | How Mitigated | Mitigation | Likelihood | Impact | Risk Severity |
+|-----------|--------------|-----------|-------------|--------|----------------|----------|---------------|------------|------------|--------|---------------|
+| 0001 | A01:2021 | C-003 (Auth Service) | ... | Spoofing | ... | [evidence: src/auth/middleware.go:55-92] | ... | ... | ... | ... | Critical |
 ```
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Traceability Matrix). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.`
@@ -626,6 +644,7 @@ Selection of threat agents must reflect the deployment exposure recorded in 00-s
 | IMPACT | Classified as Confidentiality, Integrity, Availability — one or more. |
 | SECURITY CONTROL | EXISTING controls only (what's already implemented). Be specific about control type and strength. Use `None` if no controls exist. Note partial controls explicitly: `Partial — TLS on external connections only, not internal`. |
 | MITIGATION | Specific, actionable controls to add or strengthen. Reference industry standards (OWASP, CIS Benchmarks, NIST 800-53) where appropriate. |
+| EVIDENCE | One or more `[evidence: path:lines]` citations supporting the attack path, the targeted asset, or the existing security control assertion. Mandatory per Operating Rule 2. Multiple citations separated by `;`. This column is intentionally duplicative of the Evidence column in 02b-threats.md so that 02c-traceability.md is a standalone artifact for stakeholders who only consume the traceability matrix. |
 
 #### Phase 2C Output: `.\{PROJECT_NAME}-threat-model\02c-traceability.md`
 
@@ -635,9 +654,9 @@ Structure:
 # Phase 2C — Threat Traceability Matrix
 
 ## Traceability Matrix
-| Threat ID | Threat Agent | Asset | Attack | Attack Surface | Attack Goal | Impact | Security Control | Mitigation |
-|-----------|--------------|-------|--------|----------------|-------------|--------|------------------|------------|
-| 0001 | External Attacker | AS-002 (Auth tokens) | Token replay via captured session cookie | External Interfaces | Credential Access (TA0006) | Confidentiality, Integrity | Partial — TLS 1.3 on edge, no token binding | Implement token binding per RFC 8473; reduce session lifetime to 30 min |
+| Threat ID | Threat Agent | Asset | Attack | Attack Surface | Attack Goal | Impact | Security Control | Mitigation | Evidence |
+|-----------|--------------|-------|--------|----------------|-------------|--------|------------------|------------|----------|
+| 0001 | External Attacker | AS-002 (Auth tokens) | Token replay via captured session cookie | External Interfaces | Credential Access (TA0006) | Confidentiality, Integrity | Partial — TLS 1.3 on edge, no token binding | Implement token binding per RFC 8473; reduce session lifetime to 30 min | [evidence: src/auth/session.go:120-158]; [evidence: terraform/alb.tf:44-60] |
 ```
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2c: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2D (Questions and Assumptions, plus consolidation). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md, 02c-traceability.md.`
@@ -775,9 +794,9 @@ Produce four CSV files in `.\{PROJECT_NAME}-threat-model\outputs\`:
 
 1. **`traceability.csv`** — the headline deliverable, matching the work traceability matrix schema exactly. One row per threat. Columns in this order, header row required:
    ```
-   ThreatID,ThreatAgent,Asset,Attack,AttackSurface,AttackGoal,Impact,SecurityControl,Mitigation
+   ThreatID,ThreatAgent,Asset,Attack,AttackSurface,AttackGoal,Impact,SecurityControl,Mitigation,Evidence
    ```
-   This is the CSV the security team imports into Excel for their reports. Column names must match the header row above verbatim (spacing, capitalization, no spaces inside names) so downstream templates don't break. Sort rows by severity (Critical → High) then by ThreatID.
+   This is the CSV the security team imports into Excel for their reports. Column names must match the header row above verbatim (spacing, capitalization, no spaces inside names) so downstream templates don't break. Sort rows by severity (Critical → High) then by ThreatID. The `Evidence` column carries the same evidence citations from `02c-traceability.md`'s Evidence column; multiple citations within a cell are separated by `;` (the ` | ` newline-replacement rule applies to other multi-line fields, not to the evidence-citation separator).
 
 2. **`threats.csv`** — full detail export, one row per threat. Columns (header row required):
    ```

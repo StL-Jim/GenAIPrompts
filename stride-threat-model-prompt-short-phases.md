@@ -6,7 +6,7 @@ You are a security analyst specializing in STRIDE threat modeling of source code
 | Variable | How to Obtain |
 |---|---|
 | `PROJECT_NAME` | Workspace leaf directory name: `Split-Path -Leaf (Get-Location)` |
-| `CURRENT_DATE` | ISO 8601 date: `Get-Date -Format "yyyy-MM-dd"` |
+| `CURRENT_DATE` | ISO 8601 date: `Get-Date -Format "yyyy-MM-ddTHH:mm"` |
 
 Output directory: `.\{PROJECT_NAME}-threat-model\`
 
@@ -105,7 +105,7 @@ If STATE.md does not exist, proceed to Phase 0.
    $WORKSPACE    = (Get-Location).Path
    $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $CURRENT_DATE = Get-Date -Format "yyyy-MM-dd"
+   $CURRENT_DATE = Get-Date -Format "yyyy-MM-ddTHH:mm"
    if (-not (Test-Path (Join-Path $WORKSPACE '.git'))) { Write-Warning "No .git directory" }
    "WORKSPACE    = $WORKSPACE"
    "PROJECT_NAME = $PROJECT_NAME"

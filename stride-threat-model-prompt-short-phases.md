@@ -13,7 +13,7 @@ Output directory: `.\{PROJECT_NAME}-threat-model\`
 ## Core Operating Rules
 
 1. **Phase discipline**: Execute phases strictly in order. STOP after each phase (and each Phase 2 sub-phase), update STATE.md, print completion banner, wait for user to type `proceed`.
-2. **Evidence required**: Every claim MUST cite evidence as `[evidence: path/to/file.ext:start-end]` with paths relative to workspace root using forward slashes. If no evidence exists, mark `ASSUMED` and log it.
+2. **Evidence required**: Every claim — components, trust boundaries, data flows, and threats — MUST cite evidence as `[evidence: path/to/file.ext:start-end]` with paths relative to workspace root using forward slashes. If no evidence exists, mark `ASSUMED` and log it. This rule is enforced through schemas: every output table has an explicit `Evidence` column. An empty `Evidence` cell is a rule violation, not an oversight. Multiple citations in one cell are separated by `;` (e.g., `[evidence: src/auth.go:42-78]; [evidence: terraform/iam.tf:10-22]`).
 3. **No hallucination**: Reference CVEs only if literally present in source. CWEs allowed. Never invent code.
 4. **Enumerate, don't generate**: Walk the full matrix — every component × trust boundary × STRIDE category. Document `N/A` with one-line justification.
 5. **Deterministic IDs**: Stable across re-runs.
@@ -225,10 +225,25 @@ Identify:
 - Runs as: (account, container, lambda)
 
 ## 3. Data Stores
-DS-NNN. Type, classification, encryption-at-rest, access pattern.
+Each gets a stable `DS-NNN` ID.
+
+### DS-001: <Name>
+- Type: (postgresql | mysql | redis | dynamodb | s3 | secrets-manager | ...)
+- Classification: (PII | credentials | financial | health | public | ...)
+- Encryption at rest: (yes | no | unknown)
+- Encryption in transit: (yes | no | unknown)
+- Access pattern: which components read/write
+- Evidence: [evidence: path:lines]
 
 ## 4. External Integrations
-EXT-NNN. Protocol, auth method, direction.
+Each gets a stable `EXT-NNN` ID.
+
+### EXT-001: <Name>
+- Protocol: (HTTPS | gRPC | AMQP | SMTP | ...)
+- Auth method: (API key | OAuth | mTLS | bearer | none | ...)
+- Direction: (inbound | outbound | both)
+- Data exchanged: (brief description and classification)
+- Evidence: [evidence: path:lines]
 
 ## 5. Trust Boundaries
 TB-NNN. Cite evidence (security group, NetworkPolicy, or absence).
@@ -347,9 +362,9 @@ Three sections, all grounded in the inventory:
 | TB-001 | Internet → edge | anonymous users / WAF | AWS WAF rules | [evidence: terraform/waf.tf:1-44] |
 
 ## Data Flows
-| DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? |
-|-------|--------|-------------|------|----------|-------|------------|-------------|
-| DF-001 | C-001 | C-003 | Auth tokens | HTTPS | mTLS | TLS 1.3 | TB-002 |
+| DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? | Evidence |
+|-------|--------|-------------|------|----------|-------|------------|-------------|----------|
+| DF-001 | C-001 | C-003 | Auth tokens | HTTPS | mTLS | TLS 1.3 | TB-002 | [evidence: src/edge/router.go:88-104]; [evidence: terraform/alb.tf:1-30] |
 ```
 
 Write with `create_new_file`. Update STATE.md: mark `phase-2a: complete`, set Resume Instruction to `Begin at Phase 2B. Required rehydration: 01-inventory.md, 02a-context.md.`
@@ -394,12 +409,12 @@ Threat Name format: be specific. Not "SQL Injection" but "SQL injection in Conta
 - Excluded as out of scope: <N>
 
 ## Threat Table
-| Threat ID | OWASP Top 10 | Component | Threat Name | STRIDE | Why Applicable | How Mitigated | Mitigation | Likelihood | Impact | Risk Severity |
-|-----------|--------------|-----------|-------------|--------|----------------|---------------|------------|------------|--------|---------------|
-| 0001 | A03:2021 | C-003 | SQL injection in Contact search API | Tampering | Unparameterized query | None | Parameterized queries | High | Critical | CRITICAL |
+| Threat ID | OWASP Top 10 | Component | Threat Name | STRIDE | Why Applicable | Evidence | How Mitigated | Mitigation | Likelihood | Impact | Risk Severity |
+|-----------|--------------|-----------|-------------|--------|----------------|----------|---------------|------------|------------|--------|---------------|
+| 0001 | A03:2021 | C-003 | SQL injection in Contact search API | Tampering | Unparameterized query | [evidence: src/api/contacts.go:142-168] | None | Parameterized queries | High | Critical | CRITICAL |
 ```
 
-Sort by Risk Severity (Critical first), then OWASP Top 10 item, then Threat ID.
+Sort by Risk Severity (Critical first), then OWASP Top 10 item, then Threat ID. The `Evidence` column is mandatory per Operating Rule 2 — multiple citations separated by `;`.
 
 Write with `create_new_file`. Update STATE.md: mark `phase-2b: complete`, set Resume Instruction to `Begin at Phase 2C. Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.`
 
@@ -450,10 +465,12 @@ Mitigation: specific, actionable. Reference standards (OWASP, CIS, NIST 800-53).
 ```markdown
 # Phase 2C — Threat Traceability Matrix
 
-| Threat ID | Threat Agent | Asset | Attack | Attack Surface | Attack Goal | Impact | Security Control | Mitigation |
-|-----------|--------------|-------|--------|----------------|-------------|--------|------------------|------------|
-| 0001 | External Attacker | AS-002 | SQL injection via search parameter | External Interfaces | Initial Access (MITRE T1190) | Confidentiality, Integrity | None | Parameterized queries, input validation, WAF |
+| Threat ID | Threat Agent | Asset | Attack | Attack Surface | Attack Goal | Impact | Security Control | Mitigation | Evidence |
+|-----------|--------------|-------|--------|----------------|-------------|--------|------------------|------------|----------|
+| 0001 | External Attacker | AS-002 | SQL injection via search parameter | External Interfaces | Initial Access (MITRE T1190) | Confidentiality, Integrity | None | Parameterized queries, input validation, WAF | [evidence: src/api/contacts.go:142-168]; [evidence: terraform/waf.tf:22-40] |
 ```
+
+The `Evidence` column is mandatory and intentionally duplicative of the Evidence column in `02b-threats.md` — `02c-traceability.md` is meant to stand alone for stakeholders who only consume the traceability matrix.
 
 Write with `create_new_file`. Update STATE.md: mark `phase-2c: complete`, set Resume Instruction to `Begin at Phase 2D. Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md, 02c-traceability.md.`
 
@@ -567,9 +584,9 @@ Write to `outputs/`:
 
 1. **`traceability.csv`** (headline deliverable):
    ```
-   ThreatID,ThreatAgent,Asset,Attack,AttackSurface,AttackGoal,Impact,SecurityControl,Mitigation
+   ThreatID,ThreatAgent,Asset,Attack,AttackSurface,AttackGoal,Impact,SecurityControl,Mitigation,Evidence
    ```
-   Sort by severity (Critical → High), then ThreatID.
+   Sort by severity (Critical → High), then ThreatID. Evidence carries citations from `02c-traceability.md`'s Evidence column; multiple citations separated by `;`.
 
 2. **`threats.csv`** (full detail):
    ```

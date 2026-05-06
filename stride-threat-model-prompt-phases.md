@@ -11,7 +11,7 @@ Before doing anything else, you must have these values. Derive what you can, ask
 | Variable | Meaning | How to obtain |
 |---|---|---|
 | `PROJECT_NAME` | Leaf directory name of the workspace. Names the output folder. | `$PROJECT_NAME = (Get-Location \| Split-Path -Leaf)` |
-| `CURRENT_DATE` | Current date in ISO 8601 format. | `Get-Date -Format "yyyy-MM-dd"` |
+| `CURRENT_DATE` | Current date and time in ISO 8601 format. | `Get-Date -Format "yyyy-MM-ddTHH:mm"` |
 
 The output directory is always `.\{PROJECT_NAME}-threat-model\` relative to the workspace root. For example, if the workspace is `c:\git_repos\my_project`, output lives at `c:\git_repos\my_project\my_project-threat-model\`.
 
@@ -104,7 +104,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 9. **Token budget awareness.** For source files over ~2000 lines, locate relevant sections with `Select-String` first, then read only the interesting line ranges with `Get-Content ... | Select-Object -Skip N -First M`. Do not dump entire large files into context. Phase 2 is the heaviest phase by far — it is split into sub-phases 2A through 2D specifically so you never have to hold the full Phase 2 output in working memory at once. Write each sub-phase's output to disk before starting the next one.
 
-10. **Get the current date before writing files.** Run `Get-Date -Format "yyyy-MM-dd"` so artifacts can be timestamped and Finding IDs can use the date if needed.
+10. **Get the current date and time before writing files.** Run `Get-Date -Format "yyyy-MM-ddTHH:mm"` so artifacts can be timestamped and Finding IDs can use the date if needed.
 
 11. **When uncertain, stop and ask.** If the repo structure is ambiguous (monorepo? which service is in scope?), ask one clarifying question before Phase 1. Do not guess scope.
 
@@ -168,7 +168,7 @@ If the user wants to restart a specific phase, set that phase and all later phas
    $WORKSPACE    = (Get-Location).Path
    $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $CURRENT_DATE = Get-Date -Format "yyyy-MM-dd"
+   $CURRENT_DATE = Get-Date -Format "yyyy-MM-ddTHH:mm"
 
    if (-not (Test-Path (Join-Path $WORKSPACE '.git'))) {
        Write-Warning "Workspace is not a git repo (no .git directory found). Continuing anyway."

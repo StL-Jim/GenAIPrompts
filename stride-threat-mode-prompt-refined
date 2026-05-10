@@ -774,9 +774,9 @@ Copy `02-threats.md` to `.\{PROJECT_NAME}-threat-model\outputs\threat-model.md` 
 
 ### 3B — HTML
 
-Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using a scaffold-then-fill pattern. This is intentional: a complete styled HTML threat model report is 40–60KB, which exceeds the per-response output budget in Continue.dev environments where `maxTokens` is capped conservatively. Generating the full HTML in one tool call fails unpredictably and burns retries. The scaffold-then-fill pattern keeps every individual call well under the cap.
+Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using `create_new_file` with the complete HTML content in a single call (per the decision table in Operating Rule 7).
 
-Requirements (apply to the assembled file):
+Requirements:
 - Single self-contained file: no external CSS/JS, no CDN references (air-gapped environment).
 - Inline `<style>` block, system font stack like `system-ui, -apple-system, Segoe UI, sans-serif`, print-friendly.
 - Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast.
@@ -784,43 +784,14 @@ Requirements (apply to the assembled file):
 - Collapsible `<details>` for each threat's Evidence and Attack Path.
 - Summary table near the top showing counts by severity and by STRIDE category.
 - Traceability matrix color rules: Critical/High impact rows highlighted red; threat agent column rendered bold; Security Control cells equal to `None` highlighted orange.
+- All sections from `02-threats.md` rendered: Assets, Trust Boundaries, Data Flows, Threat Table, Traceability Matrix, Questions and Assumptions.
+- The `Disposition` and `DispositionRationale` columns in the traceability section rendered as visibly empty cells — same explicit-empty rule as the CSV exports.
 - Reviewer metadata block between the title and the summary table:
   - `Reviewed By:` (empty)
   - `Reviewer Notes:` (empty)
   Both fields MUST be visibly empty placeholders (e.g., a light-gray underlined blank or `&nbsp;` cell). Do NOT populate or guess values during generation. Do NOT guess at a reviewer name. The block exists for post-generation manual completion.
 
-#### Step 1: Skeleton (one `create_new_file` call)
-
-Use `create_new_file` to write the skeleton: DOCTYPE, `<head>` with title and the full inline CSS for all the visual rules above, `<body>` containing the title, the reviewer metadata block, the TOC `<nav>`, and a `<main>` element with one `<section>` per content block. Each `<section>` has its heading and a unique HTML comment placeholder where its content will be filled in. The skeleton is small (~3–5KB) and fits comfortably in a single tool call.
-
-The placeholders, in this order:
-- `<!-- TOC-CONTENT -->`
-- `<!-- SUMMARY-CONTENT -->`
-- `<!-- ASSETS-CONTENT -->`
-- `<!-- TRUST-BOUNDARIES-CONTENT -->`
-- `<!-- DATA-FLOWS-CONTENT -->`
-- `<!-- THREAT-TABLE-CONTENT -->`
-- `<!-- TRACEABILITY-CONTENT -->`
-- `<!-- ASSUMPTIONS-CONTENT -->`
-
-Each placeholder must appear exactly once and be unique enough that `single_find_and_replace` can match it without ambiguity.
-
-#### Step 2: Fill each placeholder (one `single_find_and_replace` call per section)
-
-For each placeholder above, use `single_find_and_replace` to replace the comment with the section's HTML content, sourced from the corresponding section of `02-threats.md` (which was assembled in Phase 2D). Each replacement is small, independent, and well within the per-response output budget. A failure on one section is isolated — re-run that single replacement, the others stand.
-
-Section content rules:
-
-1. **TOC** — list of links: `<ul>` of `<li><a href="#assets">Assets</a></li>` etc., one per main section.
-2. **Summary** — small table showing total threat count and counts by severity (Critical, High) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
-3. **Assets** — heading and definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
-4. **Trust Boundaries** — table mirroring the schema in `02a-context.md` (TB ID, Boundary, Principals, Establishing Control, Evidence).
-5. **Data Flows** — table mirroring the schema in `02a-context.md` (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
-6. **Threat Table** — full threat table with severity-colored rows. Each threat row is followed by a collapsible `<details>` with `<summary>Evidence and Attack Path</summary>` containing the threat's Evidence column verbatim plus a brief attack path narrative.
-7. **Traceability Matrix** — full traceability table with the color rules listed above. The `Disposition` and `DispositionRationale` columns rendered as visibly empty cells for post-review filling — same explicit-empty rule as the CSV exports.
-8. **Questions and Assumptions** — content from the `02d-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
-
-Verify per Operating Rule 7(e) after each replacement. If any replacement fails (placeholder not found, content corrupted), re-run that one replacement only — do NOT regenerate the whole file.
+Verify per Operating Rule 7(e) after writing. If the file is missing or truncated, retry the `create_new_file` call.
 
 ### 3C — CSV for Excel
 Produce four CSV files in `.\{PROJECT_NAME}-threat-model\outputs\`:

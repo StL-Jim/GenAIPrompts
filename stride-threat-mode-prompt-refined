@@ -56,7 +56,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
    |-----------|--------|
    | New `.md` or `.html` | `create_new_file` (overwrites if exists; fine — phases write from scratch) |
    | Surgical edit to existing output | `single_find_and_replace` (NOT `edit_existing_file` — known bug wipes files) |
-   | `.csv` | PowerShell with single-quoted here-string + `Out-File` (UTF-8 BOM, see 7e). Never `create_new_file` for CSVs — embedded quotes/newlines get mangled. |
+   | `.csv` | `create_new_file` (RFC 4180 escaping handled in content). PowerShell + `Out-File` only as a fallback if `create_new_file` fails or the content exceeds whatever per-call ceiling you hit. |
    | `.drawio` | `create_new_file` with complete XML in ONE SHOT (Phase 4 details) |
    | Anything else where built-ins fail | PowerShell fallback, single-quoted here-string |
 
@@ -72,16 +72,14 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
    **(c) Directories:** `New-Item -ItemType Directory -Path ".\$PROJECT_NAME-threat-model" -Force | Out-Null`. Never use `>`, `>>`, `echo`, `cat`, `tee`, bash heredocs, or `mkdir -p`.
 
-   **(d) UTF-8 BOM for CSVs** (Excel mis-renders BOM-less UTF-8): PowerShell 5.1 `Out-File -Encoding utf8` (emits BOM by default); PowerShell 7 `Out-File -Encoding utf8BOM` (PS7's plain `utf8` is BOM-less).
-
-   **(e) After every write, verify:**
+   **(d) After every write, verify:**
    ```powershell
    Get-Item ".\$PROJECT_NAME-threat-model\<filename>" | Select-Object Length, LastWriteTime
    Get-Content ".\$PROJECT_NAME-threat-model\<filename>" -TotalCount 3
    ```
    Missing, zero bytes, or unexpected first lines → retry with PowerShell fallback.
 
-   **(f) No emphasis in Markdown output.** Do not use bold, italics, asterisks, or underscores in any `.md` file. Use headings, lists, tables, and code fences only.
+   **(e) No emphasis in Markdown output.** Do not use bold, italics, asterisks, or underscores in any `.md` file. Use headings, lists, tables, and code fences only.
 
 8. **Output directory.** All generated artifacts go under `.\{PROJECT_NAME}-threat-model\` inside the workspace (which is the source repo). Create it in Phase 0 and add it to `.git/info/exclude` so it is not accidentally committed to the source repo. The directory layout is:
    ```
@@ -137,7 +135,21 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
     ## Resume Instruction
     <what the next session should do, e.g. "Begin at Phase 2C (Traceability Matrix). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.">
     ```
-    Update STATE.md with `single_find_and_replace` for surgical updates, or rewrite the whole file with `create_new_file` if multiple sections change. After every write, verify per Operating Rule 7(e).
+    Update STATE.md with `single_find_and_replace` for surgical updates, or rewrite the whole file with `create_new_file` if multiple sections change. After every write, verify per Operating Rule 7(d).
+
+13. **ASCII-only output for text artifacts.** All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
+
+    Required substitutions:
+    - Em-dash `—` (U+2014) → `--` (two hyphens)
+    - En-dash `–` (U+2013) → `-` (single hyphen)
+    - Right arrow `→` (U+2192) → `->`
+    - Left arrow `←` (U+2190) → `<-`
+    - Right double-quotation mark `"` (U+201D) and left `"` (U+201C) → `"` (straight double-quote)
+    - Right single-quotation mark `'` (U+2019) and left `'` (U+2018) → `'` (straight single-quote / apostrophe)
+    - Ellipsis `…` (U+2026) → `...` (three periods)
+    - Non-breaking space (U+00A0) → regular space
+
+    Exception -- Phase 4 `.drawio` diagram files: the annotation symbols `⚠`, `✓`, and `🔒` retain Unicode for visual semantics. The `.drawio` XML format and draw.io renderer handle Unicode correctly via the file's UTF-8 encoding. Do NOT apply the ASCII substitutions inside `.drawio` files for these specific glyphs.
 
 ---
 
@@ -728,7 +740,7 @@ Steps:
    Remove-Item "$outDir\02-header.md"
    ```
 
-4. Verify per Operating Rule 7(e). If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all four sub-files and write the concatenation manually — that defeats the purpose.
+4. Verify per Operating Rule 7(d). If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all four sub-files and write the concatenation manually — that defeats the purpose.
 
 After both files are written, update STATE.md: mark `phase-2d: complete` with timestamp, set Last Completed Step to `phase-2d — Phase 2 complete; 02-threats.md consolidated.`, set Resume Instruction to `Begin at Phase 3 (Multi-format Export). Required rehydration: 02-threats.md.`
 
@@ -791,7 +803,7 @@ Requirements:
   - `Reviewer Notes:` (empty)
   Both fields MUST be visibly empty placeholders (e.g., a light-gray underlined blank or `&nbsp;` cell). Do NOT populate or guess values during generation. Do NOT guess at a reviewer name. The block exists for post-generation manual completion.
 
-Verify per Operating Rule 7(e) after writing. If the file is missing or truncated, retry the `create_new_file` call.
+Verify per Operating Rule 7(d) after writing. If the file is missing or truncated, retry the `create_new_file` call.
 
 ### 3C — CSV for Excel
 Produce four CSV files in `.\{PROJECT_NAME}-threat-model\outputs\`:
@@ -819,8 +831,8 @@ Produce four CSV files in `.\{PROJECT_NAME}-threat-model\outputs\`:
 #### Shared CSV rules for all four files:
 - Use RFC 4180 escaping. Fields containing commas, quotes, or newlines must be wrapped in double-quotes; embedded double-quotes become `""`.
 - Replace internal newlines in multi-line fields with ` | ` (space-pipe-space) so Excel cells stay single-line — important for the traceability matrix where cells can get long.
-- Encoding: UTF-8 with BOM per Operating Rule 7(d).
-- Write all four CSVs via PowerShell per the CSV row of the decision table in Operating Rule 7 — do NOT use `create_new_file` for CSVs.
+- ASCII-only content per Operating Rule 13. With pure ASCII there is no BOM concern; Excel and other consumers will render correctly without encoding fallback issues.
+- Write CSVs with `create_new_file` per the decision table in Operating Rule 7. PowerShell + `Out-File` is the fallback only if `create_new_file` fails for a specific file.
 
 After writing, validate by reading the first 3 lines of each CSV with `Get-Content -TotalCount 3` and print them so the user can confirm encoding and header rows look right.
 

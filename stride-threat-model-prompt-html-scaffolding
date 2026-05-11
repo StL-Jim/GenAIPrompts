@@ -794,7 +794,7 @@ Final document requirements (apply to the assembled HTML):
 - Single self-contained file: no external CSS/JS, no CDN references (air-gapped environment).
 - Inline `<style>` block, system font stack like `system-ui, -apple-system, Segoe UI, sans-serif`, print-friendly.
 - Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast.
-- Fixed table of contents at the top of the document, immediately after the title and reviewer metadata block. Renders as a single horizontal block (not a sidebar) with links to each main section. The TOC stays in document flow rather than sticking to the viewport on scroll.
+- Sticky table of contents at the left at wide widths; linear at narrow widths.
 - Collapsible `<details>` element for each threat's Evidence and Attack Path.
 - Summary table near the top showing counts by severity and by STRIDE category.
 - Traceability matrix color rules: Critical/High impact rows highlighted red; threat agent column rendered bold; Security Control cells equal to `None` highlighted orange.

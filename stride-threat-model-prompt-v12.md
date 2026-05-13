@@ -33,18 +33,18 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 6. **Reading files -- Continue.dev built-ins preferred.** Because the workspace root is the source repo, the built-in tools work for source reads. Use this priority order:
 
-   **(a) For a single known file → `read_file`.** Pass a filepath relative to the workspace root, forward slashes:
+   **(a) For a single known file -> `read_file`.** Pass a filepath relative to the workspace root, forward slashes:
    ```
    read_file
      filepath: src/api/handler.go
    ```
-   **(b) For directory listings → `ls`.** Pass `dirPath` relative to the workspace root. Note the known issue where `dirPath: "."` sometimes hits filesystem root unexpectedly -- prefer a named subdirectory (`ls dirPath: "src"`) and use PowerShell `Get-ChildItem` as the fallback if `ls` returns anything that doesn't look like your project's files.
-   **(c) For keyword search across the repo → PowerShell `Select-String`.** There is no built-in ripgrep equivalent, so use:
+   **(b) For directory listings -> `ls`.** Pass `dirPath` relative to the workspace root. Note the known issue where `dirPath: "."` sometimes hits filesystem root unexpectedly -- prefer a named subdirectory (`ls dirPath: "src"`) and use PowerShell `Get-ChildItem` as the fallback if `ls` returns anything that doesn't look like your project's files.
+   **(c) For keyword search across the repo -> PowerShell `Select-String`.** There is no built-in ripgrep equivalent, so use:
    ```powershell
    Select-String -Path '.\**\*' -Pattern 'password|secret|api[_-]?key' -Recurse -AllMatches |
      Select-Object Path, LineNumber, Line -First 50
    ```
-   **(d) For line-range reads of large files → PowerShell `Get-Content`.** `read_file` returns the whole file; for files over ~2000 lines, read ranges:
+   **(d) For line-range reads of large files -> PowerShell `Get-Content`.** `read_file` returns the whole file; for files over ~2000 lines, read ranges:
    ```powershell
    Get-Content -Path '.\src\big_handler.go' | Select-Object -Skip 200 -First 80
    ```
@@ -77,7 +77,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
    Get-Item ".\$PROJECT_NAME-threat-model\<filename>" | Select-Object Length, LastWriteTime
    Get-Content ".\$PROJECT_NAME-threat-model\<filename>" -TotalCount 3
    ```
-   Missing, zero bytes, or unexpected first lines → retry with PowerShell fallback.
+   Missing, zero bytes, or unexpected first lines -> retry with PowerShell fallback.
 
    **(e) No emphasis in Markdown output.** Do not use bold, italics, asterisks, or underscores in any `.md` file. Use headings, lists, tables, and code fences only.
 
@@ -135,14 +135,14 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 13. **ASCII-only output for text artifacts.** All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
 
     Required substitutions:
-    - Em-dash `—` (U+2014) → `--` (two hyphens)
-    - En-dash `–` (U+2013) → `-` (single hyphen)
-    - Right arrow `→` (U+2192) → `->`
-    - Left arrow `←` (U+2190) → `<-`
-    - Right double-quotation mark `"` (U+201D) and left `"` (U+201C) → `"` (straight double-quote)
-    - Right single-quotation mark `'` (U+2019) and left `'` (U+2018) → `'` (straight single-quote / apostrophe)
-    - Ellipsis `…` (U+2026) → `...` (three periods)
-    - Non-breaking space (U+00A0) → regular space
+    - Em-dash `—` (U+2014) -> `--` (two hyphens)
+    - En-dash `–` (U+2013) -> `-` (single hyphen)
+    - Right arrow `→` (U+2192) -> `->`
+    - Left arrow `←` (U+2190) -> `<-`
+    - Right double-quotation mark `"` (U+201D) and left `"` (U+201C) -> `"` (straight double-quote)
+    - Right single-quotation mark `'` (U+2019) and left `'` (U+2018) -> `'` (straight single-quote / apostrophe)
+    - Ellipsis `…` (U+2026) -> `...` (three periods)
+    - Non-breaking space (U+00A0) -> regular space
 
     Exception -- Phase 4 `.drawio` diagram files: the annotation symbols `⚠`, `✓`, and `🔒` retain Unicode for visual semantics. The `.drawio` XML format and draw.io renderer handle Unicode correctly via the file's UTF-8 encoding. Do NOT apply the ASCII substitutions inside `.drawio` files for these specific glyphs.
 
@@ -368,10 +368,10 @@ Each external integration gets a stable ID: `EXT-<NNN>` assigned in the order in
 
 ## 5. Trust Boundaries
 `TB-<NNN>` IDs. A trust boundary exists wherever data crosses between principals with different trust levels. At minimum consider:
-- Internet → edge (WAF/LB/CDN)
-- Edge → application tier
-- Application tier → data tier
-- Application → external SaaS
+- Internet -> edge (WAF/LB/CDN)
+- Edge -> application tier
+- Application tier -> data tier
+- Application -> external SaaS
 - Privileged admin plane vs. user plane
 - Tenant boundaries (if multi-tenant)
 - Build/deploy plane vs. runtime plane
@@ -461,7 +461,7 @@ Structure:
 ## Trust Boundaries
 | TB ID | Boundary | Principals | Establishing Control | Evidence |
 |-------|----------|------------|----------------------|----------|
-| TB-001 | Internet → edge | anonymous users / WAF | AWS WAF rule set | [evidence: terraform/waf.tf:1-44] |
+| TB-001 | Internet -> edge | anonymous users / WAF | AWS WAF rule set | [evidence: terraform/waf.tf:1-44] |
 
 ## Data Flows
 | DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? | Evidence |
@@ -905,7 +905,7 @@ XML format rules (follow exactly):
 - Shapes: `vertex="1"` with `<mxGeometry x y width height as="geometry"/>`; integer coordinates on a 40-pixel grid
 - Edges: `edge="1"` with `source` and `target` referencing cell ids, plus `<mxGeometry relative="1" as="geometry"/>`; label in `value`
 - Cell ids derived from inventory ids exactly: `C-001`, `TB-002`, `EXT-003`, `DS-001`. Edge ids: `flow-<sourceId>-<targetId>-<NN>`
-- Escape XML in every `value`: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`
+- Escape XML in every `value`: `&` -> `&amp;`, `<` -> `&lt;`, `>` -> `&gt;`, `"` -> `&quot;`
 - Built-in draw.io shape styles only (no external stencils/plugins -- they require network access)
 
 ### Visual Standards (apply to every diagram)

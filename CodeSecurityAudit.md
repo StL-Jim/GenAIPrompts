@@ -142,6 +142,7 @@ STATE FILE SYSTEM (SOURCE OF TRUTH)
 Maintain ALL of the following global state files:
 
 audit_state/
+- coordination_mode.md (NEW: records COORDINATED vs STANDALONE and binding info)
 - 00_workspace_context.md
 - 01_discovery.md
 - 02_risk_prioritization.md
@@ -149,6 +150,8 @@ audit_state/
 - 05_consolidated_report.html (Phase 5 output)
 - executive_briefing.md (Phase 5 output)
 - executive_briefing.html (Phase 5 output)
+- threat_audit_comparison.md (Phase 5 output, COORDINATED mode only)
+- threat_audit_comparison.html (Phase 5 output, COORDINATED mode only)
 - resource_inventory.md
 - c4_input.md
 - findings_registry.md
@@ -181,8 +184,60 @@ PHASE EXECUTION
 INPUT:
 - audit_state/00_workspace_context.md (if present)
 - audit_state/resource_inventory.md (if present)
+- {PROJECT_NAME}-threat-model/ directory (if present, for coordination mode detection)
 
-ACTIONS:
+COORDINATION MODE DETECTION (FIRST STEP):
+
+Before any other Phase 1 work, check whether a threat model exists in the workspace. Compute `{PROJECT_NAME}` as the workspace leaf directory name (same convention as the threat modeling prompt). Then check for the existence and completeness of `{PROJECT_NAME}-threat-model/`.
+
+A threat model is considered COMPLETE for coordination purposes if all of the following files exist and are non-empty:
+- `{PROJECT_NAME}-threat-model/STATE.md`
+- `{PROJECT_NAME}-threat-model/00-scope.md`
+- `{PROJECT_NAME}-threat-model/01-inventory.md`
+- `{PROJECT_NAME}-threat-model/02-threats.md`
+
+Set coordination mode based on what you find:
+
+- COORDINATED mode: All four files exist and are non-empty. The audit will read the threat model's outputs, cross-reference findings against threats, and produce a comparison output in Phase 5.
+- STANDALONE mode: Threat model directory does not exist, or exists but is incomplete. The audit produces its current outputs only, with no comparison.
+
+Record the decision in a new state file `audit_state/coordination_mode.md` with this schema:
+
+```markdown
+# Audit Coordination Mode
+
+MODE: <COORDINATED | STANDALONE>
+DETECTED: <ISO 8601 timestamp>
+
+## Threat Model Binding (COORDINATED mode only)
+THREAT_MODEL_PATH: <relative path, e.g., real-world-threat-model/>
+THREAT_MODEL_LAST_UPDATED: <timestamp copied from {PROJECT_NAME}-threat-model/STATE.md>
+DEPLOYMENT_EXPOSURE: <Internet-facing | Internal | Hybrid | Unknown, copied from 00-scope.md>
+INVENTORY_COMPONENT_COUNT: <N>
+INVENTORY_TRUST_BOUNDARY_COUNT: <N>
+THREAT_COUNT: <N>
+
+## Deployment Exposure (STANDALONE mode only)
+DEPLOYMENT_EXPOSURE: <Internet-facing | Internal | Hybrid | Unknown, asked from user>
+```
+
+In COORDINATED mode:
+- Read `{PROJECT_NAME}-threat-model/STATE.md` and copy the LAST_UPDATED timestamp into `coordination_mode.md`. This timestamp becomes the binding contract -- Phase 5 will verify it hasn't changed before producing the comparison output.
+- Read `{PROJECT_NAME}-threat-model/00-scope.md` and extract the deployment exposure value. Record it in `coordination_mode.md`.
+- Note the threat model component count, trust boundary count, and threat count for sanity checking later.
+
+In STANDALONE mode:
+- STOP and prompt the user with: "How is this application exposed?"
+  - Internet-facing (public internet access)
+  - Internal (corporate network/VPN only)
+  - Hybrid (mixed exposure)
+  - Unknown/Unclear
+- Wait for explicit user response. Record the answer in `coordination_mode.md`.
+- This question is the same one the threat modeling prompt asks. In COORDINATED mode the audit inherits the answer; in STANDALONE mode the audit asks directly.
+
+The deployment exposure value affects risk scoring throughout the audit -- specifically the Exploitability scale (see RISK SCORING section). Apply this consistently across all subsequent phases.
+
+ACTIONS (after mode detection):
 - Perform full repo scan
 - Build:
   - repository map
@@ -191,6 +246,7 @@ ACTIONS:
   - trust boundaries
   - high-risk zones
   - unknowns
+- In COORDINATED mode, the inventory built here should reference the threat model's inventory rather than duplicating it. Components, data stores, trust boundaries, and external integrations from `{PROJECT_NAME}-threat-model/01-inventory.md` are authoritative -- the audit's discovery confirms and extends rather than rebuilds.
 - If repository is large or multi-service, create audit partitions
   - Create partitions if:
     - Repository has >10,000 SLOC (source lines of code)
@@ -200,6 +256,7 @@ ACTIONS:
 - Identify shared components requiring separate review
 
 OUTPUT FILES:
+- audit_state/coordination_mode.md (new in Stage 2)
 - audit_state/00_workspace_context.md
 - audit_state/01_discovery.md
 - audit_state/resource_inventory.md
@@ -236,16 +293,40 @@ STOP
 
 ### PHASE 3A -- WORKER SECURITY REVIEW
 INPUT:
+- audit_state/coordination_mode.md
 - audit_state/01_discovery.md
 - audit_state/02_risk_prioritization.md
 - audit_state/partition_plan.md
 - audit_state/shared_components.md
 - audit_state/findings_registry.md (if present)
 - audit_state/workers/<partition_id>/worker_context.md (if present)
+- {PROJECT_NAME}-threat-model/02-threats.md (in COORDINATED mode only)
 
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
+
+MODE-DEPENDENT BEHAVIOR:
+
+Read `coordination_mode.md` first. The MODE value determines what additional work this phase performs:
+
+In STANDALONE mode: produce findings normally. Leave `threat_id` and `threat_match` fields as `null` in all findings. Use the deployment exposure recorded in coordination_mode.md to weight Exploitability scores per RISK SCORING.
+
+In COORDINATED mode: produce findings as in standalone mode, then perform the threat cross-reference procedure below for every finding before writing it to disk. Use the deployment exposure inherited from the threat model.
+
+THREAT CROSS-REFERENCE PROCEDURE (COORDINATED mode only):
+
+For each new finding the worker produces in this partition:
+1. Read the threats from `{PROJECT_NAME}-threat-model/02-threats.md`. The threats are tabular with stable IDs like `0001`, `0002`. Each threat has a Component (matches inventory C-NNN IDs), Title, Category (STRIDE), OWASP mapping, and Description.
+2. For the current finding, scan the threat list looking for matches on these dimensions, in order of strength:
+   - Strong match: same Component, same OWASP category, technical content aligns (e.g., audit found "SQL injection in `searchContacts()`" and threat 0007 is "SQL injection in Contact search API" against the same C-003 component). Set `threat_id = "0007"`, `threat_match = confirms`.
+   - Partial match: same Component, related but not identical concern (e.g., audit found "missing CSRF token validation" and threat 0011 is "session hijacking in user dashboard" against the same C-005 component -- both are session-related but addressing different aspects). Set `threat_id = "0011"`, `threat_match = partial`.
+   - No match: no threat in the model addresses this code defect. Set `threat_id = null`, `threat_match = unanticipated`.
+3. Record the match decision in the finding's `threat_id` and `threat_match` fields.
+4. Do NOT invent new threats during this phase. If a finding has no matching threat, it is `unanticipated` -- that's the value-add of the audit.
+5. A single threat may be confirmed by multiple findings (one threat, multiple code defects implementing the vulnerability). A single finding may only point to one threat (the closest match). If a finding genuinely matches two threats, choose the strongest match and record the other in `rel`.
+
+The `unanticipated` findings are the most important output for stakeholders. They represent code defects the threat model did not anticipate. Flag them clearly in worker findings files.
 
 ANALYZE (mapped to OWASP Top Ten 2021 and NIST 800-53r5):
 - **A01:2021 - Broken Access Control** (NIST: AC-*, IA-*)
@@ -306,16 +387,22 @@ STOP
 
 ### PHASE 4A -- WORKER ARCHITECTURE + FUNCTIONAL REVIEW
 INPUT:
+- audit_state/coordination_mode.md
 - audit_state/01_discovery.md
 - audit_state/02_risk_prioritization.md
 - audit_state/partition_plan.md
 - audit_state/shared_components.md
 - audit_state/findings_registry.md
 - audit_state/workers/<partition_id>/security_review.md (if present)
+- {PROJECT_NAME}-threat-model/02-threats.md (in COORDINATED mode only)
 
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
+
+MODE-DEPENDENT BEHAVIOR:
+
+Same pattern as Phase 3A. In COORDINATED mode, apply the threat cross-reference procedure (from Phase 3A) to every architecture finding before writing it to disk. Architecture findings can match threat model threats too -- for example, a missing-bulkhead pattern finding may correspond to a threat about cascading failure. Same `confirms` / `partial` / `unanticipated` semantics apply.
 
 ANALYZE:
 - coupling/cohesion
@@ -368,6 +455,7 @@ This discipline matters because the agent has a fixed per-response output budget
 Additional discipline: the consolidated report MUST include every finding from findings_registry.md. The registry is the canonical list of findings, and Phase 5 is consolidation and presentation, not re-filtering. If you find yourself selecting which findings to include in the report, STOP -- you are filtering, which is wrong. Every finding in the registry appears in the consolidated report. The Executive Briefing is the artifact that contains only Critical/High findings; the Final Report is comprehensive.
 
 INPUT (ALL REQUIRED):
+- audit_state/coordination_mode.md
 - audit_state/01_discovery.md
 - audit_state/02_risk_prioritization.md
 - audit_state/findings_registry.md
@@ -375,11 +463,32 @@ INPUT (ALL REQUIRED):
 - audit_state/c4_input.md
 - relevant worker files under audit_state/workers/<partition_id>/
 - shared component review results if present
+- {PROJECT_NAME}-threat-model/02-threats.md (in COORDINATED mode only)
+- {PROJECT_NAME}-threat-model/STATE.md (in COORDINATED mode only, for binding verification)
 
 IF REQUIRED STATE IS MISSING:
 - STOP
 - list missing files
 - do not synthesize a partial final report from memory
+
+BINDING VERIFICATION (COORDINATED mode only):
+
+Before producing any outputs, read `audit_state/coordination_mode.md` and `{PROJECT_NAME}-threat-model/STATE.md`. Compare the threat model's current `LAST_UPDATED` timestamp against the `THREAT_MODEL_LAST_UPDATED` recorded at Phase 1. If they differ, the threat model was re-run during the audit -- the binding is no longer valid. STOP and report:
+
+```
+=== BINDING ERROR: THREAT MODEL CHANGED DURING AUDIT ===
+Phase 1 bound to threat model timestamp: <timestamp>
+Threat model current timestamp:          <timestamp>
+The threat model was re-run mid-audit. The audit findings reference threats from the original threat model state, which no longer exists on disk.
+
+To recover, choose one:
+- Re-run the audit from Phase 1 against the current threat model
+- Restore the original threat model state from git
+```
+
+Do not produce the consolidated report or comparison output until the binding is restored.
+
+If MODE is STANDALONE, skip binding verification (there is no threat model to bind to).
 
 OUTPUT:
 1. Executive Summary
@@ -411,6 +520,41 @@ You MUST generate the following deliverables in BOTH Markdown (.md) and HTML (.h
    - Markdown: `audit_state/executive_briefing.md`
    - HTML: `audit_state/executive_briefing.html`
 
+3. **Threat-Audit Comparison** (COORDINATED mode only) -- the headline deliverable when a threat model exists. Compares the threat model's anticipated threats against the audit's code-level findings. Structure:
+
+   - Section 1: Executive Summary
+     - One-paragraph synthesis of how well-aligned the threat model is with the audit findings: did the threat model anticipate what the code actually has wrong? What did it miss? What did it worry about that turned out to be well-mitigated?
+     - Counts: total threats in threat model, total audit findings, threats confirmed, threats unconfirmed, audit unanticipated findings.
+
+   - Section 2: Threats Confirmed by Audit (highest confidence findings)
+     - List every threat from `02-threats.md` that has at least one finding with `threat_match = confirms`.
+     - For each: threat ID, threat title, the audit finding IDs that confirm it, the file locations.
+     - These are the "we worried about it AND it's actually there" findings -- highest priority for remediation.
+
+   - Section 3: Threats Not Confirmed by Audit (likely well-mitigated or out of audit reach)
+     - List threats from `02-threats.md` that have no `confirms` or `partial` finding match.
+     - Possible interpretations: the threat is well-mitigated in code, the audit didn't reach the relevant files, or the threat is at an architectural level the audit cannot directly observe.
+     - Distinguish between these where possible.
+
+   - Section 4: Audit Findings Not in Threat Model (unanticipated gaps)
+     - List every finding with `threat_match = unanticipated`.
+     - For each: finding ID, title, severity, file location.
+     - This is the value-add output of the coordinated toolchain. These represent code defects that surprise -- the threat model did not anticipate them. They reveal gaps in threat modeling coverage AND deserve their own remediation priority based on severity.
+
+   - Section 5: Partial Matches
+     - List threats with `partial` finding matches and the findings that partially address them.
+     - Note what aspect of the threat is addressed and what aspect remains.
+
+   - Section 6: Coverage Analysis
+     - Percentage of threat model entries confirmed by audit
+     - Percentage of audit findings that map to anticipated threats
+     - Severity correlation: do threats the threat model rated Critical correspond to high-severity audit findings, or is there divergence?
+
+   - Markdown: `audit_state/threat_audit_comparison.md`
+   - HTML: `audit_state/threat_audit_comparison.html`
+
+   In STANDALONE mode, this output is NOT produced.
+
 **HTML GENERATION REQUIREMENTS:**
 - Use semantic HTML5 with clean, professional styling
 - Include table of contents with anchor links
@@ -420,12 +564,21 @@ You MUST generate the following deliverables in BOTH Markdown (.md) and HTML (.h
 - Set classification markings in header/footer
 - Produce each HTML file in a single create_new_file call (do not scaffold and fill -- single-call generation has tested more reliably for this content density)
 - Apply the same minimize-preamble discipline above to each HTML generation step
+- ASCII-only output -- no em-dashes, smart quotes, or stylistic Unicode in any generated content
 
 WRITE:
 - audit_state/05_consolidated_report.md
 - audit_state/05_consolidated_report.html
 - audit_state/executive_briefing.md
 - audit_state/executive_briefing.html
+- audit_state/threat_audit_comparison.md (COORDINATED mode only)
+- audit_state/threat_audit_comparison.html (COORDINATED mode only)
+
+In COORDINATED mode, ALSO copy the comparison files to the threat model directory so the threat model has the audit's reciprocal view of its findings:
+- {PROJECT_NAME}-threat-model/threat_audit_comparison.md
+- {PROJECT_NAME}-threat-model/threat_audit_comparison.html
+
+This is a one-way copy; do not modify any other files in the threat model directory.
 
 ALSO:
 - Generate C4_architecture.md from persisted c4_input.md state
@@ -464,6 +617,8 @@ FIELD DEFINITIONS:
 - status: Status (open | mitigated | accepted | false_positive)
 - rel: Related finding IDs (comma-separated, e.g., F-20240315-002,F-20240315-005)
 - sup: Suppression rationale (required if status = accepted or false_positive)
+- threat_id: COORDINATED mode only. The threat model threat ID this finding corresponds to (e.g., `0007`), or `null` if no matching threat. Populated by cross-reference in Phase 3A when coordination_mode.md is COORDINATED. Leave null in STANDALONE mode.
+- threat_match: COORDINATED mode only. One of: `confirms` (audit found code-level evidence of a threat the model anticipated), `partial` (audit found code addressing part but not all of a threat), `unanticipated` (audit finding has no matching threat in the model -- the value-add gap finding). Set to `null` in STANDALONE mode.
 
 Field constraints:
 - class = Confirmed | Suspected | Not Assessable
@@ -513,7 +668,14 @@ verify: |
 status: open
 rel: F-20240315-012
 sup: null
+threat_id: "0007"
+threat_match: confirms
 ```
+
+Notes on the new threat-coordination fields:
+- In STANDALONE mode, set both fields to `null`. They exist in the schema for consistency across modes but carry no information.
+- In COORDINATED mode, populate them by cross-referencing the audit finding against the threats in `{PROJECT_NAME}-threat-model/02-threats.md` (see Phase 3A for the cross-reference procedure).
+- `unanticipated` findings -- ones with no matching threat in the model -- are the highest-value output of the coordinated toolchain. They reveal what the threat model didn't see. Flag them clearly; they get prominence in the Phase 5 comparison report.
 
 ---
 
@@ -553,11 +715,25 @@ BLAST RADIUS:
 - Local (single component, minimal impact) = 1
 
 EXPLOITABILITY:
+
+The Exploitability score must be adjusted based on the deployment exposure recorded in `audit_state/coordination_mode.md`. The same code defect has different exploitability depending on whether the application is internet-facing or internal-only. Apply the deployment exposure as a modifier to the base exploitability rating.
+
+Base ratings (assuming internet-facing exposure):
 - Trivial (no auth, public endpoint, automated exploit available) = 10
 - Easy (auth required, but straightforward exploit) = 7
 - Moderate (requires specific conditions or insider access) = 4
 - Difficult (requires multiple preconditions, deep system knowledge) = 2
 - Theoretical (no known exploit path) = 1
+
+Deployment exposure modifiers (multiply base rating):
+- Internet-facing: x 1.0 (base ratings apply directly)
+- Hybrid: x 0.8 (mixed exposure reduces some attack paths)
+- Internal: x 0.6 (attacker must first be on the corporate network or compromise a credentialed user)
+- Unknown: x 1.0 (assume worst case until confirmed)
+
+Example: A `Trivial` exploit (unauthenticated public-facing SQL injection) is 10 in an internet-facing application. The same code pattern in an internal-only application is 10 x 0.6 = 6, because exploitation requires the attacker to already be inside the corporate network.
+
+The internal-network modifier is NOT a license to deprioritize defects. Insider threats, compromised workstations, and lateral movement after initial access are all realistic attack paths in internal environments. The modifier reflects relative likelihood, not absolute safety.
 
 EXAMPLE CALCULATION:
 Finding: SQL injection in public-facing user search endpoint

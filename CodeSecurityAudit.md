@@ -520,40 +520,140 @@ You MUST generate the following deliverables in BOTH Markdown (.md) and HTML (.h
    - Markdown: `audit_state/executive_briefing.md`
    - HTML: `audit_state/executive_briefing.html`
 
-3. **Threat-Audit Comparison** (COORDINATED mode only) -- the headline deliverable when a threat model exists. Compares the threat model's anticipated threats against the audit's code-level findings. Structure:
+3. **Threat-Audit Comparison** (COORDINATED mode only) -- THE HEADLINE DELIVERABLE when a threat model exists. This output ranks above the consolidated report and executive briefing in importance. The reader should be able to read this document standalone and understand what the threat model anticipated, what the code actually has wrong, what was missed by the threat model, and what to do about all of it -- WITHOUT having to open `02-threats.md` or `findings_registry.md` to fill in context.
 
-   - Section 1: Executive Summary
-     - One-paragraph synthesis of how well-aligned the threat model is with the audit findings: did the threat model anticipate what the code actually has wrong? What did it miss? What did it worry about that turned out to be well-mitigated?
-     - Counts: total threats in threat model, total audit findings, threats confirmed, threats unconfirmed, audit unanticipated findings.
+CRITICAL CONTENT DISCIPLINE for this output: each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
 
-   - Section 2: Threats Confirmed by Audit (highest confidence findings)
-     - List every threat from `02-threats.md` that has at least one finding with `threat_match = confirms`.
-     - For each: threat ID, threat title, the audit finding IDs that confirm it, the file locations.
-     - These are the "we worried about it AND it's actually there" findings -- highest priority for remediation.
+The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
 
-   - Section 3: Threats Not Confirmed by Audit (likely well-mitigated or out of audit reach)
-     - List threats from `02-threats.md` that have no `confirms` or `partial` finding match.
-     - Possible interpretations: the threat is well-mitigated in code, the audit didn't reach the relevant files, or the threat is at an architectural level the audit cannot directly observe.
-     - Distinguish between these where possible.
+Structure:
 
-   - Section 4: Audit Findings Not in Threat Model (unanticipated gaps)
-     - List every finding with `threat_match = unanticipated`.
-     - For each: finding ID, title, severity, file location.
-     - This is the value-add output of the coordinated toolchain. These represent code defects that surprise -- the threat model did not anticipate them. They reveal gaps in threat modeling coverage AND deserve their own remediation priority based on severity.
+- Section 1: Executive Summary
+  - One paragraph synthesizing how well the threat model anticipated the code-level reality: what proportion of threats were confirmed, what kinds of issues were unanticipated, whether there's severity divergence between the model and the audit.
+  - Counts table: total threats in threat model, total audit findings, threats confirmed, threats partial, threats unconfirmed, audit unanticipated findings. Include percentages.
 
-   - Section 5: Partial Matches
-     - List threats with `partial` finding matches and the findings that partially address them.
-     - Note what aspect of the threat is addressed and what aspect remains.
+- Section 2: Threats Confirmed by Audit
+  - One entry per threat from `02-threats.md` that has at least one finding with `threat_match = confirms`.
+  - Each entry MUST contain the following content (do NOT use a table for this -- use a section header per threat with substructure):
 
-   - Section 6: Coverage Analysis
-     - Percentage of threat model entries confirmed by audit
-     - Percentage of audit findings that map to anticipated threats
-     - Severity correlation: do threats the threat model rated Critical correspond to high-severity audit findings, or is there divergence?
+    ```
+    ### Threat <ThreatID>: <Title>
 
-   - Markdown: `audit_state/threat_audit_comparison.md`
-   - HTML: `audit_state/threat_audit_comparison.html`
+    **From the threat model:**
+    - Severity: <from 02-threats.md>
+    - Component: <from 02-threats.md>
+    - Threat Agent: <from 02-threats.md>
+    - Description: <full Description from 02-threats.md, not abbreviated>
+    - Original Mitigation Recommendation: <full Mitigation from 02-threats.md>
 
-   In STANDALONE mode, this output is NOT produced.
+    **Confirmed by audit findings:**
+    For each confirming finding (often one, sometimes multiple):
+    - Finding <FindingID> (severity: <sev>)
+      - Location: <file:line from finding's src field>
+      - Issue: <full issue description from findings_registry.md, not abbreviated>
+      - Evidence: <full evidence from finding's ev field, including any code snippets, command outputs, or tool results>
+      - Fix: <full fix guidance from findings_registry.md>
+
+    **Synthesis:** One sentence explaining specifically how the audit evidence validates the threat. Not "this confirms threat 0007" but "the unparameterized query at user_controller.py:45 is exactly the SQL injection vector the threat model anticipated against the Contact search API."
+    ```
+
+  - These entries are NOT a table. They are detail blocks. Each is roughly 150-300 words depending on the complexity of the threat and its findings.
+  - Sort by severity (Critical first, then High, etc.), then by ThreatID.
+
+- Section 3: Threats Not Confirmed by Audit
+  - One entry per threat from `02-threats.md` that has NO finding with `threat_match` of `confirms` or `partial`.
+  - For each threat, classify the lack of confirmation into exactly one of these categories, and provide the reasoning:
+
+    - **Appears well-mitigated in code**: The audit examined the relevant component and found no exploitable code defect. The existing security controls (per `02-threats.md`'s SecurityControl column AND the audit's review) appear to address the threat.
+    - **Audit did not reach this code**: The audit's partition scope or risk prioritization meant the relevant code was not deeply examined. The threat may still be present; the audit cannot say.
+    - **Architectural threat not directly observable in code**: The threat is at a design level (e.g., insecure design pattern, missing operational control, supply chain risk) that the audit's code-level inspection cannot evaluate.
+    - **Unable to determine**: The audit examined the component but could not conclusively determine whether the threat is mitigated. Reasons might include: runtime behavior, configuration dependencies, environmental factors not visible in code.
+
+  - Each entry contains:
+
+    ```
+    ### Threat <ThreatID>: <Title>
+
+    **From the threat model:**
+    - Severity: <from 02-threats.md>
+    - Component: <from 02-threats.md>
+    - Description: <full Description from 02-threats.md, not abbreviated>
+
+    **Audit assessment:** <one of the four categories>
+
+    **Reasoning:** <one or two sentences explaining WHY this category applies. For "well-mitigated", cite the evidence in code that mitigates it. For "did not reach", state which partition or files would need additional scope. For "architectural", explain what aspect cannot be observed in code. For "unable to determine", state what would need to be examined to determine.>
+    ```
+
+  - "Unable to determine" is an acceptable and frequently honest answer. The agent MUST NOT force a confident category when uncertainty is real.
+  - Sort by severity, then ThreatID.
+
+- Section 4: Audit Findings Not Anticipated by Threat Model (the value-add gaps)
+  - One entry per audit finding with `threat_match = unanticipated`. These are the highest-value entries in the entire comparison output -- they reveal what threat modeling missed.
+  - Each entry MUST contain the following content:
+
+    ```
+    ### Finding <FindingID>: <Title>
+
+    **From the audit:**
+    - Severity: <sev>
+    - OWASP Category: <cat>
+    - Component: <pid>
+    - Location: <file:line from src field>
+    - Issue: <full issue description, not abbreviated>
+    - Evidence: <full evidence including code snippets where present>
+    - Impact: <full impact analysis>
+    - Fix: <full fix guidance>
+    - Verify: <full verification steps>
+
+    **Why this was unanticipated:** Brief explanation of the gap in threat modeling coverage. Common reasons include: the threat model did not include this component in scope, the OWASP category was not heavily emphasized for this application, the defect is at a level of detail below typical threat modeling (e.g., a missing HTTP header), or the threat model identified the abstract risk but not this specific manifestation.
+    ```
+
+  - Sort by severity (Critical first).
+  - These are the entries that justify the entire toolchain.
+
+- Section 5: Partial Matches
+  - One entry per threat with at least one finding where `threat_match = partial`.
+  - Each entry contains:
+
+    ```
+    ### Threat <ThreatID>: <Title>
+
+    **From the threat model:**
+    - Description: <full Description from 02-threats.md>
+    - Mitigation Scope: <what the threat model wanted addressed>
+
+    **Partially addressed by audit finding(s):**
+    For each partial finding:
+    - Finding <FindingID> (severity: <sev>)
+      - Location: <file:line>
+      - What this finding addresses: <which aspect of the threat>
+      - What remains uncovered: <the gap that no finding fills>
+
+    **Remaining work:** Brief summary of what aspects of the original threat are not addressed by any current audit finding, and where additional investigation should focus.
+    ```
+
+  - Sort by severity, then ThreatID.
+
+- Section 6: Coverage Analysis
+  - Percentage of threat model entries with at least one confirming finding (severity-weighted and unweighted both shown).
+  - Percentage of audit findings that map to anticipated threats vs unanticipated findings.
+  - Severity correlation: does the threat model's severity distribution align with the audit's? Note any divergence (e.g., the threat model rated 5 threats as Critical but only 2 of those have any audit findings -- the other 3 may be well-mitigated or out of reach).
+  - Component coverage: are there components in `01-inventory.md` that have neither threat model entries nor audit findings? Flag as potential blind spots.
+
+- Section 7: Recommended Next Steps
+  - Prioritized list:
+    1. Address all Critical findings in Section 2 (confirmed, highest severity)
+    2. Address all Critical findings in Section 4 (unanticipated, highest severity)
+    3. Investigate "Unable to determine" entries in Section 3 to convert them to confident assessments
+    4. Update the threat model to incorporate Section 4 findings as new threats for future runs
+    5. Address remaining High-severity findings across Sections 2, 4, and 5
+
+- Markdown: `audit_state/threat_audit_comparison.md`
+- HTML: `audit_state/threat_audit_comparison.html`
+
+In STANDALONE mode, this output is NOT produced.
+
+**Important: Each output file is its own create_new_file call.** Do NOT attempt to produce multiple files in a single response. Each of these files -- consolidated report, executive briefing, comparison output, and their HTML versions -- gets its own create_new_file call with the agent's full response budget allocated to that one file. Producing them as separate calls means each has fresh capacity and content quality stays consistent.
 
 **HTML GENERATION REQUIREMENTS:**
 - Use semantic HTML5 with clean, professional styling

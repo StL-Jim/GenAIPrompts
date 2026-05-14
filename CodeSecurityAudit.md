@@ -525,22 +525,61 @@ OUTPUT PATTERN B -- Markdown intermediate followed by HTML rendering (used for t
 
 3. **Threat-Audit Comparison** (COORDINATED mode only) -- THE HEADLINE DELIVERABLE when a threat model exists. This output ranks above the consolidated report and executive briefing in importance. The reader should be able to read this document standalone and understand what the threat model anticipated, what the code actually has wrong, what was missed by the threat model, and what to do about all of it -- WITHOUT having to open `02-threats.md` or `findings_registry.md` to fill in context.
 
-This output is produced in two steps because single-call HTML generation has consistently truncated on this content density (the comparison is too large for one create_new_file call to handle reliably). The pattern below avoids the per-call ceiling by separating "produce content" from "render content."
+This output is produced in multiple steps because single-call HTML generation has consistently truncated on this content density. The Markdown version of this output is typically 100-200KB; the HTML rendering of all that content exceeds any single-call output budget in this environment. The pattern below avoids the ceiling by producing the content as Markdown first, then rendering to HTML using a scaffold-and-fill approach where the HTML skeleton is one call and each major section is filled separately.
 
-STEP 1: produce the comparison as Markdown using create_new_file. The Markdown is the canonical artifact -- it contains all the content described in the Structure section below. Output: `audit_state/threat_audit_comparison.md` (working artifact, kept in state).
+STEP 1 -- Produce the Markdown comparison.
+Use `create_new_file` to write `audit_state/threat_audit_comparison.md`. This is the canonical content artifact -- everything described in the Structure section below goes in this file with full per-entry detail. The Markdown form has tested reliably at large sizes, so single-call generation is appropriate here.
 
-STEP 2: in a separate create_new_file call, render the Markdown to HTML. The HTML step is mechanical -- read the completed Markdown, wrap each section in HTML structure with styling, do NOT regenerate content from scratch. This step succeeds reliably because the agent isn't producing original content during HTML generation, just rendering existing content. Output: `audit_state/threat_audit_comparison.html` (deliverable).
+STEP 2 -- Write the HTML skeleton.
+Use `create_new_file` to write `audit_state/threat_audit_comparison.html` containing:
+- Full DOCTYPE and `<html>` opening
+- `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100, Medium #f9a825, Low #2e7d32), system-ui font stack, print-friendly layout, sticky left-side TOC
+- `<body>` opening
+- Title heading and a brief introductory paragraph (1-2 sentences identifying this as the headline deliverable of the audit)
+- A `<nav class="toc">` element containing a placeholder comment
+- A `<main>` element containing one `<section>` per content area, each with its heading and a unique placeholder comment
 
-For the HTML rendering specifically (Step 2):
-- Start by reading `audit_state/threat_audit_comparison.md`
-- Wrap the Markdown's section structure in semantic HTML5 (`<section>`, `<article>` per entry, `<h2>`/`<h3>` for headings)
-- Apply the same styling rules as the other HTML outputs (severity color coding, table of contents, inline CSS)
-- Include collapsible `<details>` only for very deep evidence blocks where it improves readability, not for primary content
-- Do NOT re-think or re-summarize the content; the Markdown is authoritative
+The seven placeholder comments to include in the skeleton, in order:
+1. `<!-- COMPARISON-TOC -->` (inside the `<nav>`)
+2. `<!-- COMPARISON-EXECUTIVE-SUMMARY -->`
+3. `<!-- COMPARISON-CONFIRMED-THREATS -->`
+4. `<!-- COMPARISON-UNCONFIRMED-THREATS -->`
+5. `<!-- COMPARISON-UNANTICIPATED-FINDINGS -->`
+6. `<!-- COMPARISON-PARTIAL-MATCHES -->`
+7. `<!-- COMPARISON-COVERAGE-AND-NEXT-STEPS -->`
+
+The skeleton itself is small (5-10KB) and reliably fits in one call. Section 6 (Coverage Analysis) and Section 7 (Recommended Next Steps) are combined into one placeholder because they're both summary-form and typically short.
+
+STEP 3 -- Fill each placeholder.
+Seven `single_find_and_replace` calls, one per placeholder. For each fill:
+- Read the corresponding section from `audit_state/threat_audit_comparison.md`
+- Render that section's content into HTML, preserving the per-entry detail
+- Apply the styling rules: severity-colored entry borders, structured layout per entry, no collapsibles for primary content
+- Each fill is a separate generation call with fresh capacity, which is how this approach avoids the per-call ceiling
+
+Section fill rules:
+
+1. TOC: a `<ul>` of `<li><a href="#section-id">Section Name</a></li>` entries linking to each main section by id. Brief and structural.
+
+2. Executive Summary: the executive summary content from the Markdown (synthesis paragraph plus counts table).
+
+3. Confirmed Threats: each entry from Section 2 of the Markdown becomes an `<article class="entry severity-{level}">` block containing the threat-model context, the confirming finding(s), and the synthesis. Preserve all the content from the Markdown -- do NOT compress for the HTML rendering.
+
+4. Unconfirmed Threats: each entry from Section 3 becomes an `<article>` block. Include the threat description and the agent's reasoning category with explanation.
+
+5. Unanticipated Findings: each entry from Section 4 becomes an `<article class="entry unanticipated severity-{level}">` block with full finding content. These are the highest-value entries; ensure they get prominent visual treatment.
+
+6. Partial Matches: each entry from Section 5 becomes an `<article>` block.
+
+7. Coverage and Next Steps: render Sections 6 and 7 from the Markdown as their HTML equivalent (coverage statistics, prioritized recommendations).
+
+If any single_find_and_replace fails (placeholder not found, or the fill content itself truncates), retry only that one fill. The other completed sections remain on disk and are unaffected. If a single fill (most likely the Confirmed Threats or Unanticipated Findings fill, since those are the largest) truncates, the recovery is to manually split that section in half and run two fills against it -- but this should be a rare case and is not the expected workflow.
 
 CRITICAL CONTENT DISCIPLINE for the Markdown comparison (Step 1): each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
 
 The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
+
+CRITICAL DISCIPLINE for the HTML fills (Step 3): do NOT re-think, re-summarize, or compress content during HTML rendering. The Markdown is authoritative. Each HTML fill takes the corresponding section's existing content and wraps it in HTML markup. If you find yourself shortening entries to "fit" during HTML rendering, STOP -- you are doing the wrong thing. The whole point of the scaffold-and-fill approach is that each fill has enough budget to render its section's content faithfully.
 
 Structure:
 

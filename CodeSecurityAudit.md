@@ -15,8 +15,9 @@ Perform a deterministic, multi-pass security and architecture audit of the repos
 SECONDARY OUTPUTS
 - Generate C4_architecture.md
 - Generate/update security_architecture_audit.md idempotently
-- Generate Final Report in both Markdown (.md) and HTML (.html) formats
-- Generate Executive Briefing in both Markdown (.md) and HTML (.html) formats
+- Generate Final Report in HTML format
+- Generate Executive Briefing in HTML format
+- Generate Threat-Audit Comparison in HTML format (COORDINATED mode only; produced via Markdown intermediate then rendered to HTML)
 - Maintain full audit state under audit_state/
 - Partition large repositories into service-scoped worker reviews for token and context efficiency
 
@@ -146,12 +147,10 @@ audit_state/
 - 00_workspace_context.md
 - 01_discovery.md
 - 02_risk_prioritization.md
-- 05_consolidated_report.md (Phase 5 output)
-- 05_consolidated_report.html (Phase 5 output)
-- executive_briefing.md (Phase 5 output)
-- executive_briefing.html (Phase 5 output)
-- threat_audit_comparison.md (Phase 5 output, COORDINATED mode only)
-- threat_audit_comparison.html (Phase 5 output, COORDINATED mode only)
+- 05_consolidated_report.html (Phase 5 deliverable, HTML-only)
+- executive_briefing.html (Phase 5 deliverable, HTML-only)
+- threat_audit_comparison.md (Phase 5 working intermediate, COORDINATED mode only)
+- threat_audit_comparison.html (Phase 5 deliverable, COORDINATED mode only, rendered from the Markdown intermediate)
 - resource_inventory.md
 - c4_input.md
 - findings_registry.md
@@ -505,24 +504,41 @@ OUTPUT:
 
 **OUTPUT FORMATS (MANDATORY):**
 
-You MUST generate the following deliverables in BOTH Markdown (.md) and HTML (.html) formats:
+You MUST generate the following stakeholder deliverables. Note the output patterns differ by deliverable -- this is intentional based on tested generation behavior.
 
-1. **Final Report** -- Complete audit report including all sections listed above
+OUTPUT PATTERN A -- single-call HTML (used for outputs that complete reliably in one tool call):
+
+1. **Final Report (HTML)** -- Complete audit report including all sections listed above
    - Every finding from findings_registry.md is included; no summarization that drops findings
-   - Markdown: `audit_state/05_consolidated_report.md`
+   - Produced in a single create_new_file call
    - HTML: `audit_state/05_consolidated_report.html`
 
-2. **Executive Briefing** -- Concise executive summary (2-4 pages) containing:
+2. **Executive Briefing (HTML)** -- Concise executive summary (2-4 pages) containing:
    - Critical findings only (severity: Critical or High)
    - Top 3-5 attack paths
    - Security and architecture scorecard summary
    - Prioritized remediation roadmap
-   - Markdown: `audit_state/executive_briefing.md`
+   - Produced in a single create_new_file call
    - HTML: `audit_state/executive_briefing.html`
+
+OUTPUT PATTERN B -- Markdown intermediate followed by HTML rendering (used for the comparison output, which has tested as too content-dense for single-call HTML):
 
 3. **Threat-Audit Comparison** (COORDINATED mode only) -- THE HEADLINE DELIVERABLE when a threat model exists. This output ranks above the consolidated report and executive briefing in importance. The reader should be able to read this document standalone and understand what the threat model anticipated, what the code actually has wrong, what was missed by the threat model, and what to do about all of it -- WITHOUT having to open `02-threats.md` or `findings_registry.md` to fill in context.
 
-CRITICAL CONTENT DISCIPLINE for this output: each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
+This output is produced in two steps because single-call HTML generation has consistently truncated on this content density (the comparison is too large for one create_new_file call to handle reliably). The pattern below avoids the per-call ceiling by separating "produce content" from "render content."
+
+STEP 1: produce the comparison as Markdown using create_new_file. The Markdown is the canonical artifact -- it contains all the content described in the Structure section below. Output: `audit_state/threat_audit_comparison.md` (working artifact, kept in state).
+
+STEP 2: in a separate create_new_file call, render the Markdown to HTML. The HTML step is mechanical -- read the completed Markdown, wrap each section in HTML structure with styling, do NOT regenerate content from scratch. This step succeeds reliably because the agent isn't producing original content during HTML generation, just rendering existing content. Output: `audit_state/threat_audit_comparison.html` (deliverable).
+
+For the HTML rendering specifically (Step 2):
+- Start by reading `audit_state/threat_audit_comparison.md`
+- Wrap the Markdown's section structure in semantic HTML5 (`<section>`, `<article>` per entry, `<h2>`/`<h3>` for headings)
+- Apply the same styling rules as the other HTML outputs (severity color coding, table of contents, inline CSS)
+- Include collapsible `<details>` only for very deep evidence blocks where it improves readability, not for primary content
+- Do NOT re-think or re-summarize the content; the Markdown is authoritative
+
+CRITICAL CONTENT DISCIPLINE for the Markdown comparison (Step 1): each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
 
 The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
 
@@ -648,37 +664,35 @@ Structure:
     4. Update the threat model to incorporate Section 4 findings as new threats for future runs
     5. Address remaining High-severity findings across Sections 2, 4, and 5
 
-- Markdown: `audit_state/threat_audit_comparison.md`
-- HTML: `audit_state/threat_audit_comparison.html`
+- Markdown intermediate: `audit_state/threat_audit_comparison.md` (Step 1 output, working artifact)
+- HTML deliverable: `audit_state/threat_audit_comparison.html` (Step 2 output, stakeholder deliverable)
 
 In STANDALONE mode, this output is NOT produced.
 
-**Important: Each output file is its own create_new_file call.** Do NOT attempt to produce multiple files in a single response. Each of these files -- consolidated report, executive briefing, comparison output, and their HTML versions -- gets its own create_new_file call with the agent's full response budget allocated to that one file. Producing them as separate calls means each has fresh capacity and content quality stays consistent.
+**Important: Each output file is its own create_new_file call.** Do NOT attempt to produce multiple files in a single response. Each file -- consolidated report HTML, executive briefing HTML, comparison Markdown, comparison HTML -- gets its own create_new_file call with the agent's full response budget allocated to that one file. Producing them as separate calls means each has fresh capacity and content quality stays consistent.
 
 **HTML GENERATION REQUIREMENTS:**
 - Use semantic HTML5 with clean, professional styling
 - Include table of contents with anchor links
-- Use collapsible sections for detailed findings
+- Use collapsible sections for detailed findings where appropriate
 - Ensure tables are responsive and readable
 - Include inline CSS for standalone viewing
 - Set classification markings in header/footer
-- Produce each HTML file in a single create_new_file call (do not scaffold and fill -- single-call generation has tested more reliably for this content density)
+- For consolidated_report.html and executive_briefing.html: produce in a single create_new_file call (these have tested reliably as single-call HTML)
+- For threat_audit_comparison.html: produce by reading the Markdown intermediate and rendering -- the HTML step is mechanical, NOT a content re-generation
 - Apply the same minimize-preamble discipline above to each HTML generation step
 - ASCII-only output -- no em-dashes, smart quotes, or stylistic Unicode in any generated content
 
 WRITE:
-- audit_state/05_consolidated_report.md
-- audit_state/05_consolidated_report.html
-- audit_state/executive_briefing.md
-- audit_state/executive_briefing.html
-- audit_state/threat_audit_comparison.md (COORDINATED mode only)
-- audit_state/threat_audit_comparison.html (COORDINATED mode only)
+- audit_state/05_consolidated_report.html (HTML deliverable, single-call)
+- audit_state/executive_briefing.html (HTML deliverable, single-call)
+- audit_state/threat_audit_comparison.md (COORDINATED mode only; Markdown intermediate, working artifact)
+- audit_state/threat_audit_comparison.html (COORDINATED mode only; HTML deliverable, rendered from Markdown intermediate)
 
-In COORDINATED mode, ALSO copy the comparison files to the threat model directory so the threat model has the audit's reciprocal view of its findings:
-- {PROJECT_NAME}-threat-model/threat_audit_comparison.md
+In COORDINATED mode, ALSO copy the comparison HTML to the threat model directory so the threat model has the audit's reciprocal view of its findings:
 - {PROJECT_NAME}-threat-model/threat_audit_comparison.html
 
-This is a one-way copy; do not modify any other files in the threat model directory.
+The Markdown intermediate stays in audit_state/ as a working artifact; only the HTML deliverable is copied. This is a one-way copy; do not modify any other files in the threat model directory.
 
 ALSO:
 - Generate C4_architecture.md from persisted c4_input.md state

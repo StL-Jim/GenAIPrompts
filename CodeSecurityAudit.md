@@ -48,7 +48,8 @@ PHASE EXECUTION ORDER:
 3. FOR EACH partition: Phase 3A (Worker Security Review) -> STOP after each
 4. FOR EACH partition: Phase 4A (Worker Architecture Review) -> STOP after each
 5. IF shared_components.md lists critical components: Phase 3B/4B (Shared Component Review)
-6. Phase 5 (Consolidation)
+6. Phase 5 (Consolidation -- produces consolidated report HTML, executive briefing HTML, comparison Markdown intermediate)
+7. Phase 6 (Comparison HTML Render -- COORDINATED mode only; skipped entirely in STANDALONE mode)
 
 PROGRESS TRACKING:
 - Maintain audit_state/partition_status.md during multi-partition audits
@@ -523,63 +524,17 @@ OUTPUT PATTERN A -- single-call HTML (used for outputs that complete reliably in
 
 OUTPUT PATTERN B -- Markdown intermediate followed by HTML rendering (used for the comparison output, which has tested as too content-dense for single-call HTML):
 
-3. **Threat-Audit Comparison** (COORDINATED mode only) -- THE HEADLINE DELIVERABLE when a threat model exists. This output ranks above the consolidated report and executive briefing in importance. The reader should be able to read this document standalone and understand what the threat model anticipated, what the code actually has wrong, what was missed by the threat model, and what to do about all of it -- WITHOUT having to open `02-threats.md` or `findings_registry.md` to fill in context.
+3. **Threat-Audit Comparison Markdown** (COORDINATED mode only) -- the canonical content artifact for the headline deliverable. The HTML deliverable is produced in Phase 6 from this Markdown via scaffold-and-fill; in Phase 5, only the Markdown is produced.
 
-This output is produced in multiple steps because single-call HTML generation has consistently truncated on this content density. The Markdown version of this output is typically 100-200KB; the HTML rendering of all that content exceeds any single-call output budget in this environment. The pattern below avoids the ceiling by producing the content as Markdown first, then rendering to HTML using a scaffold-and-fill approach where the HTML skeleton is one call and each major section is filled separately.
+This output ranks above the consolidated report and executive briefing in importance. The reader of the eventual HTML deliverable should be able to read it standalone and understand what the threat model anticipated, what the code actually has wrong, what was missed by the threat model, and what to do about all of it -- WITHOUT having to open `02-threats.md` or `findings_registry.md` to fill in context.
 
-STEP 1 -- Produce the Markdown comparison.
-Use `create_new_file` to write `audit_state/threat_audit_comparison.md`. This is the canonical content artifact -- everything described in the Structure section below goes in this file with full per-entry detail. The Markdown form has tested reliably at large sizes, so single-call generation is appropriate here.
+In Phase 5, produce the comparison as Markdown only:
 
-STEP 2 -- Write the HTML skeleton.
-Use `create_new_file` to write `audit_state/threat_audit_comparison.html` containing:
-- Full DOCTYPE and `<html>` opening
-- `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100, Medium #f9a825, Low #2e7d32), system-ui font stack, print-friendly layout, sticky left-side TOC
-- `<body>` opening
-- Title heading and a brief introductory paragraph (1-2 sentences identifying this as the headline deliverable of the audit)
-- A `<nav class="toc">` element containing a placeholder comment
-- A `<main>` element containing one `<section>` per content area, each with its heading and a unique placeholder comment
+Use `create_new_file` to write `audit_state/threat_audit_comparison.md`. This is the canonical content artifact -- everything described in the Structure section below goes in this file with full per-entry detail. The Markdown form has tested reliably at large sizes (typically 100-200KB), so single-call generation is appropriate. Phase 6 then renders this Markdown to HTML.
 
-The seven placeholder comments to include in the skeleton, in order:
-1. `<!-- COMPARISON-TOC -->` (inside the `<nav>`)
-2. `<!-- COMPARISON-EXECUTIVE-SUMMARY -->`
-3. `<!-- COMPARISON-CONFIRMED-THREATS -->`
-4. `<!-- COMPARISON-UNCONFIRMED-THREATS -->`
-5. `<!-- COMPARISON-UNANTICIPATED-FINDINGS -->`
-6. `<!-- COMPARISON-PARTIAL-MATCHES -->`
-7. `<!-- COMPARISON-COVERAGE-AND-NEXT-STEPS -->`
-
-The skeleton itself is small (5-10KB) and reliably fits in one call. Section 6 (Coverage Analysis) and Section 7 (Recommended Next Steps) are combined into one placeholder because they're both summary-form and typically short.
-
-STEP 3 -- Fill each placeholder.
-Seven `single_find_and_replace` calls, one per placeholder. For each fill:
-- Read the corresponding section from `audit_state/threat_audit_comparison.md`
-- Render that section's content into HTML, preserving the per-entry detail
-- Apply the styling rules: severity-colored entry borders, structured layout per entry, no collapsibles for primary content
-- Each fill is a separate generation call with fresh capacity, which is how this approach avoids the per-call ceiling
-
-Section fill rules:
-
-1. TOC: a `<ul>` of `<li><a href="#section-id">Section Name</a></li>` entries linking to each main section by id. Brief and structural.
-
-2. Executive Summary: the executive summary content from the Markdown (synthesis paragraph plus counts table).
-
-3. Confirmed Threats: each entry from Section 2 of the Markdown becomes an `<article class="entry severity-{level}">` block containing the threat-model context, the confirming finding(s), and the synthesis. Preserve all the content from the Markdown -- do NOT compress for the HTML rendering.
-
-4. Unconfirmed Threats: each entry from Section 3 becomes an `<article>` block. Include the threat description and the agent's reasoning category with explanation.
-
-5. Unanticipated Findings: each entry from Section 4 becomes an `<article class="entry unanticipated severity-{level}">` block with full finding content. These are the highest-value entries; ensure they get prominent visual treatment.
-
-6. Partial Matches: each entry from Section 5 becomes an `<article>` block.
-
-7. Coverage and Next Steps: render Sections 6 and 7 from the Markdown as their HTML equivalent (coverage statistics, prioritized recommendations).
-
-If any single_find_and_replace fails (placeholder not found, or the fill content itself truncates), retry only that one fill. The other completed sections remain on disk and are unaffected. If a single fill (most likely the Confirmed Threats or Unanticipated Findings fill, since those are the largest) truncates, the recovery is to manually split that section in half and run two fills against it -- but this should be a rare case and is not the expected workflow.
-
-CRITICAL CONTENT DISCIPLINE for the Markdown comparison (Step 1): each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
+CRITICAL CONTENT DISCIPLINE for the Markdown comparison: each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
 
 The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
-
-CRITICAL DISCIPLINE for the HTML fills (Step 3): do NOT re-think, re-summarize, or compress content during HTML rendering. The Markdown is authoritative. Each HTML fill takes the corresponding section's existing content and wraps it in HTML markup. If you find yourself shortening entries to "fit" during HTML rendering, STOP -- you are doing the wrong thing. The whole point of the scaffold-and-fill approach is that each fill has enough budget to render its section's content faithfully.
 
 Structure:
 
@@ -703,35 +658,28 @@ Structure:
     4. Update the threat model to incorporate Section 4 findings as new threats for future runs
     5. Address remaining High-severity findings across Sections 2, 4, and 5
 
-- Markdown intermediate: `audit_state/threat_audit_comparison.md` (Step 1 output, working artifact)
-- HTML deliverable: `audit_state/threat_audit_comparison.html` (Step 2 output, stakeholder deliverable)
+- Markdown intermediate: `audit_state/threat_audit_comparison.md` (Phase 5 output, COORDINATED mode only)
+- HTML deliverable: `audit_state/threat_audit_comparison.html` (produced in Phase 6 from the Markdown intermediate, not in Phase 5)
 
-In STANDALONE mode, this output is NOT produced.
+In STANDALONE mode, the comparison output is NOT produced (neither Markdown intermediate nor HTML deliverable).
 
-**Important: Each output file is its own create_new_file call.** Do NOT attempt to produce multiple files in a single response. Each file -- consolidated report HTML, executive briefing HTML, comparison Markdown, comparison HTML -- gets its own create_new_file call with the agent's full response budget allocated to that one file. Producing them as separate calls means each has fresh capacity and content quality stays consistent.
+**Important: Each output file is its own create_new_file call.** Do NOT attempt to produce multiple files in a single response. Each Phase 5 deliverable -- consolidated report HTML, executive briefing HTML, comparison Markdown -- gets its own create_new_file call with the agent's full response budget allocated to that one file. Producing them as separate calls means each has fresh capacity and content quality stays consistent.
 
-**HTML GENERATION REQUIREMENTS:**
+**HTML GENERATION REQUIREMENTS (for Phase 5 HTML outputs):**
 - Use semantic HTML5 with clean, professional styling
 - Include table of contents with anchor links
 - Use collapsible sections for detailed findings where appropriate
 - Ensure tables are responsive and readable
 - Include inline CSS for standalone viewing
 - Set classification markings in header/footer
-- For consolidated_report.html and executive_briefing.html: produce in a single create_new_file call (these have tested reliably as single-call HTML)
-- For threat_audit_comparison.html: produce by reading the Markdown intermediate and rendering -- the HTML step is mechanical, NOT a content re-generation
+- consolidated_report.html and executive_briefing.html: produced in a single create_new_file call each (these have tested reliably as single-call HTML)
 - Apply the same minimize-preamble discipline above to each HTML generation step
 - ASCII-only output -- no em-dashes, smart quotes, or stylistic Unicode in any generated content
 
-WRITE:
+WRITE (Phase 5):
 - audit_state/05_consolidated_report.html (HTML deliverable, single-call)
 - audit_state/executive_briefing.html (HTML deliverable, single-call)
-- audit_state/threat_audit_comparison.md (COORDINATED mode only; Markdown intermediate, working artifact)
-- audit_state/threat_audit_comparison.html (COORDINATED mode only; HTML deliverable, rendered from Markdown intermediate)
-
-In COORDINATED mode, ALSO copy the comparison HTML to the threat model directory so the threat model has the audit's reciprocal view of its findings:
-- {PROJECT_NAME}-threat-model/threat_audit_comparison.html
-
-The Markdown intermediate stays in audit_state/ as a working artifact; only the HTML deliverable is copied. This is a one-way copy; do not modify any other files in the threat model directory.
+- audit_state/threat_audit_comparison.md (COORDINATED mode only; Markdown intermediate, Phase 6 will render it to HTML)
 
 ALSO:
 - Generate C4_architecture.md from persisted c4_input.md state
@@ -741,6 +689,121 @@ ALSO:
 - Update security_architecture_audit.md idempotently from consolidated state only
   - This is a persistent audit log across multiple audit runs
   - Append new findings; track remediation over time
+
+**Phase 5 Completion Banner:**
+
+In COORDINATED mode:
+```
+=== PHASE 5 COMPLETE: CONSOLIDATION WRITTEN ===
+  audit_state/05_consolidated_report.html
+  audit_state/executive_briefing.html
+  audit_state/threat_audit_comparison.md   <-- input for Phase 6
+Comparison HTML deliverable will be produced in Phase 6.
+Type 'proceed' to begin Phase 6 (Comparison HTML Render).
+```
+
+In STANDALONE mode:
+```
+=== PHASE 5 COMPLETE: AUDIT FINISHED ===
+  audit_state/05_consolidated_report.html
+  audit_state/executive_briefing.html
+No threat model detected; no comparison output produced.
+Phase 6 is SKIPPED in STANDALONE mode.
+The audit is complete.
+```
+
+STOP
+
+---
+
+### PHASE 6 -- COMPARISON HTML RENDER (COORDINATED mode only)
+
+In STANDALONE mode, Phase 6 is SKIPPED entirely. The audit ends at Phase 5.
+
+Phase 6 exists as a separate phase from Phase 5 because Phase 5's accumulated work (consolidated report HTML, executive briefing HTML, comparison Markdown, C4 architecture, security_architecture_audit update) typically consumes 70-80% of a session's response budget by the time the Markdown comparison is complete. The remaining session budget is not enough to reliably produce a complete comparison HTML via scaffold-and-fill (seven tool calls of substantial content each). Phase 6 gets its own fresh session budget for the HTML rendering work.
+
+INPUT (ALL REQUIRED):
+- audit_state/coordination_mode.md (MODE must be COORDINATED; if STANDALONE, STOP with error)
+- audit_state/threat_audit_comparison.md (must exist and be non-empty)
+
+PRE-FLIGHT CHECKS:
+
+Read `audit_state/coordination_mode.md` first. If MODE is STANDALONE, STOP immediately and report: "Phase 6 invoked but coordination mode is STANDALONE. Phase 6 is only relevant when a threat model exists. The audit is already complete after Phase 5; no further work is needed."
+
+Read `audit_state/threat_audit_comparison.md`. If the file is missing or empty, STOP and report: "Phase 6 invoked but the comparison Markdown intermediate is missing or empty. Phase 5 did not produce the required input. Re-run Phase 5 (which will rebuild the Markdown from findings_registry.md and the threat model)."
+
+CRITICAL EXECUTION DISCIPLINE:
+
+Phase 6 produces the comparison HTML using a scaffold-and-fill pattern. Minimize preamble before producing each tool call. Do NOT write extensive prose describing what the HTML will contain before producing it. Each tool call is small and bounded; the budget concern in Phase 6 is the number of calls accumulated across the phase, not the size of any one call.
+
+Do NOT re-think, re-summarize, or compress content during HTML rendering. The Markdown intermediate is authoritative. Each fill takes its section's existing content and wraps it in HTML markup. If you find yourself shortening entries to "fit" during rendering, STOP -- you are doing the wrong thing. The whole point of the scaffold-and-fill approach is that each fill has enough budget to render its section's content faithfully.
+
+STEP 1 -- Write the HTML skeleton.
+
+Use `create_new_file` to write `audit_state/threat_audit_comparison.html` containing:
+- Full DOCTYPE and `<html>` opening
+- `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100, Medium #f9a825, Low #2e7d32), system-ui font stack, print-friendly layout, sticky left-side TOC
+- `<body>` opening
+- Title heading and a brief introductory paragraph (1-2 sentences identifying this as the headline deliverable of the audit)
+- A `<nav class="toc">` element containing a placeholder comment
+- A `<main>` element containing one `<section>` per content area, each with its heading and a unique placeholder comment
+
+The seven placeholder comments to include in the skeleton, in order:
+1. `<!-- COMPARISON-TOC -->` (inside the `<nav>`)
+2. `<!-- COMPARISON-EXECUTIVE-SUMMARY -->`
+3. `<!-- COMPARISON-CONFIRMED-THREATS -->`
+4. `<!-- COMPARISON-UNCONFIRMED-THREATS -->`
+5. `<!-- COMPARISON-UNANTICIPATED-FINDINGS -->`
+6. `<!-- COMPARISON-PARTIAL-MATCHES -->`
+7. `<!-- COMPARISON-COVERAGE-AND-NEXT-STEPS -->`
+
+The skeleton itself is small (5-10KB) and reliably fits in one call. Section 6 (Coverage Analysis) and Section 7 (Recommended Next Steps) are combined into one placeholder because they're both summary-form and typically short.
+
+STEP 2 -- Fill each placeholder.
+
+Seven `single_find_and_replace` calls, one per placeholder. For each fill:
+- Read the corresponding section from `audit_state/threat_audit_comparison.md`
+- Render that section's content into HTML, preserving the per-entry detail
+- Apply the styling rules: severity-colored entry borders, structured layout per entry, no collapsibles for primary content
+- Each fill is a separate generation call with fresh capacity, which is how this approach avoids the per-call ceiling
+
+Section fill rules:
+
+1. TOC: a `<ul>` of `<li><a href="#section-id">Section Name</a></li>` entries linking to each main section by id. Brief and structural.
+
+2. Executive Summary: the executive summary content from the Markdown (synthesis paragraph plus counts table).
+
+3. Confirmed Threats: each entry from Section 2 of the Markdown becomes an `<article class="entry severity-{level}">` block containing the threat-model context, the confirming finding(s), and the synthesis. Preserve all the content from the Markdown -- do NOT compress for the HTML rendering.
+
+4. Unconfirmed Threats: each entry from Section 3 becomes an `<article>` block. Include the threat description and the agent's reasoning category with explanation.
+
+5. Unanticipated Findings: each entry from Section 4 becomes an `<article class="entry unanticipated severity-{level}">` block with full finding content. These are the highest-value entries; ensure they get prominent visual treatment.
+
+6. Partial Matches: each entry from Section 5 becomes an `<article>` block.
+
+7. Coverage and Next Steps: render Sections 6 and 7 from the Markdown as their HTML equivalent (coverage statistics, prioritized recommendations).
+
+If any single_find_and_replace fails (placeholder not found, or the fill content itself truncates), retry only that one fill. The other completed sections remain on disk and are unaffected. If a single fill (most likely the Confirmed Threats or Unanticipated Findings fill, since those are the largest) truncates, the recovery is to manually split that section in half and run two fills against it -- but this should be a rare case and is not the expected workflow.
+
+STEP 3 -- Copy the HTML deliverable to the threat model directory.
+
+After all seven fills complete and the HTML is verified intact, copy the file:
+- From: `audit_state/threat_audit_comparison.html`
+- To: `{PROJECT_NAME}-threat-model/threat_audit_comparison.html`
+
+This is a one-way copy; do not modify any other files in the threat model directory. The Markdown intermediate stays in `audit_state/` only and is not copied.
+
+WRITE (Phase 6):
+- audit_state/threat_audit_comparison.html (HTML deliverable, produced via scaffold-and-fill)
+- {PROJECT_NAME}-threat-model/threat_audit_comparison.html (copy for threat model directory)
+
+**Phase 6 Completion Banner:**
+```
+=== PHASE 6 COMPLETE: AUDIT FINISHED ===
+  audit_state/threat_audit_comparison.html
+  {PROJECT_NAME}-threat-model/threat_audit_comparison.html (reciprocal copy)
+The audit is complete.
+```
 
 STOP
 

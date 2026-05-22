@@ -62,8 +62,12 @@ Before doing any analysis, identify the two threat model directories to compare.
    - `00-scope.md`
    - `01-inventory.md`
    - `02-threats.md`
+   - `02a-context.md` (assets, trust boundaries, data flows in detail)
+   - `02c-assumptions.md` (threat filtering notes, excluded categories, assumptions, stakeholder questions)
 
    If any required file is missing or empty in either directory, STOP and list the specific gap.
+
+   Note on filename variants: in older threat models, the assumptions file may be named `02d-assumptions.md` instead of `02c-assumptions.md` (the file was renamed in a later version of the threat modeling prompt). If `02c-assumptions.md` is not present in either directory, check for `02d-assumptions.md` and use that instead -- treat them as equivalent for comparison purposes.
 
 6. Record which directory is the OLDER and which is the NEWER:
    - CURRENT (`{PROJECT_NAME}-threat-model/`) is always treated as the NEWER.
@@ -74,16 +78,47 @@ Before doing any analysis, identify the two threat model directories to compare.
 
 CONSISTENCY PRE-CHECKS
 
-Before comparing threats, check whether the comparison itself is meaningful. Scope or inventory drift between runs affects how the comparison should be interpreted.
+Before comparing threats, examine the broader context of both threat models. Scope, inventory, assumptions, and filtering decisions all affect how the threat-level comparison should be interpreted. These pre-checks are diagnostic, not blockers -- the comparison proceeds regardless, but the pre-check results give the reader context for interpreting it.
 
-1. Read both `00-scope.md` files.
-2. Check deployment exposure in both: Internet-facing, Internal, Hybrid, or Unknown.
-3. If they differ, RECORD this and flag it prominently in Section 1 of the output. Comparison still proceeds, but readers must know that threat agent and exploitability interpretation shifted between runs.
-4. Read both `01-inventory.md` files.
-5. Compare component counts, trust boundary counts, and significant components present. Some drift is normal (code evolves); large changes (e.g., components removed, trust topology restructured) materially change what the comparison means.
-6. Record any significant inventory drift for inclusion in Section 1.
+**Step 1: Deployment exposure check**
+Read both `00-scope.md` files. Check deployment exposure in both: Internet-facing, Internal, Hybrid, or Unknown. If they differ, RECORD this for prominent inclusion in Section 1 of the output. Comparison still proceeds, but readers must know that threat agent and exploitability interpretation shifted between runs.
 
-The pre-checks are diagnostics, not blockers. The comparison proceeds either way; the pre-check results give the reader context for interpreting it.
+**Step 2: Component inventory check**
+Read both `01-inventory.md` files. Build a complete list of component IDs (C-NNN) from each. Calculate:
+- Components in the older model: <list>
+- Components in the newer model: <list>
+- Components only in the older: <list>
+- Components only in the newer: <list>
+
+Even a small inventory delta is meaningful — if the older run identified 24 components and the newer 19, the newer run is working from a materially different view of the architecture, and threats may be absent simply because the components they targeted are not in the newer run's inventory.
+
+**Step 3: Detailed context check (assets, trust boundaries, data flows)**
+Read both `02a-context.md` files. Build complete lists for each:
+- Trust boundaries (TB-NNN): list of IDs and their descriptions from both runs
+- Assets (AS-NNN): list of IDs and their classifications from both runs
+- Data flows (DF-NNN): list of IDs and their source/destination from both runs
+
+For each set, identify items present in one run but not the other. The asset and trust boundary deltas are particularly important because threats reference these IDs directly.
+
+**Step 4: Filtering and exclusion check**
+Read both `02c-assumptions.md` files (or `02d-assumptions.md` for older threat models — they are equivalent). Extract from each:
+- Threat Filtering Summary (totals: candidates identified, threats included, threats excluded by reason)
+- Excluded Threat Categories (the categories the agent decided not to enumerate, with reasoning)
+- Assumptions Made (assumptions the threat model relied on)
+- Questions for Stakeholders (open questions the threat model couldn't resolve)
+
+This information feeds into both Section 1 (high-level context) and the per-threat reasoning categories in Sections 3 and 4 (specific evidence for why threats are absent or new).
+
+**Step 5: Record all pre-check findings**
+The pre-checks produce structured data that the output sections will reference:
+- Deployment exposure: same or drifted (with values)
+- Component delta: counts and IDs
+- Trust boundary delta: counts and IDs
+- Asset delta: counts and IDs
+- Filtering totals from both runs
+- Excluded categories from both runs
+- Assumption changes between runs
+- Persistent stakeholder questions (questions raised in both runs)
 
 ---
 
@@ -134,16 +169,25 @@ The output uses this structure:
 
 ### Section 1: Executive Summary
 
-One paragraph synthesizing what changed between the two threat models. Then a counts table:
+One paragraph synthesizing what changed between the two threat models. Be specific about what's most important for the reader to know -- not generic statements like "some differences exist," but specific claims like "the newer model identifies 5 fewer components than the older, which accounts for several of the threats absent in the newer run."
+
+Then a multi-part counts table:
 
 ```
 | Metric                              | Older | Newer |
 |-------------------------------------|-------|-------|
-| Total threats                       | <N>   | <N>   |
+| Total threats included              | <N>   | <N>   |
 | Critical severity                   | <N>   | <N>   |
 | High severity                       | <N>   | <N>   |
-| Components covered                  | <N>   | <N>   |
+| Total candidate threats identified  | <N>   | <N>   |
+| Threats excluded as Medium          | <N>   | <N>   |
+| Threats excluded as Low likelihood  | <N>   | <N>   |
+| Threats excluded as fully mitigated | <N>   | <N>   |
+| Threats excluded as out of scope    | <N>   | <N>   |
+| Components in inventory             | <N>   | <N>   |
 | Trust boundaries identified         | <N>   | <N>   |
+| Assets enumerated                   | <N>   | <N>   |
+| Data flows specified                | <N>   | <N>   |
 
 | Comparison Result                   | Count |
 |-------------------------------------|-------|
@@ -153,19 +197,30 @@ One paragraph synthesizing what changed between the two threat models. Then a co
 | Ambiguous matches (review manually) | <N>   |
 ```
 
+The filtering totals come from `02c-assumptions.md` (or `02d-assumptions.md` in older models). The inventory counts come from `01-inventory.md` and `02a-context.md`.
+
 Then the consistency notes:
 
-- Deployment exposure consistent / drifted (specify if drifted)
-- Inventory consistent / drifted (describe significant changes)
+- Deployment exposure: consistent at <value> | drifted from <older> to <newer>
+- Component inventory: consistent | drifted (cite count change)
+- Trust boundary count: consistent | drifted
+- Asset count: consistent | drifted
+- Filtering totals: similar | differ significantly (cite the largest deltas)
+- Assumption changes: none significant | the following changed: <brief list>
 
-If scope or inventory drifted significantly, include a CAUTION block calling this out:
+If scope, inventory, or assumptions drifted significantly, include a CAUTION block calling this out:
 
 ```
-CAUTION: scope or inventory drift detected between runs.
+CAUTION: significant drift detected between runs.
 - Deployment exposure: older=<value>, newer=<value>
-- Inventory delta: <brief description>
-This affects how the comparison should be interpreted. Some "only in newer model"
-threats may simply reflect expanded scope rather than newly discovered concerns.
+- Component count: older=<N>, newer=<N> (components only in older: <list of C-IDs>; only in newer: <list>)
+- Trust boundary count: older=<N>, newer=<N>
+- Asset count: older=<N>, newer=<N>
+- Filtering decisions: <note if filtering totals differ significantly>
+
+This affects how the comparison should be interpreted. Some threats absent in the
+newer model are absent because their components or assets are not in the newer
+model's inventory, not because the underlying concerns were mitigated.
 ```
 
 ### Section 2: Persistent Threats (in both models)
@@ -202,12 +257,13 @@ Sort entries by severity (Critical first), then by newer threat ID.
 
 One entry per threat in the older model with no match (and no Low confidence candidate) in the newer.
 
-For each, classify the lack of correspondence into one of these reasoning categories:
+For each, classify into one of these reasoning categories, in priority order (use the strongest applicable category):
 
-- **Appears mitigated**: The threat is genuinely absent from the newer model. The most likely explanation is that the underlying concern was addressed in the codebase between runs.
-- **Categorization shifted**: The concern still appears to be present in the newer model but under a different framing -- a related Section 2 entry covers it. (If this applies, note the related newer threat ID.)
-- **Coverage variation**: This may simply reflect sampling variation between runs rather than a real change. The agent cannot determine whether the threat was mitigated or just not surfaced this time.
-- **Unable to determine**: The agent examined the newer model but cannot conclusively say why this threat is absent. State what would help determine the answer.
+- **Component/asset not in newer model's inventory**: The threat references a component (C-NNN) or asset (AS-NNN) that does not appear in the newer model's inventory. The threat is absent because its foundation is not in the newer run's working set. Cite the specific missing component or asset ID. This is the most certain category because it's directly observable from inventory files.
+- **Excluded by category in newer run**: The newer model's `02c-assumptions.md` lists Excluded Threat Categories that match this threat's category, OR the filtering totals indicate threats in this category were excluded. The threat is absent because the newer run explicitly chose not to enumerate threats of this type. Cite the relevant exclusion note.
+- **Categorization shifted**: The concern appears to be present in the newer model under a different framing -- a related Section 2 entry covers it. If this applies, name the related newer threat ID.
+- **Absent from newer model, no explicit exclusion noted**: The threat is not in the newer model and no inventory gap or filtering decision explains the absence. The agent cannot determine whether the underlying concern was actually mitigated in code, whether the newer run's analysis just didn't surface it, or whether some other factor explains the difference. This category honestly acknowledges that absence from a threat model is not evidence of mitigation -- only a code-level review (such as the CodeSecurityAudit prompt's output) could provide that evidence.
+- **Unable to determine**: The agent examined the available threat model artifacts but cannot conclusively assign any of the above categories. State what would help determine the answer.
 
 Each entry:
 
@@ -220,12 +276,12 @@ Each entry:
 - Threat Agent: <ThreatAgent>
 - Description: <full Description from older>
 
-**Status in newer model:** <one of: Appears mitigated | Categorization shifted | Coverage variation | Unable to determine>
+**Status in newer model:** <one of: Component/asset not in newer model's inventory | Excluded by category in newer run | Categorization shifted | Absent from newer model, no explicit exclusion noted | Unable to determine>
 
-**Reasoning:** <1-3 sentences explaining the assessment. For "Categorization shifted", name the related newer threat ID. For "Unable to determine", state honestly what aspect is unclear.>
+**Reasoning:** <1-3 sentences explaining the assessment. For "Component/asset not in newer model's inventory", cite the specific ID(s). For "Excluded by category in newer run", quote the relevant exclusion note. For "Categorization shifted", name the related newer threat ID. For "Absent from newer model, no explicit exclusion noted", explicitly note that this category does NOT imply mitigation -- it only reflects that the agent has no observable evidence either way.>
 ```
 
-The "Unable to determine" category is an acceptable and frequently honest answer. Do NOT force confidence when uncertainty is real.
+"Absent from newer model, no explicit exclusion noted" and "Unable to determine" are honest, expected categories. Do NOT force a stronger category (like claiming mitigation) when the supporting evidence is not present. Threat model artifacts alone do not prove or disprove that a concern is mitigated in code.
 
 Sort by severity, then older ThreatID.
 
@@ -233,12 +289,14 @@ Sort by severity, then older ThreatID.
 
 One entry per threat in the newer model with no match (and no Low confidence candidate) in the older.
 
-For each, classify into one of these reasoning categories:
+For each, classify into one of these reasoning categories, in priority order:
 
-- **Newly identified**: The threat appears to be a genuine new finding -- not present in the older model, no related concern under a different name.
-- **Expanded coverage**: The threat addresses a component or area that wasn't deeply examined in the older run. May have been present then but not surfaced.
-- **Decomposed from prior**: A broader threat in the older model has been split into more specific threats in the newer (e.g., "Authentication issues" became three specific concerns). If this applies, note the older threat ID it was decomposed from.
-- **Unable to determine**: The agent cannot conclusively determine why this threat appears only in the newer model.
+- **Component/asset not in older model's inventory**: The threat references a component or asset that does not appear in the older model's inventory. The newer run identified architectural elements the older run did not. Cite the specific component or asset ID.
+- **Was excluded by category in older run**: The older model's `02c-assumptions.md` excluded a category that matches this threat's category. The newer run reclassified or no longer excluded that category. Cite the relevant exclusion note from the older model.
+- **Decomposed from prior**: A broader threat in the older model has been split into more specific threats in the newer (e.g., "Authentication issues" became three specific concerns). If this applies, name the older threat ID it was decomposed from.
+- **Expanded coverage**: The threat addresses a component or area that exists in both models' inventories but was not deeply examined in the older run. The component is present in both, but threats targeting it were less thoroughly enumerated previously.
+- **Newly identified, no inventory or exclusion explanation**: The threat is in the newer model and no inventory gap, exclusion change, or decomposition explains it. May reflect new analytical depth, sampling variation, or a genuinely new finding. The agent cannot determine which from threat model artifacts alone.
+- **Unable to determine**: The agent cannot conclusively assign any of the above categories.
 
 Each entry:
 
@@ -252,9 +310,9 @@ Each entry:
 - Description: <full Description from newer>
 - Mitigation: <full Mitigation from newer>
 
-**Why this appears only in the newer model:** <one of: Newly identified | Expanded coverage | Decomposed from prior | Unable to determine>
+**Why this appears only in the newer model:** <one of: Component/asset not in older model's inventory | Was excluded by category in older run | Decomposed from prior | Expanded coverage | Newly identified, no inventory or exclusion explanation | Unable to determine>
 
-**Reasoning:** <1-3 sentences explaining the assessment. For "Decomposed from prior", name the related older threat ID. For "Unable to determine", state what aspect is unclear.>
+**Reasoning:** <1-3 sentences explaining the assessment. Cite specific IDs or exclusion notes where the category requires it.>
 ```
 
 Sort by severity, then newer ThreatID.
@@ -282,23 +340,76 @@ Each entry shows both threats side by side:
 - Title: <Title>
 - Description: <full Description>
 
-**Suggested review:** Examine both threats and the relevant code to determine whether they describe the same concern. If they do, treat as persistent (Section 2). If they don't, treat the older as Section 3 ("Appears mitigated" or similar) and the newer as Section 4 ("Newly identified" or similar).
+**Suggested review:** Examine both threats and the relevant code to determine whether they describe the same concern. If they do, treat as persistent (Section 2). If they don't, treat the older as Section 3 (with a suitable reasoning category) and the newer as Section 4 (with a suitable reasoning category).
 ```
 
 This section is important. Ambiguity is real, and surfacing it explicitly is better than forcing confident determinations that might be wrong.
 
-### Section 6: Coverage and Trend Analysis
+### Section 6: Inventory and Assumption Changes
+
+This section surfaces architectural and analytical changes between the two threat models that contextualize the threat-level differences. Even when threats themselves don't appear to change, the underlying inventory and assumptions may have shifted in ways that affect how the threats should be interpreted.
+
+The section has four sub-parts:
+
+**Component Inventory Delta**
+
+List the specific components present in only one model:
+
+```
+Components only in older model (no longer in newer model):
+- C-007 (Notification Service) -- description from older inventory
+- C-014 (Legacy Reports API) -- description from older inventory
+- ...
+
+Components only in newer model (not in older model):
+- C-019 (New Audit Logger) -- description from newer inventory
+- ...
+```
+
+If the lists are empty, write "No component-level changes between runs."
+
+**Trust Boundary Delta**
+
+List trust boundaries present in only one model:
+
+```
+Trust boundaries only in older model:
+- TB-005 (Legacy admin plane) -- description from older 02a-context.md
+- ...
+
+Trust boundaries only in newer model:
+- TB-008 (New API gateway) -- description from newer 02a-context.md
+- ...
+```
+
+If both runs identified the same trust boundaries, write "Trust boundary structure consistent between runs."
+
+**Asset Delta**
+
+Same pattern -- list assets (AS-NNN) present in only one model. If asset enumeration is consistent, note that.
+
+**Assumption and Filtering Changes**
+
+From the `02c-assumptions.md` (or `02d-assumptions.md`) files in both runs, surface:
+
+- **Excluded category changes**: Categories the older run explicitly excluded that the newer run did not (or vice versa). Cite the relevant excluded-category entries from each model.
+- **Assumption changes**: Assumptions stated in one model but not the other. Focus on assumptions that materially affect threat analysis (e.g., "older model assumed external IdP integration; newer model assumes embedded credential storage").
+- **Persistent stakeholder questions**: Open questions raised in both runs. These represent longstanding uncertainties that should ideally be resolved.
+
+If no significant assumption changes are present, write "Assumptions and filtering decisions consistent between runs."
+
+### Section 7: Coverage and Trend Analysis
 
 A brief synthesis paragraph addressing:
 
 - **Severity distribution shift**: Did the newer run produce more or fewer Critical/High threats? What's the net direction?
-- **Component coverage**: Are there components in the older model not addressed in the newer (or vice versa)? Flag as potential blind spots.
-- **Net direction**: Based on the comparison, is the security posture trending better, worse, or sideways? Be cautious in this judgment; significant scope or inventory drift makes this hard to determine.
+- **Component coverage**: Are there components in the older model not addressed in the newer (or vice versa)? Flag as potential blind spots. Reference Section 6's Component Inventory Delta.
+- **Net direction**: Based on the comparison, is the security posture trending better, worse, or sideways? Be cautious in this judgment; significant scope or inventory drift makes this hard to determine. Note that the comparison cannot directly assess code-level mitigation; threats absent in the newer model may or may not be mitigated in code.
 
 End with a short "Use of this comparison" section:
 
-- For the security architect (you): the persistent threats in Section 2 are the long-standing concerns to track. Section 3 entries marked "Appears mitigated" are wins worth noting. Section 4 entries are the newest information.
-- For developers: the threats most likely to need action are those in Section 2 marked Critical/High and any in Section 4 marked "Newly identified" at Critical/High severity. Section 5 ambiguous matches in your area of ownership are worth a quick review.
+- For the security architect (you): the persistent threats in Section 2 are the long-standing concerns to track. Section 3 entries where the reasoning category is "Component/asset not in newer model's inventory" or "Excluded by category in newer run" have direct evidence; other categories (especially "Absent from newer model, no explicit exclusion noted") require additional code-level investigation if you want to confirm mitigation. Section 4 entries are the newest information from the newer threat model.
+- For developers: the threats most likely to need action are those in Section 2 marked Critical/High and any in Section 4 marked "Newly identified, no inventory or exclusion explanation" at Critical/High severity. Section 5 ambiguous matches in your area of ownership are worth a quick review. Section 6 inventory changes affecting your services are worth understanding.
 
 ---
 
@@ -323,12 +434,3 @@ Produce the comparison output with minimal preamble. Do NOT write extensive plan
 The output file is one create_new_file call with the complete Markdown content. Markdown at this scale (typically 50-150KB depending on threat counts) has tested as reliably fitting in a single call. Avoid scaffold-and-fill for the comparison output -- it adds complexity without benefit at Markdown sizes.
 
 After writing the comparison file, verify it exists and is non-empty. Report the file path and a one-line summary of what's inside (counts from Section 1) so the user knows what to read.
-
----
-
-KNOWN LIMITATIONS
-
-- Run-to-run variation in threat models means some "only in older" or "only in newer" entries may simply reflect sampling differences rather than real changes. The reasoning categories acknowledge this explicitly.
-- Component renaming between runs may cause matches to fail when the threats are actually the same. The agent does semantic matching on component names where possible, but exact ID stability across runs is a strong matching signal that gets weakened by refactoring.
-- Scope or inventory drift between runs can make the comparison less meaningful. The pre-check surfaces this; readers should consider it when interpreting the output.
-- HTML output is not produced by this version. If HTML is needed, a follow-up step renders the Markdown to HTML using the same scaffold-and-fill approach as the audit comparison.

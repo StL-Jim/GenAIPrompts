@@ -235,7 +235,7 @@ How to use this document:
 - **Section 7 (Coverage and Trend Analysis)** provides the synthesis paragraph and use-by-audience guidance.
 - **Sections 2-5 are reference material.** Read in full only when you need to verify a specific claim or look up details on a specific threat.
 - **To find threats relevant to your service or area:** search this document for your service name or component ID (e.g., C-003).
-- **For a shorter overview:** see `threat_model_comparison_summary.md`, which contains the verdict, counts, and action items only.
+- **For a shorter overview:** see `threat_model_comparison_summary.md` or `threat_model_comparison_summary.html`, which contain the verdict, counts, and action items only.
 ```
 
 ### Section 2: Persistent Threats (in both models)
@@ -509,6 +509,36 @@ The brief is produced as a separate `create_new_file` call after the long docume
 
 ---
 
+THIRD OUTPUT: BRIEF SUMMARY HTML
+
+After the Markdown brief is complete, produce an HTML version at `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.html`. The HTML brief is a polished stakeholder-facing artifact derived from the Markdown brief.
+
+The HTML brief is rendering, not regeneration. Read the completed Markdown brief and produce the HTML by wrapping the content in HTML markup with styling. Do NOT re-summarize or compress content; the Markdown brief is already the curated short-form version.
+
+At 2-3 pages of content, the HTML brief fits reliably in a single create_new_file call. Scaffold-and-fill is not needed here.
+
+Styling requirements (consistent with other HTML outputs in the toolchain):
+- Single self-contained file: no external CSS or JS, no CDN references
+- Inline `<style>` block with system-ui font stack, print-friendly layout
+- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast
+- Semantic HTML5: `<header>`, `<main>`, `<section>` per content area, `<article>` per action item
+- Tables for the "At a glance" counts; styled lists for action items
+- Severity color coding applied prominently to action items and counts (developers scanning the brief make severity-based decisions quickly, so severity colors should be visually obvious)
+- ASCII-only content per the same rule as other outputs
+
+Structure of the HTML brief mirrors the Markdown brief sections:
+1. Header with title, comparison subjects (older vs newer directory names), and date
+2. Verdict (prominent, near the top)
+3. At a glance (counts table)
+4. Things to investigate or remediate (styled list with severity colors)
+5. Things to verify mitigation (if present; styled list)
+6. Inventory changes affecting your work (if present)
+7. Where to go from here (pointers back to the long document)
+
+After writing, verify the HTML exists and is non-empty.
+
+---
+
 CRITICAL CONTENT DISCIPLINE
 
 Each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat models, not just IDs and pointers. A reader seeing "Threat 0007 matches older threat 0005" with no further detail cannot interpret the comparison. The reader must see what each threat said, in enough detail to understand and act on the entry.
@@ -530,6 +560,8 @@ Produce the outputs with minimal preamble. Do NOT write extensive planning notes
 Order of writes:
 1. First, produce the long comparison document `{PROJECT_NAME}-threat-model/threat_model_comparison.md` as one create_new_file call. Markdown at this scale (typically 50-150KB depending on threat counts) has tested as reliably fitting in a single call. Avoid scaffold-and-fill for the comparison output -- it adds complexity without benefit at Markdown sizes.
 
-2. Then, produce the brief summary `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.md` as a separate create_new_file call. The brief is small (2-3 pages) and reliably fits in one call. Derive its content from the long document; do not introduce new claims.
+2. Then, produce the Markdown brief `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.md` as a separate create_new_file call. The brief is small (2-3 pages) and reliably fits in one call. Derive its content from the long document; do not introduce new claims.
 
-After writing both files, verify each exists and is non-empty. Report the file paths and a one-line summary of what's inside so the user knows what to read.
+3. Then, produce the HTML brief `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.html` as a separate create_new_file call. This is a single-call rendering of the Markdown brief into styled HTML; no scaffold-and-fill needed at this content size.
+
+After writing all three files, verify each exists and is non-empty. Report the file paths and a one-line summary of what's inside so the user knows what to read.

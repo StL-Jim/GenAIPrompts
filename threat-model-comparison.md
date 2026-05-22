@@ -223,6 +223,21 @@ newer model are absent because their components or assets are not in the newer
 model's inventory, not because the underlying concerns were mitigated.
 ```
 
+### Reading Guide
+
+After Section 1, include a brief Reading Guide telling readers how to consume the document:
+
+```
+How to use this document:
+
+- **Section 1 (above) is enough for high-level awareness.** If you read nothing else, read the verdict paragraph and the counts table.
+- **Section 6 (Inventory and Assumption Changes)** tells you what changed architecturally between runs and is often the second-most-useful section.
+- **Section 7 (Coverage and Trend Analysis)** provides the synthesis paragraph and use-by-audience guidance.
+- **Sections 2-5 are reference material.** Read in full only when you need to verify a specific claim or look up details on a specific threat.
+- **To find threats relevant to your service or area:** search this document for your service name or component ID (e.g., C-003).
+- **For a shorter overview:** see `threat_model_comparison_summary.md`, which contains the verdict, counts, and action items only.
+```
+
 ### Section 2: Persistent Threats (in both models)
 
 One entry per threat matched at High or Medium confidence. Show the threat using the NEWER model's content (it's the more current version), but note the older threat ID for traceability.
@@ -413,6 +428,87 @@ End with a short "Use of this comparison" section:
 
 ---
 
+SECOND OUTPUT: BRIEF SUMMARY DOCUMENT
+
+In addition to the long comparison document, produce a separate brief summary at `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.md`. The brief is for developers and stakeholders who need actionable information without reading the full 30-page comparison.
+
+The brief is derived from the long document -- it must not introduce new claims. Every statement in the brief must be supportable by content in the long comparison. If you cannot find supporting content in the long document, the claim does not belong in the brief.
+
+The brief should be 2-3 printed pages. Aim for one-screen executive summary, then actionable lists. Compact bullet lists are appropriate here; full per-entry detail is NOT. Refer readers to the long document for details.
+
+Structure:
+
+```
+# Threat Model Comparison Summary
+
+**Comparing:** <older directory name> vs <newer directory name>
+**Date:** <date>
+**Full details:** see threat_model_comparison.md
+
+## Verdict
+
+<One or two sentences in plain language. Examples:
+- "Security posture did not materially improve between runs; methodology became more rigorous but underlying concerns persist."
+- "Newer run identifies 5 new threats and shows evidence that 3 prior concerns may have been addressed."
+- "The two runs differ primarily in methodology rather than findings; same underlying threats appear in both."
+
+The verdict must be supportable by content in the long comparison document. Do not introduce new claims here.>
+
+## At a glance
+
+- Older model: <N> threats included, of <N> candidates
+- Newer model: <N> threats included, of <N> candidates
+- Persistent (in both): <N>
+- Only in older model: <N>
+- Only in newer model: <N>
+- Ambiguous matches: <N> (review individually)
+- Inventory: <component count change>, <trust boundary change>
+- Deployment exposure: <unchanged | changed from X to Y>
+
+## Things to investigate or remediate
+
+Critical and High severity threats from Section 2 (persistent) and Section 4 (newly identified) of the long comparison, listed by finding ID and one-line description. Sort by severity (Critical first), then by category.
+
+Format:
+- **<NewerID>** (Critical, persistent): <one-line title> - <component>
+- **<NewerID>** (High, newly identified): <one-line title> - <component>
+- ...
+
+For Section 4 entries, briefly note the reasoning category in parens after the severity (e.g., "newly identified" or "component not in older inventory") so readers understand the context.
+
+If there are more than 20 entries across these categories, list all of them anyway -- sorted by severity. The brief is short because each entry is one line, not because the count is capped.
+
+## Things to verify mitigation
+
+Critical and High severity threats from Section 3 (only in older model) that have the reasoning category "Absent from newer model, no explicit exclusion noted." These are threats where the agent has no observable evidence either way -- they might be mitigated in code or might just be absent from the newer threat model's analysis.
+
+Format:
+- **<OlderID>** (Critical): <one-line title> - <component> - was in older model, absent from newer model with no explicit exclusion
+- ...
+
+If no entries qualify, omit this section entirely.
+
+## Inventory changes affecting your work
+
+If components, trust boundaries, or assets changed between runs in ways that affect specific services, list them briefly:
+
+- Components removed from inventory: <list of C-NNN IDs and names>
+- Components added to inventory: <list of C-NNN IDs and names>
+- Trust boundaries added/removed: <brief>
+
+If inventory is unchanged or changes are not meaningful, write "No significant inventory changes" and omit the details.
+
+## Where to go from here
+
+- For full details on any entry: see the corresponding section in `threat_model_comparison.md`
+- For threats relevant to your service: search the long document for your component ID
+- For ambiguous matches that need manual review: see Section 5 of the long document
+```
+
+The brief is produced as a separate `create_new_file` call after the long document is complete. At ~2-3 pages it fits reliably in one call.
+
+---
+
 CRITICAL CONTENT DISCIPLINE
 
 Each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat models, not just IDs and pointers. A reader seeing "Threat 0007 matches older threat 0005" with no further detail cannot interpret the comparison. The reader must see what each threat said, in enough detail to understand and act on the entry.
@@ -429,8 +525,11 @@ ASCII-only output: no em-dashes, smart quotes, or other Unicode in the Markdown.
 
 EXECUTION DISCIPLINE
 
-Produce the comparison output with minimal preamble. Do NOT write extensive planning notes before producing the file. Do NOT enumerate what each section will contain in prose before writing the actual content. Acknowledge in one short line that input discovery and pre-checks are complete, then go directly to producing the output file.
+Produce the outputs with minimal preamble. Do NOT write extensive planning notes before producing the files. Do NOT enumerate what each section will contain in prose before writing the actual content. Acknowledge in one short line that input discovery and pre-checks are complete, then go directly to producing the output files.
 
-The output file is one create_new_file call with the complete Markdown content. Markdown at this scale (typically 50-150KB depending on threat counts) has tested as reliably fitting in a single call. Avoid scaffold-and-fill for the comparison output -- it adds complexity without benefit at Markdown sizes.
+Order of writes:
+1. First, produce the long comparison document `{PROJECT_NAME}-threat-model/threat_model_comparison.md` as one create_new_file call. Markdown at this scale (typically 50-150KB depending on threat counts) has tested as reliably fitting in a single call. Avoid scaffold-and-fill for the comparison output -- it adds complexity without benefit at Markdown sizes.
 
-After writing the comparison file, verify it exists and is non-empty. Report the file path and a one-line summary of what's inside (counts from Section 1) so the user knows what to read.
+2. Then, produce the brief summary `{PROJECT_NAME}-threat-model/threat_model_comparison_summary.md` as a separate create_new_file call. The brief is small (2-3 pages) and reliably fits in one call. Derive its content from the long document; do not introduce new claims.
+
+After writing both files, verify each exists and is non-empty. Report the file paths and a one-line summary of what's inside so the user knows what to read.

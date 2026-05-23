@@ -1,11 +1,14 @@
 # Security Threat Modeling and Code Audit Toolchain
 
-Two LLM-driven prompts for security analysis of a source code repository, designed to work independently or together as a coordinated toolchain.
+Three LLM-driven prompts for security analysis of a source code repository, designed to work independently or together as a coordinated toolchain.
 
 - **STRIDE Threat Modeling Prompt** (`stride-threat-model-prompt.md`) -- produces an architectural threat model: what could go wrong in the design, who would attack it, what to mitigate.
 - **Code Security Audit Prompt** (`CodeSecurityAudit.md`) -- produces a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance.
+- **Threat Model Comparison Prompt** (`ThreatModelComparison.md`) -- compares two threat model runs against the same codebase (e.g., current vs an archived snapshot) and produces a structured report showing what's persistent, what's only in one run, and what changed in the inventory or assumptions.
 
-When both have been run against the same codebase, the audit produces a **Threat-Audit Comparison** as its headline deliverable: which anticipated threats were confirmed in code, which were not confirmed, and which code defects the threat model did not anticipate.
+When the threat modeling prompt and audit prompt have both been run against the same codebase, the audit produces a **Threat-Audit Comparison** as its headline deliverable: which anticipated threats were confirmed in code, which were not confirmed, and which code defects the threat model did not anticipate.
+
+When two threat model runs against the same codebase are available (a current run plus an archived prior run), the comparison prompt produces a **Threat Model Comparison** report and a brief summary showing how threat coverage has evolved over time -- useful for tracking analytical maturity, detecting scope drift, and identifying persistent concerns that haven't been addressed.
 
 Tested with Claude Sonnet 4.5 on AWS Bedrock via the Continue.dev VS Code extension.
 
@@ -23,7 +26,9 @@ Tested with Claude Sonnet 4.5 on AWS Bedrock via the Continue.dev VS Code extens
 
 **Audit prompt only (standalone mode)** -- Existing codebase where you want to know where the actual defects are. Output is defect-centric: file:line evidence, OWASP/NIST mapping, fixes.
 
-**Both prompts as a toolchain (coordinated mode)** -- The most valuable combination. The threat model identifies what to worry about; the audit finds what's actually wrong; the comparison output tells you which is which. The comparison reveals threats that were anticipated and confirmed, threats that appear well-mitigated, and code defects the threat model did not anticipate (often the most valuable findings).
+**Both prompts as a toolchain (coordinated mode)** -- The most valuable combination for a specific point in time. The threat model identifies what to worry about; the audit finds what's actually wrong; the comparison output tells you which is which. The comparison reveals threats that were anticipated and confirmed, threats that appear well-mitigated, and code defects the threat model did not anticipate (often the most valuable findings).
+
+**Threat model comparison prompt** -- Periodic activity for tracking how a codebase's threat picture evolves over time. Run after you've done a new threat model and want to see how it compares to a prior snapshot. Useful for confirming whether prior concerns have been addressed, detecting scope drift between runs, and identifying analytical maturity improvements in the threat modeling process itself. Independent from the threat-model-then-audit toolchain; can be run any time two threat models against the same codebase are available.
 
 ## Running the Threat Modeling Prompt
 
@@ -76,9 +81,35 @@ Key outputs (standalone mode):
 - `audit_state/05_consolidated_report.html` -- the headline deliverable in standalone mode
 - `audit_state/executive_briefing.html` -- Critical/High summary
 
+## Running the Threat Model Comparison Prompt
+
+This prompt compares two threat model runs against the same codebase. It is independent from the threat-model-then-audit toolchain -- you run it whenever you have two threat models worth comparing.
+
+The workflow:
+
+1. **Prepare the directories.** The CURRENT threat model lives at `{PROJECT_NAME}-threat-model/` as usual. An archived prior threat model should be present at `{PROJECT_NAME}-threat-model-YYYY-MM-DD/` (or any dated suffix following that pattern). Use a consistent naming convention so the comparison prompt can find archives by pattern.
+
+2. **Open the workspace in VS Code.** Both threat model directories should be visible from the workspace root.
+
+3. **Paste the prompt.** Open the Continue.dev chat panel and paste the contents of `ThreatModelComparison.md` into the chat.
+
+4. **Follow the discovery step.** The prompt's first action is identifying which two directories to compare. If there's exactly one archive, it confirms with you. If there are multiple archives, it lists them and asks which one. Respond with your choice.
+
+5. **Let it run.** The comparison runs as a single phase -- no STOP/proceed checkpoints needed. Typically completes in one session, depending on threat model size.
+
+A full run typically takes 15-30 minutes, much shorter than the threat modeling or audit prompts because there is no code analysis -- just synthesis across two threat model directories.
+
+Outputs land in `{PROJECT_NAME}-threat-model/`:
+
+- `threat_model_comparison.md` -- the long, comprehensive comparison (typically 30+ pages when printed). Reference material for the security architect. Contains seven sections: executive summary, persistent threats, threats only in older model, threats only in newer model, ambiguous matches, inventory and assumption changes, coverage and trend analysis.
+- `threat_model_comparison_summary.md` -- the brief summary (2-3 pages). Verdict, counts at a glance, action items prioritized by severity, "things to verify mitigation," inventory changes, pointers back to the long document. Suitable for developers and stakeholders who need actionable information without reading the full comparison.
+- `threat_model_comparison_summary.html` -- HTML version of the brief summary with severity color coding. Suitable for stakeholder distribution.
+
+The long version is Markdown only -- it works as searchable reference material and an HTML version isn't necessary for its primary audience. The brief is offered in both formats since it's the more widely-shared artifact.
+
 ## Running Them as a Coordinated Toolchain
 
-The toolchain is most valuable when both prompts have run against the same codebase. The order matters.
+The threat-model-then-audit toolchain is most valuable when both prompts have run against the same codebase. The order matters.
 
 1. **Run the threat modeling prompt first.** Complete all five phases. The output directory `{PROJECT_NAME}-threat-model/` should contain a complete threat model with all artifacts present.
 
@@ -92,9 +123,11 @@ The toolchain is most valuable when both prompts have run against the same codeb
 
 ## Resuming Across Sessions
 
-Both prompts maintain a state file in their output directory that tracks completed phases. If a session ends before all phases finish (context window exhaustion, network issue, end of day), start a new session and paste the same prompt. The agent reads the state file and resumes at the next pending phase.
+The threat modeling and audit prompts maintain a state file in their output directory that tracks completed phases. If a session ends before all phases finish (context window exhaustion, network issue, end of day), start a new session and paste the same prompt. The agent reads the state file and resumes at the next pending phase.
 
 You do not lose work between sessions. This is by design -- a full toolchain run can span hours and naturally crosses session boundaries.
+
+The threat model comparison prompt does not use a state file because it runs as a single phase and is short enough to complete in one session. If a comparison run fails partway through, re-run the prompt from the beginning.
 
 ## Working With the Threat Model HTML Report
 
@@ -124,6 +157,16 @@ The comparison output (`threat_audit_comparison.html`) is structured into seven 
 
 Each entry in sections 2, 3, 4, and 5 contains full content from the threat model and findings registry -- you do not need to open other files to act on a single entry.
 
+## Working With the Threat Model Comparison Output
+
+The comparison prompt produces three files. The right one to start with depends on who's reading:
+
+**For developers and stakeholders:** open `threat_model_comparison_summary.html` (or the Markdown equivalent). The verdict at the top tells you in plain language what changed. The "Things to investigate or remediate" list gives action items sorted by severity. The "Things to verify mitigation" list flags threats that disappeared from the newer model without explicit evidence -- worth investigating if you want to confirm they're actually fixed.
+
+**For the security architect:** start with the brief summary for the verdict and counts, then open `threat_model_comparison.md` for full reference detail. Use the Reading Guide at the top of the long document to navigate -- you don't need to read all 30+ pages linearly. Section 6 (Inventory and Assumption Changes) is often the second-most-useful section after the executive summary because it surfaces architectural shifts between runs.
+
+Important framing: the comparison cannot directly assess code-level mitigation. The reasoning categories acknowledge this. Threats absent in the newer model that have the category "Absent from newer model, no explicit exclusion noted" are NOT claims of mitigation -- they're observations that the agent has no observable evidence either way. If you want to confirm a threat was actually mitigated in code, that requires the audit prompt or manual code review.
+
 ## Working With the Audit Findings Registry
 
 The complete list of audit findings is in `audit_state/findings_registry.md`. This is the canonical source -- every finding in the consolidated report comes from here. The Markdown format is git-diffable, grep-able, and parseable by external tools if you want to feed findings into a ticketing system.
@@ -145,18 +188,16 @@ This visual-feedback loop is more effective than re-running Phase 4 hoping for b
 
 ## Output Encoding
 
-Both prompts produce ASCII-only output by default (no em-dashes, smart quotes, or other Unicode in Markdown/HTML/CSV) so files render correctly across Windows and other environments without BOM or encoding fallback issues.
+All three prompts produce ASCII-only output by default (no em-dashes, smart quotes, or other Unicode in Markdown/HTML/CSV) so files render correctly across Windows and other environments without BOM or encoding fallback issues.
 
 If you are sharing outputs with stakeholders on Mac or Linux, files render correctly without modification.
 
 ## Known Limitations
 
-- **Run-to-run variation.** Both prompts produce different findings between runs against the same code. The threat model lands in a 20-25 threat range; the audit lands in a 20-30 finding range. This is expected behavior driven by LLM sampling -- not a bug. For higher determinism, run twice and compare.
+- **Run-to-run variation.** The threat modeling and audit prompts produce different findings between runs against the same code. The threat model lands in a 20-25 threat range; the audit lands in a 20-30 finding range. This is expected behavior driven by LLM sampling -- not a bug. For higher determinism, run twice and compare. The comparison prompt is the right tool for evaluating that variation across runs.
 - **Large codebases can exhaust context.** The phase splits and state-file resume mechanism mitigate this. If you still hit limits, scope the analysis to one service in a monorepo rather than the entire repo.
 - **Diagram quality is the weakest output of the threat model.** Plan to use the PNG review loop for any diagram that will leave your team.
 - **The comparison output can be large.** A comparison with 20-25 threats and 25-30 findings produces 100-200KB of Markdown and several pages of HTML. Phase 6's scaffold-and-fill approach handles this, but expect the audit to take a full session for Phase 6 alone in coordinated mode.
 - **Coordinated audits require a threat model in the workspace.** If you delete or rename the threat model directory between threat model and audit runs, the audit will run in standalone mode without producing the comparison output.
-
-## Versioning
-
-Both prompts are maintained as single files (`stride-threat-model-prompt.md` and `CodeSecurityAudit.md`) and versioned in git. Updates are applied by replacing the file contents and committing. No branching strategy is needed for normal use -- the prompts are small enough that direct edits and git history are sufficient.
+- **The threat model comparison requires both a current and an archived threat model.** Archives must be named with a suffix pattern like `{PROJECT_NAME}-threat-model-YYYY-MM-DD/` so the comparison prompt can find them. The comparison cannot directly assess whether threats were mitigated in code -- it observes only what's in the threat model artifacts. For code-level confirmation of mitigation, use the audit prompt against the current codebase.
+- 

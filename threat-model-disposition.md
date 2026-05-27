@@ -290,6 +290,29 @@ If no severity revisions exist, write: "No severity revisions made."
 
 One row per dispositioned threat. Show RevisedSeverity in the Severity column (the team's decision), color-coded by severity. The Disposition value is color-coded by disposition. Rationale shows the full text (allow word wrap; don't truncate).
 
+Use a fixed table layout with these column widths so the Title and Rationale fields have room to display readably without being squeezed:
+
+```css
+table.disposition-details {
+  table-layout: fixed;
+  width: 100%;
+}
+table.disposition-details th:nth-child(1), 
+table.disposition-details td:nth-child(1) { width: 5%; }   /* ID */
+table.disposition-details th:nth-child(2),
+table.disposition-details td:nth-child(2) { width: 35%; }  /* Title */
+table.disposition-details th:nth-child(3),
+table.disposition-details td:nth-child(3) { width: 12%; }  /* Component */
+table.disposition-details th:nth-child(4),
+table.disposition-details td:nth-child(4) { width: 8%; }   /* Severity */
+table.disposition-details th:nth-child(5),
+table.disposition-details td:nth-child(5) { width: 15%; }  /* Disposition */
+table.disposition-details th:nth-child(6),
+table.disposition-details td:nth-child(6) { width: 25%; }  /* Rationale */
+```
+
+Apply `word-wrap: break-word` to all cells so long titles and rationale text wrap rather than overflowing.
+
 Sort by Severity (Critical first, then High, etc.), then by ID ascending.
 
 **Footer (centered)**

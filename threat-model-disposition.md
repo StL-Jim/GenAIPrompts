@@ -218,6 +218,91 @@ The summary gives the user a chance to spot any severity revisions that shouldn'
 
 ---
 
+HTML DISPOSITION REPORT
+
+After producing the session summary in chat, also write a polished HTML report to disk at `{PROJECT_NAME}-threat-model/dispositions_report.html`. This report is the stakeholder-facing deliverable from the review session -- suitable for leadership distribution, attaching to tickets, or filing as the dated artifact of the review.
+
+The HTML report is produced as a single `create_new_file` call after every `done` command. The full disposition data fits comfortably in one call at this content size (typically 20-30 threats); scaffold-and-fill is not needed.
+
+Styling requirements (consistent with other HTML outputs in the toolchain):
+- Single self-contained file: no external CSS or JS, no CDN references
+- Inline `<style>` block, system-ui font stack, print-friendly layout
+- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast
+- Disposition color coding (concern-based): Active `#b00020` (alerting - needs action), False Positive `#6c757d` (neutral gray), Risk Accepted `#e65100` (orange - documented exposure), Mitigated by Compensating Control `#2e7d32` (green - handled), Duplicate `#6c757d` (neutral gray), Other `#6c757d` (neutral gray)
+- Semantic HTML5: `<header>`, `<main>`, `<section>` per content area
+- ASCII-only content per the same rule as other outputs
+
+Report structure:
+
+**Title section (header)**
+```
+Threat Disposition Report
+{PROJECT_NAME} Threat Model
+```
+
+**Metadata block** (below title, before summary)
+- Project: {PROJECT_NAME}
+- Review Date: <today's date in human-readable form, e.g., "May 23, 2026">
+- Reviewers: <session reviewer name(s), comma-separated for display>
+- Source File: {PROJECT_NAME}-threat-model/dispositions.csv
+
+**Summary Statistics** (four stat tiles in a row)
+
+Render as four equal-width tiles or cards with large numbers and small labels:
+
+| Total Threats Reviewed | Active Threats | Severity Revisions | Completion Rate |
+| --- | --- | --- | --- |
+| <count of dispositioned this session and prior> | <count where Disposition == Active> | <count where OriginalSeverity != RevisedSeverity> | <dispositioned / total in threat model as percentage> |
+
+"Total Threats Reviewed" is the total number of threats that have a disposition recorded in dispositions.csv (across all sessions, not just the current one). "Completion Rate" compares this to the total threats in `02-threats.md` (e.g., 23 of 25 = 92%).
+
+**Disposition Breakdown** (table)
+
+| Disposition | Description | Count |
+|---|---|---|
+| Active | Threats requiring remediation | <N> |
+| False Positive | Threats incorrectly identified or mitigated by design | <N> |
+| Risk Accepted | Threats accepted by stakeholders | <N> |
+| Mitigated by Compensating Controls | Threats addressed by existing controls | <N> |
+| Duplicate | Threats duplicating another finding | <N> |
+| Other | Threats outside development team scope | <N> |
+
+Each row has the disposition color (from the color coding above) applied to the disposition label, so readers can quickly scan severity of attention by category.
+
+Include every disposition category (even ones with count 0) for consistent structure across sessions.
+
+**Severity Revisions** (list or table)
+
+If any threats had severity revised (OriginalSeverity != RevisedSeverity in dispositions.csv):
+
+```
+ID | Title | Original Severity -> Revised Severity | Rationale (truncated to one line)
+```
+
+Apply severity color coding to both Original and Revised values so the change is visually obvious.
+
+If no severity revisions exist, write: "No severity revisions made."
+
+**Complete Disposition Details** (full table)
+
+| ID | Title | Component | Severity | Disposition | Rationale |
+|---|---|---|---|---|---|
+
+One row per dispositioned threat. Show RevisedSeverity in the Severity column (the team's decision), color-coded by severity. The Disposition value is color-coded by disposition. Rationale shows the full text (allow word wrap; don't truncate).
+
+Sort by Severity (Critical first, then High, etc.), then by ID ascending.
+
+**Footer (centered)**
+
+```
+Generated: <ISO timestamp> | Project: {PROJECT_NAME} | Reviewers: <names>
+This document records threat disposition decisions made during the threat model review session.
+```
+
+After writing the HTML, acknowledge briefly: "Disposition report saved to {PROJECT_NAME}-threat-model/dispositions_report.html."
+
+---
+
 OUTPUT FILE FORMAT
 
 `{PROJECT_NAME}-threat-model/dispositions.csv`

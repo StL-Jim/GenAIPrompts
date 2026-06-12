@@ -27,7 +27,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 3. **No hallucinated CVEs, CWEs, or versions.** Only reference a CVE if you literally see the identifier in the source (e.g., in a lockfile comment or SECURITY.md). CWE references are allowed because they are a stable taxonomy; CVEs are not.
 
-4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and record either a threat or `N/A` with a one-line justification. This is the single most important rule for reproducibility.
+4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and decide threat or `N/A`. This is the single most important rule for reproducibility. Do NOT write out per-cell N/A justifications -- the recorded artifacts of the walk are the matrix-cell count and per-category counts in the Phase 2B Filtering Notes and completion banner, plus the Excluded Threats Ledger in Phase 2C for candidates that were considered and excluded. Per-cell prose for non-applicable cells wastes token budget and is not required.
 
 5. **Deterministic IDs.** Use the ID schemes defined in each phase exactly. IDs must be stable across re-runs given the same inputs.
 
@@ -253,7 +253,7 @@ If the user wants to restart a specific phase, set that phase and all later phas
 
 8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`). Use `create_new_file` per Operating Rule 7(a).
 
-9. **Print a Scope Proposal** containing the same information from step 7 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?). This is the proposal the user reviews before Phase 1 begins.
+9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?). This is the proposal the user reviews before Phase 1 begins.
 
 10. **Update STATE.md.** Mark `phase-0: complete` with the current timestamp, set Last Completed Step to `phase-0 -- scope proposal written to 00-scope.md`, set Resume Instruction to `Begin at Phase 1 (Documentation, Diagram, and Source Analysis).`
 
@@ -502,11 +502,15 @@ Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code 
 
 Include ONLY threats meeting all four criteria: Critical or High severity (exclude Medium/Low); Medium or High likelihood (exclude Low/Very Low); realistic based on known attack patterns rather than theoretical exploits; and actionable through reasonable controls.
 
-Maximum 20–25 threats in the final tables (Confirmed/Likely plus Inferred combined). If more qualify, rank by risk severity (Likelihood × Impact) and select the top 20–25; record the count of lower-priority threats excluded in the Phase 2C Filtering Summary.
+Maximum 20-25 threats in the final tables (Confirmed/Likely plus Inferred combined). If more qualify, rank by risk severity (Likelihood x Impact) and select the top 20-25; record the count of lower-priority threats excluded in the Phase 2C Filtering Summary.
+
+Scales used in the risk severity calculation (defined here once; no other values are valid):
+- Likelihood scale: Very Low, Low, Medium, High
+- Impact scale: Low, Medium, High, Critical
 
 Risk severity calculation:
-- CRITICAL = High Likelihood × Critical Impact, OR Critical Likelihood × High Impact
-- HIGH = High Likelihood × High Impact, OR Medium Likelihood × Critical Impact
+- CRITICAL = High Likelihood x Critical Impact
+- HIGH = High Likelihood x High Impact, OR Medium Likelihood x Critical Impact
 
 Quality over quantity: 15 well-analyzed actionable threats are better than 70 checkbox items. Each threat must be specific to this application's architecture, worth defending against given the deployment exposure recorded in 00-scope.md, and clear on why it matters for this system.
 
@@ -552,7 +556,9 @@ De-prioritize unless specific evidence justifies inclusion: APT requiring nation
 
 #### Phase 2B Work
 
-Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above and select the top 20–25 threats meeting the Critical/High severity criteria.
+Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above and select the top 20-25 threats meeting the Critical/High severity criteria.
+
+While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full mitigation, or scope rules). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. Phase 2C writes this list to the Excluded Threats Ledger so a downstream code audit can distinguish "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
 
 For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed, Likely, or Inferred) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. Inferred threats are filled into the lighter Inferred Threats table.
 
@@ -574,7 +580,7 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 | Component | The architectural component from the inventory. Use the exact same name as in 01-inventory.md and the Phase 4 diagrams. |
 | TrustBoundary | The trust boundary this threat crosses or operates within, by TB-NNN ID. `N/A` if the threat is within a single trust zone. |
 | Title | Specific, detailed name. Not "SQL Injection" but "SQL injection in Contact search API due to unparameterized query in `searchContacts()`." |
-| ThreatAgent | The actor profile: External Attacker, Insider Attacker, Malicious Insider, Compromised Container, Rogue Developer, Supply Chain Attacker, Opportunistic Scanner, Competitor, or Nation State Actor. Choose per the deployment exposure recorded in 00-scope.md: Internet-facing favors External Attacker / Opportunistic Scanner / Competitor; Internal favors Insider Attacker / Malicious Insider / Compromised Container / Rogue Developer; Hybrid uses both profiles for respective components; all deployments always consider Supply Chain Attacker. |
+| ThreatAgent | The actor profile: External Attacker, Insider Attacker (a legitimate insider account acting under compromise or negligence -- phished credentials, malware on a workstation, careless misuse), Malicious Insider (a trusted person intentionally abusing their own legitimate access), Compromised Container, Rogue Developer, Supply Chain Attacker, Opportunistic Scanner, Competitor, or Nation State Actor. Choose per the deployment exposure recorded in 00-scope.md: Internet-facing favors External Attacker / Opportunistic Scanner / Competitor; Internal favors Insider Attacker / Malicious Insider / Compromised Container / Rogue Developer; Hybrid uses both profiles for respective components; all deployments always consider Supply Chain Attacker. |
 | Asset | The specific asset targeted, by AS-NNN ID from 02a-context.md. |
 | Attack | The specific attack technique. Reference MITRE ATT&CK techniques (e.g., `T1190 Exploit Public-Facing Application`) where applicable. |
 | AttackSurface | Pick from: External Interfaces, Internal Network, Development & Deployment, Infrastructure & Orchestration, Configuration & Secrets, Observability & Operations, Supply Chain, Authentication & Identity, Data Storage, Client-Side. |
@@ -617,6 +623,7 @@ Structure:
 # Phase 2B -- STRIDE Threat Tables
 
 ## Threat Filtering Notes
+- Matrix cells evaluated ((components + boundary-crossing flows) x 6 STRIDE categories): <N>
 - Total candidate threats identified during STRIDE matrix walk: <N>
 - Confirmed threats (main table): <N>
 - Likely threats (main table): <N>
@@ -685,7 +692,7 @@ Required sections:
 
 ## Threat Filtering Summary
 - Total threats identified during STRIDE matrix walk: <N>
-- Threats included in the model: <20–25>
+- Threats included in the model: <20-25>
   - Confirmed (main table): <N>
   - Likely (main table): <N>
   - Inferred (separate table): <N>
@@ -698,6 +705,16 @@ Required sections:
 ## Excluded Threat Categories
 - <Category>: <one-line rationale for deprioritization>
 - ...
+
+## Excluded Threats Ledger
+One row per candidate threat that was considered during the Phase 2B matrix walk and excluded. This ledger exists so a downstream code audit (COORDINATED mode) can distinguish "considered and excluded" from "never considered" -- in particular, an audit finding that contradicts a "fully mitigated" exclusion is a significant result. Keep each row to one line; do not expand into full threat rows.
+
+| ExcludedID | Component | STRIDE Category | Short Title | Exclusion Reason |
+|------------|-----------|-----------------|-------------|------------------|
+| EX-001 | C-003 | Tampering | SQL injection in admin report filter | Fully mitigated -- parameterized queries verified [evidence: src/admin/reports.go:40-66] |
+| EX-002 | C-001 | Denial of Service | Generic volumetric DDoS on edge | Generic-to-all-systems; CDN/WAF absorbs; Low likelihood |
+
+Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `Low likelihood`, `Out of scope`, `Generic-to-all-systems`. For `Fully mitigated` rows, cite the evidence for the mitigating control.
 
 ## Questions for Stakeholders
 - <Specific question about unclear architecture or security controls>
@@ -921,13 +938,13 @@ CRITICAL execution discipline for this phase: produce the `create_new_file` tool
 
 This discipline matters because the agent has a fixed per-response output budget. Every paragraph of prose written before the `create_new_file` call consumes that budget and leaves less for the actual HTML content. The observed failure mode is: agent writes several paragraphs planning the HTML structure, then calls `create_new_file`, then runs out of budget mid-generation and produces a truncated file containing only the first 5-10 threats with a note saying "abbreviated due to context constraints." The fix is to spend response budget on the file content, not on planning notes about the file content.
 
-Single-call generation was tested against scaffold-and-fill in earlier prompt versions and found to be more reliable for this content density: scaffold-and-fill imposed its own per-call ceiling on individual section fills, and the threats section in particular (a 20-column table with 20-25 rows) would hit that ceiling and produce truncated output. Single-call avoids the ceiling at the cost of being non-deterministic on rare bad-luck runs; for those, regenerate by re-running Phase 3.
+Single-call generation was tested against scaffold-and-fill in earlier prompt versions and found to be more reliable for this content density: scaffold-and-fill imposed its own per-call ceiling on individual section fills, and the threats section in particular (a 21-column table with 20-25 rows) would hit that ceiling and produce truncated output. Single-call avoids the ceiling at the cost of being non-deterministic on rare bad-luck runs; for those, regenerate by re-running Phase 3.
 
 Document requirements:
 
 - Single self-contained file: no external CSS/JS, no CDN references (air-gapped environment).
 - Inline `<style>` block, system font stack like `system-ui, -apple-system, Segoe UI, sans-serif`, print-friendly.
-- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast.
+- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast. (Only Critical and High can appear in the threats table given the prioritization rules; Medium/Low values are defined for the severity-revision display, the Confidence palette, and forward compatibility.)
 - ASCII-only content per Operating Rule 13.
 
 Layout (sticky left sidebar TOC):
@@ -1151,7 +1168,7 @@ XML format rules (follow exactly):
 
 ### Visual Standards (apply to every diagram)
 
-Size: minimum 1400×1000 px, presentation-ready, adequate spacing.
+Size: minimum 1400x1000 px, presentation-ready, adequate spacing.
 
 Color scheme:
 - Blue `#438DD5`: internal containers and components
@@ -1198,4 +1215,20 @@ After all four diagrams are written, update STATE.md: mark `phase-4: complete` w
   .\{PROJECT_NAME}-threat-model\diagrams\dfd.drawio
 Validation: all files uncompressed XML, base cells present, edges well-formed.
 STATE.md updated: phase-4 marked complete. Threat model run is finished.
+```
+
+---
+
+## Archiving for Future Runs (manual step -- print this reminder after the Phase 4 banner)
+
+Phase 3 Disposition Discovery in a FUTURE run searches for archived directories matching `{PROJECT_NAME}-threat-model-*`. Nothing in this workflow creates those archives automatically -- archiving is a deliberate user action taken before starting a new run. After printing the Phase 4 banner, print this reminder verbatim:
+
+```
+REMINDER -- before re-running this threat model in the future:
+1. Complete stakeholder review using the threat-model-disposition.md prompt, which writes
+   dispositions.csv into this run's output directory.
+2. Archive this run by renaming the output directory with a date suffix, e.g.:
+   Rename-Item ".\{PROJECT_NAME}-threat-model" ".\{PROJECT_NAME}-threat-model-yyyyMMdd"
+3. The next run will then find the archive, read its dispositions.csv, and carry your
+   review decisions forward. Without this step, disposition continuity is lost.
 ```

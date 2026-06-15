@@ -6,17 +6,8 @@ Your VS Code workspace **is the source code repository under assessment** (e.g.,
 Because the workspace root IS the source repo, Continue.dev's built-in tools (`read_file`, `create_new_file`, `single_find_and_replace`, `ls`) work for every file operation -- reading source code, writing output, and editing output -- provided you use paths relative to the workspace root. This is a deliberate simplification over earlier versions of this workflow.
 
 ## Required Inputs
-Before doing anything else, you must have these values. Derive what you can, ask for what you cannot.
 
-| Variable | Meaning | How to obtain |
-|---|---|---|
-| `PROJECT_NAME` | Leaf directory name of the workspace. Names the output folder. | `$PROJECT_NAME = (Get-Location \| Split-Path -Leaf)` |
-| `CURRENT_DATE` | Current date and time in ISO 8601 format. | `Get-Date -Format "yyyy-MM-ddTHH:mm"` |
-| `GOVERNANCE_FRAMEWORK` | Compliance/governance framework for mitigation recommendations. | Collected in Phase 0 pre-flight questions (Q5). Default: NIST 800-53 Rev 5. |
-
-The output directory is always `.\{PROJECT_NAME}-threat-model\` relative to the workspace root. For example, if the workspace is `c:\git_repos\my_project`, output lives at `c:\git_repos\my_project\my_project-threat-model\`.
-
-Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute the actual project name.
+Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived in Phase 0 step 1), `CURRENT_DATE` (ISO 8601, derived in Phase 0 step 1), and `GOVERNANCE_FRAMEWORK` (collected in Phase 0 Q5 -- default NIST 800-53 Rev 5). All output goes under `.\{PROJECT_NAME}-threat-model\` relative to the workspace root. Wherever you see `{PROJECT_NAME}` in a path, substitute the actual project name.
 
 ## Operating Rules (read before every phase)
 
@@ -28,7 +19,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 3. **No hallucinated CVEs, CWEs, or versions.** Only reference a CVE if you literally see the identifier in the source (e.g., in a lockfile comment or SECURITY.md). CWE references are allowed because they are a stable taxonomy; CVEs are not.
 
-4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and decide threat or `N/A`. This is the single most important rule for reproducibility. Do NOT write out per-cell N/A justifications -- the recorded artifacts of the walk are the matrix-cell count and per-category counts in the Phase 2B Filtering Notes and completion banner, plus the Excluded Threats Ledger in Phase 2C for candidates that were considered and excluded. Per-cell prose for non-applicable cells wastes token budget and is not required.
+4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and decide threat or `N/A`. Do NOT write out per-cell N/A justifications -- the recorded artifacts of the walk are the matrix-cell count and per-category counts in the Phase 2B Filtering Notes and completion banner, plus the Excluded Threats Ledger in Phase 2C for candidates that were considered and excluded. Per-cell prose for non-applicable cells wastes token budget and is not required.
 
 5. **Deterministic IDs.** Use the ID schemes defined in each phase exactly. IDs must be stable across re-runs given the same inputs.
 
@@ -61,28 +52,15 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
    | `.drawio` | `create_new_file` with complete XML in ONE SHOT (Phase 4 details) |
    | Anything else where built-ins fail | PowerShell fallback, single-quoted here-string |
 
-   **(a) `create_new_file` syntax:**
-   ```
-   create_new_file
-     filepath: .\{PROJECT_NAME}-threat-model/01-inventory.md
-     contents: <full file contents>
-   ```
-   Use forward slashes, paths relative to workspace root.
+   **(a) `create_new_file`:** pass `filepath` (forward slashes, relative to workspace root) and `contents`. Overwrites if exists.
 
-   **(b) `single_find_and_replace`** takes `filepath`, `old_string`, `new_string`, `replace_all`. Make `old_string` long enough to be unique in the target file.
+   **(b) `single_find_and_replace`:** takes `filepath`, `old_string`, `new_string`, `replace_all`. Make `old_string` long enough to be unique.
 
    **(c) Directories:** `New-Item -ItemType Directory -Path ".\$PROJECT_NAME-threat-model" -Force | Out-Null`. Never use `>`, `>>`, `echo`, `cat`, `tee`, bash heredocs, or `mkdir -p`.
 
-   **(d) After every write, verify:**
-   ```powershell
-   Get-Item ".\$PROJECT_NAME-threat-model\<filename>" | Select-Object Length, LastWriteTime
-   Get-Content ".\$PROJECT_NAME-threat-model\<filename>" -TotalCount 3
-   ```
-   Missing, zero bytes, or unexpected first lines -> retry with PowerShell fallback.
+   **(d) After every write, verify:** `Get-Item ... | Select-Object Length, LastWriteTime` and `Get-Content ... -TotalCount 3`. Missing, zero bytes, or unexpected first lines -> retry with PowerShell fallback.
 
-   **(e) No emphasis in Markdown output.** Do not use bold, italics, asterisks, or underscores in any `.md` file. Use headings, lists, tables, and code fences only.
-
-8. **Output directory.** All generated artifacts go under `.\{PROJECT_NAME}-threat-model\` inside the workspace (which is the source repo). Create it in Phase 0 and add it to `.git/info/exclude` so it is not accidentally committed to the source repo. The directory layout is:
+8. **Output directory layout:**
    ```
    {PROJECT_NAME}-threat-model/
      STATE.md                          (run-state file, see Operating Rule 12)
@@ -135,7 +113,7 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 13. **Production scope only.** Threat findings apply exclusively to production environment code paths and configurations. Dev, QA, staging, and test artifacts -- `.env.test`, `.env.dev`, `docker-compose.dev.yml`, `docker-compose.test.yml`, test fixtures, seed data files, test-only dependencies -- may be noted in the Phase 1 inventory but do NOT generate threat findings. When a configuration file exists in both production and non-production variants, analyze only the production variant.
 
-14. **ASCII-only output for text artifacts.** All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
+14. **ASCII-only output for text artifacts. No emphasis in Markdown.** Do not use bold, italics, asterisks, or underscores in any `.md` file -- use headings, lists, tables, and code fences only. All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
 
     Required substitutions:
     - Em-dash `—` (U+2014) -> `--` (two hyphens)
@@ -153,23 +131,15 @@ Throughout this prompt, wherever you see `{PROJECT_NAME}` in a path, substitute 
 
 ## Session-Start Behavior (run before Phase 0 on every session)
 
-Before doing any phase work, check whether STATE.md exists:
+Check whether STATE.md exists:
 
 ```powershell
 $STATE_FILE = ".\$PROJECT_NAME-threat-model\STATE.md"
-if (Test-Path $STATE_FILE) {
-    "STATE.md found -- reading existing run state."
-    Get-Content $STATE_FILE
-} else {
-    "No STATE.md -- this is a fresh run. Will start at Phase 0."
-}
+if (Test-Path $STATE_FILE) { "STATE.md found -- reading existing run state."; Get-Content $STATE_FILE }
+else { "No STATE.md -- fresh run. Starting at Phase 0." }
 ```
 
-If STATE.md does not exist, proceed to Phase 0.
-
-If STATE.md exists, read it, identify the highest sub-phase marked `complete`, and announce to the user: "STATE.md indicates the last completed step was `<step>`. Per the Resume Instruction in STATE.md, next session should `<resume instruction>`. Should I resume from there, or do you want to restart a specific phase?" Wait for the user to confirm before doing any work. If the user types `proceed`, jump directly to the indicated phase or sub-phase and run its rehydration block.
-
-If the user wants to restart a specific phase, set that phase and all later phases back to `pending` in STATE.md before running it.
+If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell the user the last completed step and the Resume Instruction, then ask whether to resume or restart a specific phase. Wait for confirmation before doing any work. To restart a phase, mark it and all later phases back to `pending` before running.
 
 ---
 
@@ -436,7 +406,7 @@ If a session dies anywhere inside Phase 2, the next session reads STATE.md plus 
 
 #### Phase 2A Rehydration (MANDATORY FIRST STEP)
 
-Read STATE.md and 01-inventory.md. The inventory is the authoritative source for components, trust boundaries, data stores, and external integrations. Earlier source-file reads from Phase 1 may have been summarized or dropped from conversation memory by Continue.dev's context compaction; do not rely on what you "remember." If anything you recall conflicts with the inventory file, the disk version wins.
+Read STATE.md and 01-inventory.md. The inventory is the authoritative source for components, trust boundaries, data stores, and external integrations. Disk content takes precedence over conversation memory.
 
 ```
 read_file
@@ -518,7 +488,7 @@ read_file
   filepath: {PROJECT_NAME}-threat-model/02a-context.md
 ```
 
-Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code when you need it to verify a threat's architectural conditions -- specifically to confirm a control is absent or partial, or to confirm a present flaw exists -- for threats aiming at Confirmed or Likely. Read the targeted line range relevant to the control or flaw, not whole files. Threats headed for the Inferred table do not require this reading; that is what keeps them cheap. Do not re-read code for threats you have already decided are Inferred.
+Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code only when verifying a specific control is absent or a flaw is present -- read targeted line ranges, not whole files. Inferred threats do not require code verification.
 
 #### Threat Prioritization (apply during enumeration)
 
@@ -534,13 +504,11 @@ Risk severity calculation:
 - CRITICAL = High Likelihood x Critical Impact
 - HIGH = High Likelihood x High Impact, OR Medium Likelihood x Critical Impact
 
-Quality over quantity: 15 well-analyzed actionable threats are better than 70 checkbox items. Each threat must be specific to this application's architecture, worth defending against given the deployment exposure recorded in 00-scope.md, and clear on why it matters for this system.
+Each threat must be specific to this application's architecture, worth defending against given the deployment exposure recorded in 00-scope.md, and clear on why it matters for this system.
 
 #### Verify against the system model, not the code
 
-This is what separates a threat model from a code audit, and it is the single most important discipline in this phase. A threat model reasons top-down from the system: an actor, with a goal, taking a path, against an asset, crossing a trust boundary. The question is not "is there a flawed line of code here?" (that is the job of a separate code audit) -- it is "is this exposure real for THIS system, given what we can verify about its architecture?"
-
-A threat is "real" -- the kind you would stake your reputation on in front of leadership -- when its architectural conditions are confirmed against the system model you built in Phase 1 and Phase 2A:
+A threat model reasons top-down: an actor, a goal, a path, an asset, a trust boundary. The question is not "is there a flawed line of code?" but "is this exposure real for THIS system?" A threat is reputation-grade when its architectural conditions are confirmed against the system model from Phase 1 and Phase 2A:
 
 1. **The asset exists.** The thing being attacked is a real asset in 02a-context.md (an AS-NNN entry).
 2. **The path exists.** There is a data flow or access path that reaches the asset, ideally one that crosses a trust boundary (a DF-NNN in 02a-context.md, a TB-NNN it crosses).
@@ -588,8 +556,6 @@ For each Confirmed or Likely threat, fill in every column of the main threat tab
 
 #### Threat Table Schema (main table: Confirmed and Likely threats)
 
-This table is the canonical threat model -- the reputation-grade list of threats whose architectural conditions have been verified against the system model. Every column has a clear job and pulls its weight. The table combines per-threat description (Title, Description, Evidence, etc.) with the attack-centric view (ThreatAgent, Asset, AttackSurface) in a single integrated row.
-
 Only Confirmed and Likely threats go in this table. Inferred threats go in the separate Inferred Threats table (schema further below).
 
 | Column | Description |
@@ -622,9 +588,7 @@ Sort the table by Severity (Critical first), then by Confidence (Confirmed befor
 
 #### Inferred Threats Table Schema (lighter)
 
-Inferred threats are architecturally plausible for this kind of system but their specific conditions (asset, path, control-state) were not all confirmed for this system. They are explicitly NOT reputation-grade. A developer reviewing the model may recognize a genuine weakness here that the model could not structurally confirm -- this table is the honest place for those.
-
-The Inferred table uses a lighter schema -- there is no point filling 21 columns of verified detail for threats that, by definition, were not verified:
+The Inferred table uses a lighter schema -- there is no point filling 21 columns of verified detail for threats that, by definition, were not verified (see Confidence Levels above):
 
 | Column | Description |
 |--------|-------------|
@@ -755,12 +719,7 @@ Steps:
 
 1. Write `02c-assumptions.md` with `create_new_file` per the schema above.
 
-2. Write the header section to a temp file using `create_new_file`:
-   ```
-   create_new_file
-     filepath: .\{PROJECT_NAME}-threat-model/02-header.md
-     contents: <header content with title, project name, date, summary paragraph>
-   ```
+2. Write the header section to `02-header.md` using `create_new_file` (title, project name, date, summary paragraph).
 
 3. Concatenate header + three sub-files into `02-threats.md` using PowerShell:
    ```powershell
@@ -805,7 +764,7 @@ read_file
 
 If `02-threats.md` does not exist or is empty, STOP and report the error -- Phase 2C did not complete consolidation and Phase 3 cannot proceed. Re-run Phase 2C (which will rebuild `02-threats.md` from the surviving 02a/02b/02c sub-files).
 
-If anything you recall from earlier in this conversation conflicts with what you just read from disk, the disk version wins. If a threat ID, component name, or severity value in your memory does not appear in the on-disk threats file, it is not a threat -- do not invent it into the exports.
+Disk content takes precedence over conversation memory. If a threat ID, component name, or severity value in your memory does not appear in the on-disk threats file, do not invent it into the exports.
 
 Mark `phase-3: in-progress` in STATE.md before continuing.
 
@@ -871,45 +830,7 @@ Proceed to the Matching Procedure section below.
 
 **Case C: Archived directories exist but NONE contains a dispositions.csv (Step 2 found directories but no disposition files).**
 
-This is the suspicious case. The user has done at least one prior threat model run, but apparently never used the disposition capture workflow. Two possibilities:
-- The user genuinely never did stakeholder review with the disposition capture prompt.
-- A dispositions.csv file exists somewhere the search didn't find (renamed file, different directory, etc.).
-
-Pause and present this prompt to the user, verbatim:
-
-```
-Phase 3 Disposition Discovery
-
-I searched for prior threat model directories and found:
-<list each directory found in Step 1 by name>
-
-None contained a dispositions.csv file.
-
-A dispositions.csv file records stakeholder review decisions (which threats were marked
-False Positive, Risk Accepted, etc.) from a prior stakeholder review session using the
-threat-model-disposition.md prompt. When found, those decisions transfer to the current
-threat model exports so reviewers don't re-make decisions they've already made.
-
-If you have a dispositions.csv file at a different path I should use, paste the full path
-now. Otherwise, type 'proceed' to continue without disposition data.
-```
-
-Wait for user response. Three possible responses:
-
-If the user types `proceed`: skip to Phase 3A without disposition data.
-
-If the user pastes a path: attempt to read the file at that path. Validate that it parses as a valid dispositions.csv (has the expected header row, has at least one data row). If validation succeeds, proceed to the Matching Procedure using this file as the dispositions source. Acknowledge with:
-```
-Using dispositions.csv at <user-provided path> (<N> disposition entries). Applying matched dispositions to exports.
-```
-
-If the path is invalid (file not found, file empty, file doesn't parse as a dispositions.csv with expected columns), re-prompt the user:
-```
-Could not use the path '<user-provided path>': <specific error -- file not found, file empty, invalid format, etc.>.
-Paste a different path, or type 'proceed' to continue without disposition data.
-```
-
-Continue re-prompting until the user provides a valid path or types `proceed`. Do not give up silently; the user needs to actively choose to skip disposition data, not have it silently skipped due to a bad path.
+Pause and tell the user: archived threat model directories were found but none contained a dispositions.csv. Explain that dispositions.csv records prior stakeholder review decisions and ask if they have one at a different path. If they paste a path, validate it (expected header row, at least one data row) and proceed to the Matching Procedure. If the path is invalid, re-prompt with the specific error. If they type `proceed`, continue without disposition data. Do not give up silently -- the user must actively choose to skip.
 
 **Matching procedure:**
 
@@ -941,12 +862,6 @@ If a matched disposition entry has different OriginalSeverity and RevisedSeverit
 
 If OriginalSeverity == RevisedSeverity in the disposition entry, no revision was made and the threat's current severity is used as-is.
 
-**Note about identity of "Original" severity:**
-
-The "OriginalSeverity" in a disposition file refers to what the prior threat model run rated the threat. If the current run rates the threat differently (e.g., the prior run rated it Critical, the current run rates it High before any disposition), the comparison is between the prior disposition's RevisedSeverity and the current run's severity. Typically the current run's severity for a matching threat will equal the prior run's OriginalSeverity, but if it doesn't, treat the current run's value as the new baseline and apply the disposition's revision delta on top.
-
-In practice this is rare -- if a threat is essentially the same between runs, the agent typically rates it the same way. But the logic is defined for the edge case.
-
 **Goal:** Emit the threat model in three formats for different audiences.
 
 ### 3A -- Markdown
@@ -956,11 +871,7 @@ Copy `02-threats.md` to `.\{PROJECT_NAME}-threat-model\outputs\threat-model.md` 
 
 Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using `create_new_file` with the complete HTML content in a single call (per the decision table in Operating Rule 7).
 
-CRITICAL execution discipline for this phase: produce the `create_new_file` tool call with minimal preamble. Do NOT write extensive planning notes, do NOT describe what the file will contain in prose before producing it, do NOT enumerate what each section will hold before generating the actual HTML. Acknowledge the threat count from Phase 3 rehydration in one short line, then go directly to the tool call.
-
-This discipline matters because the agent has a fixed per-response output budget. Every paragraph of prose written before the `create_new_file` call consumes that budget and leaves less for the actual HTML content. The observed failure mode is: agent writes several paragraphs planning the HTML structure, then calls `create_new_file`, then runs out of budget mid-generation and produces a truncated file containing only the first 5-10 threats with a note saying "abbreviated due to context constraints." The fix is to spend response budget on the file content, not on planning notes about the file content.
-
-Single-call generation was tested against scaffold-and-fill in earlier prompt versions and found to be more reliable for this content density: scaffold-and-fill imposed its own per-call ceiling on individual section fills, and the threats section in particular (a 21-column table with 20-25 rows) would hit that ceiling and produce truncated output. Single-call avoids the ceiling at the cost of being non-deterministic on rare bad-luck runs; for those, regenerate by re-running Phase 3.
+CRITICAL: produce the `create_new_file` call with minimal preamble. Acknowledge the threat count in one line, then go directly to the tool call. Do not write planning notes or section descriptions before generating the HTML -- every line of preamble consumes output budget that should go into the file content.
 
 Document requirements:
 
@@ -1020,33 +931,9 @@ Style it with a muted/neutral background (not severity-colored) to visually sign
 
 The `Disposition` and `DispositionRationale` cells in the threats section are NOT static text. They are interactive form controls that the reviewer fills in during stakeholder review, with the report then printed to PDF as the dated artifact of the review session.
 
-For each threat row, render the Disposition cell as a `<select>` dropdown with this exact set of options (in this order):
+For each threat row, render the Disposition cell as a `<select>` dropdown with options (in order): `--, Active, False Positive, Risk Accepted, Mitigated by Compensating Control, Duplicate, Other`. If a disposition was matched from a prior dispositions.csv, pre-select the matched value; otherwise default to `--`.
 
-```html
-<select class="disposition" aria-label="Disposition for threat <ThreatID>">
-  <option value="">--</option>
-  <option>Active</option>
-  <option>False Positive</option>
-  <option>Risk Accepted</option>
-  <option>Mitigated by Compensating Control</option>
-  <option>Duplicate</option>
-  <option>Other</option>
-</select>
-```
-
-If a disposition was matched for this threat during Phase 3 Disposition Discovery (from a prior dispositions.csv), add `selected` to the corresponding `<option>` element so the dropdown defaults to the matched value rather than `--`. For example, a threat that was previously dispositioned as "Mitigated by Compensating Control" would render with `<option selected>Mitigated by Compensating Control</option>`.
-
-If no disposition was matched, the empty `--` option is selected so the threat shows as visibly un-dispositioned (ready for stakeholder review).
-
-Render the DispositionRationale cell (inside the `<details>` collapsible) as a textarea:
-
-```html
-<textarea class="rationale" rows="2" placeholder="Rationale..." aria-label="Disposition rationale for threat <ThreatID>"></textarea>
-```
-
-If a matched disposition has a Rationale value, populate the textarea's content with that rationale (HTML-escaped). For example: `<textarea class="rationale" rows="2" ...>WAF rule SECRULE-2024-15 blocks SQL injection patterns at the edge</textarea>`.
-
-If no disposition was matched or the matched disposition has empty rationale, the textarea remains empty for the reviewer to fill in.
+Render the DispositionRationale cell (inside the `<details>` collapsible) as a `<textarea rows="2">`. Populate with the matched rationale value (HTML-escaped) if one exists; otherwise leave empty.
 
 #### Severity display with revisions (when applicable)
 
@@ -1062,36 +949,14 @@ If no severity revision exists (either no matched disposition, or the matched di
 
 #### Print CSS for the form controls
 
-Add print-specific CSS so the form controls render cleanly in print-to-PDF output:
-
-```css
-@media print {
-  select.disposition {
-    appearance: none;
-    border: 1px solid #888;
-    padding: 2px 4px;
-    background: none;
-  }
-  textarea.rationale {
-    border: 1px solid #888;
-    resize: none;
-    overflow: visible;
-    height: auto;
-    min-height: 1.6em;
-    white-space: pre-wrap;
-    background: none;
-  }
-}
-```
-
-The print rules strip the on-screen chrome (dropdown arrow, resize handle, scrollbar) and expand the textarea to show its full content rather than scrolling within a fixed box. This makes the printed PDF look like a completed form rather than a screenshot of input controls.
+Add `@media print` CSS so dropdowns render without the arrow chrome and textareas expand to show full content without scrollbars -- the printed PDF should look like a completed form, not a screenshot of input controls.
 
 Verify per Operating Rule 7(d) after writing. If the file is missing or truncated, retry the `create_new_file` call.
 
 ### 3C -- CSV for Excel
 Produce a single CSV file at `.\{PROJECT_NAME}-threat-model\outputs\threats.csv`.
 
-`threats.csv` -- the canonical CSV export of the threat model. One row per threat from the MAIN table only (Confirmed and Likely). Inferred threats are NOT exported to the CSV -- the CSV is the structured, reputation-grade artifact, and Inferred threats live only in the Markdown and HTML for reviewer evaluation. Header row required, columns in this exact order:
+`threats.csv` -- one row per threat from the main table only (Confirmed and Likely). Inferred threats are not included. Header row required, columns in this exact order:
 
 ```
 ThreatID,Confidence,OriginalSeverity,RevisedSeverity,Category,OWASP,Component,TrustBoundary,Title,ThreatAgent,Asset,Attack,AttackSurface,Impact,Description,Evidence,Likelihood,SecurityControl,ResidualRisk,Mitigation,Disposition,DispositionRationale
@@ -1120,8 +985,6 @@ Do not default RevisedSeverity to OriginalSeverity when no disposition matched. 
 - If no disposition was matched: emit as empty strings.
 
 Header row must include both columns; data rows have either populated values or empty strings.
-
-Selective import: anyone who wants an attack-centric view of the data -- ThreatID, ThreatAgent, Asset, Attack, AttackSurface, Impact, SecurityControl, Mitigation, Evidence -- can import just those columns from this file in Excel's Power Query or a similar tool. The single CSV avoids duplication while preserving any selective-import workflow.
 
 #### CSV rules:
 - Use RFC 4180 escaping. Fields containing commas, quotes, or newlines must be wrapped in double-quotes; embedded double-quotes become `""`.
@@ -1162,7 +1025,7 @@ read_file
 
 If either inventory or threats file is missing or empty, STOP and report the error.
 
-If anything you recall from earlier in this conversation conflicts with what you just read from disk, the disk version wins. Component IDs (`C-NNN`), trust boundary IDs (`TB-NNN`), data store IDs (`DS-NNN`), external integration IDs (`EXT-NNN`), and threat IDs (`01`, `02`, etc.) in the diagrams must match the IDs in these two files exactly -- do not invent, rename, or re-number any ID.
+Disk content takes precedence over conversation memory. Component IDs (`C-NNN`), trust boundary IDs (`TB-NNN`), data store IDs (`DS-NNN`), external integration IDs (`EXT-NNN`), and threat IDs (`01`, `02`, etc.) in the diagrams must match the IDs in these two files exactly -- do not invent, rename, or re-number any ID.
 
 Mark `phase-4: in-progress` in STATE.md before continuing.
 

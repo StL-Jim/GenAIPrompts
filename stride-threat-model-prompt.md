@@ -76,6 +76,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
        c4-03-component.drawio          (Phase 4)
        dfd.drawio                      (Phase 4)
      outputs/
+       architecture-threat-explanation.html (Phase 2B: architecture-vs-code explainer for stakeholders)
        threat-model.md                 (Phase 3)
        threat-model.html               (Phase 3)
        threats.csv                     (Phase 3, single comprehensive CSV)
@@ -634,12 +635,21 @@ If there are no Inferred threats, still include the `## Inferred Threats` headin
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.`
 
+#### Phase 2B Stakeholder Explainer: `.\{PROJECT_NAME}-threat-model\outputs\architecture-threat-explanation.html`
+
+For each threat in the table above, explain why it is an architecture-level finding and not a code-level finding, so the user can use this to answer stakeholders (developers, management, fellow security professionals) who push back on a finding. Use your own judgment on explanation and structure per threat; a card per threat with a short Architecture Issue / Why Not Just Code / Explain to Developers framing is a reasonable default, but prioritize a clear, accurate explanation over rigid adherence to that shape.
+
+Write as a single self-contained HTML file (inline `<style>`, no external CSS/JS), ASCII-only per Operating Rule 13. Plain and simple -- this is a leave-behind for conversations, not the main report.
+
+Write with `create_new_file`. Verify per Operating Rule 7(d).
+
 **Phase 2B Completion Banner:**
 ```
 === PHASE 2B COMPLETE: 02b-threats.md WRITTEN ===
 Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Critical: <N>  |  High: <N>
 Inferred threats: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
+Stakeholder explainer: outputs/architecture-threat-explanation.html written
 STATE.md updated: phase-2b marked complete.
 Type 'proceed' to begin Phase 2C (Questions, Assumptions, Consolidation).
 ```

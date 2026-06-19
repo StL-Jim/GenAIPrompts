@@ -114,6 +114,8 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
 
 13. **Production scope only.** Threat findings apply exclusively to production environment code paths and configurations. Dev, QA, staging, and test artifacts -- `.env.test`, `.env.dev`, `docker-compose.dev.yml`, `docker-compose.test.yml`, test fixtures, seed data files, test-only dependencies -- may be noted in the Phase 1 inventory but do NOT generate threat findings. When a configuration file exists in both production and non-production variants, analyze only the production variant.
 
+13a. **Never analyze other tools' run-state directories.** The workspace may contain output from prior runs of this prompt (`{PROJECT_NAME}-threat-model/`) or from the related CodeSecurityAudit prompt (`audit_state/`). These directories hold prior findings, generated reports, and in the audit case, recorded secret locations -- they are workflow artifacts, not source code or system documentation, regardless of how their filenames or content might look. Exclude them entirely from every phase: do not read them, do not cite them as evidence, do not treat their content as describing the system under review. If found during discovery, note their presence and exclusion in 00-scope.md and move on.
+
 14. **ASCII-only output for text artifacts. No emphasis in Markdown.** Do not use bold, italics, asterisks, or underscores in any `.md` file -- use headings, lists, tables, and code fences only. All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
 
     Required substitutions:
@@ -244,7 +246,7 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
 
 7. **Identify primary language(s), framework(s), and build system(s)** -- only from files you have directly observed. Look for `package.json`, `pom.xml`, `*.csproj`, `go.mod`, `requirements.txt`, `Cargo.toml`, `*.tf`, `Dockerfile`, `*.yaml` (k8s/helm), etc. Use `read_file` for each detection file and cite with evidence paths relative to the workspace root.
 
-8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`). Use `create_new_file` per Operating Rule 7(a).
+8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Use `create_new_file` per Operating Rule 7(a).
 
 9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?). This is the proposal the user reviews before Phase 1 begins.
 
@@ -284,6 +286,9 @@ Mark phase-1 as `in-progress` in STATE.md before continuing.
 **Reminder:** Every file read in this phase targets the current workspace (which IS the source repo). Prefer Continue.dev's `read_file` for specific files and `ls` for directory listings per Operating Rule 6. Use PowerShell `Select-String` when you need to search across the repo for patterns, and `Get-Content ... | Select-Object -Skip -First` when you need a line range of a large file.
 
 ### Phase 1A -- Documentation Pass
+
+EXCLUDED from all Phase 1 passes, regardless of how plausible the filenames look: `audit_state/` (the CodeSecurityAudit prompt's own run-state directory -- contains findings and secret locations from a separate workflow, not source documentation) and `{PROJECT_NAME}-threat-model/` (this prompt's own output directory from prior runs). Do not read, cite as evidence, or treat content from either directory as part of the system under review.
+
 Search for and read, in this order:
 1. `README*`, `ARCHITECTURE*`, `DESIGN*`, `SECURITY*`, `THREAT*`, `docs/`, `doc/`, `documentation/`
 2. Any `*.puml`, `*.plantuml`, `*.mmd` (Mermaid), `*.drawio`, `*.dsl` (Structurizr), `*.c4` files
@@ -493,7 +498,7 @@ Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code 
 
 #### Threat Prioritization (apply during enumeration)
 
-Include ONLY threats meeting all four criteria: Critical or High severity (exclude Medium/Low); Medium or High likelihood (exclude Low/Very Low); realistic based on known attack patterns rather than theoretical exploits; and actionable through reasonable controls.
+Include ONLY threats meeting all four criteria: CRITICAL or HIGH risk severity calculation outcome (exclude Medium/Low); Medium or High likelihood (exclude Low/Very Low); realistic based on known attack patterns rather than theoretical exploits; and actionable through reasonable controls.
 
 Maximum 20-25 threats in the final tables (Confirmed/Likely plus Inferred combined). If more qualify, rank by risk severity (Likelihood x Impact) and select the top 20-25; record the count of lower-priority threats excluded in the Phase 2C Filtering Summary.
 
@@ -504,6 +509,8 @@ Scales used in the risk severity calculation (defined here once; no other values
 Risk severity calculation:
 - CRITICAL = High Likelihood x Critical Impact
 - HIGH = High Likelihood x High Impact, OR Medium Likelihood x Critical Impact
+
+Displayed Priority label mapping (explicit, not left to inference): the threat table's `Priority` column is the display label for this calculation's outcome -- CRITICAL displays as **Priority 1**, HIGH displays as **Priority 2**. Likelihood and Impact themselves are never renamed or displayed as Priority; only the final CRITICAL/HIGH outcome is relabeled.
 
 Each threat must be specific to this application's architecture, worth defending against given the deployment exposure recorded in 00-scope.md, and clear on why it matters for this system.
 
@@ -547,7 +554,7 @@ De-prioritize unless specific evidence justifies inclusion: APT requiring nation
 
 #### Phase 2B Work
 
-Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above and select the top 20-25 threats meeting the Critical/High severity criteria.
+Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above and select the top 20-25 threats meeting the Priority 1/Priority 2 criteria.
 
 While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full mitigation, or scope rules). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. Phase 2C writes this list to the Excluded Threats Ledger so a downstream code audit can distinguish "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
 
@@ -563,7 +570,7 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 |--------|-------------|
 | ThreatID | `01`, `02`, etc. Stable across re-runs. Maximum 25 threats so two digits is sufficient. |
 | Confidence | One of: `Confirmed`, `Likely`. Reflects what was verified against the system model per the Confidence Levels section. Confirmed = asset, path, and control-state all verified. Likely = asset and path verified, control-state uncertain (the Description must state what would confirm it). Inferred threats do not appear in this table. |
-| Severity | One of: Critical, High. (Medium and Low are excluded by the prioritization rules.) |
+| Priority | One of: Priority 1, Priority 2. Priority 1 = threats meeting the risk severity calculation's CRITICAL outcome; Priority 2 = threats meeting the HIGH outcome. (Medium and Low risk-calc outcomes are excluded entirely by the prioritization rules.) |
 | Category | STRIDE category, exactly one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. |
 | OWASP | The OWASP Top 10 item this maps to (e.g., A01:2021), or `N/A`. |
 | Component | The architectural component from the inventory. Use the exact same name as in 01-inventory.md and the Phase 4 diagrams. |
@@ -575,7 +582,7 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 | AttackSurface | Pick from: External Interfaces, Internal Network, Development & Deployment, Infrastructure & Orchestration, Configuration & Secrets, Observability & Operations, Supply Chain, Authentication & Identity, Data Storage, Client-Side. |
 | Impact | Confidentiality, Integrity, and/or Availability. |
 | Description | Why this threat matters for this component, how it would be exploited, and what the attacker gets. Combines what earlier versions called Why Applicable and Attack Path. Multi-sentence prose, but kept tight. For a Likely threat, state explicitly what would need to be checked to reach Confirmed. |
-| Evidence | The ARCHITECTURAL claim that makes this threat real, with code/IaC citations in support. Lead with the architectural conditions -- the asset (AS-NNN), the path (DF-NNN and the TB-NNN it crosses), and the control-state (absent or partial) -- then cite the code or IaC that supports the control-state claim. Example: `AS-004 (customer PII) reachable via DF-007 crossing TB-003; no query-logging or DLP control on this path [evidence: infra/db/reporting_role.tf:12-30 grants broad SELECT; no audit config in infra/db/]`. The citation supports the architectural claim; it is not the claim by itself. Mandatory per Operating Rule 2; multiple citations separated by `;`. |
+| Evidence | The ARCHITECTURAL claim that makes this threat real, with code/IaC citations in support. Lead with the architectural conditions -- the asset (AS-NNN), the path (DF-NNN and the TB-NNN it crosses), and the control-state (absent or partial) -- then cite the code or IaC that supports the control-state claim. Example: `AS-004 (customer PII) reachable via DF-007 crossing TB-003; no query-logging or DLP control on this path [evidence: infra/db/reporting_role.tf:12-30 grants broad SELECT; no audit config in infra/db/]`. The citation supports the architectural claim; it is not the claim by itself. Mandatory per Operating Rule 2; multiple citations separated by `;`. Reminder (Operating Rule 13a applies here): never cite `audit_state/` or `{PROJECT_NAME}-threat-model/` as evidence -- these are workflow run-state from other tool invocations, not source code or documentation, regardless of how their filenames or content look. |
 | Likelihood | One of: Medium, High. The likelihood of exploitation given the architecture and real-world risk. (Low likelihood threats are excluded by prioritization rules.) |
 | SecurityControl | EXISTING controls already in place that affect this threat. Use `None` if no controls exist. Use `Partial -- <what's missing>` if controls are incomplete. |
 | ResidualRisk | The residual risk remaining after existing SecurityControl is applied but before recommended Mitigation. One of: Critical, High. |
@@ -583,9 +590,9 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 | Disposition | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in after the threat model is reviewed (e.g., `Active`, `False Positive`, `Risk Accepted`, `Mitigated by Compensating Control`, `Duplicate of 09`). |
 | DispositionRationale | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in with the reason for the disposition above. |
 
-(Count check: the schema lists 21 columns. ThreatID, Confidence, Severity, Category, OWASP, Component, TrustBoundary, Title, ThreatAgent, Asset, Attack, AttackSurface, Impact, Description, Evidence, Likelihood, SecurityControl, ResidualRisk, Mitigation, Disposition, DispositionRationale = 21 columns total. The Disposition pair is the post-review block and stays empty during generation, so the agent is populating 19 columns of content during enumeration.)
+(Count check: the schema lists 21 columns. ThreatID, Confidence, Priority, Category, OWASP, Component, TrustBoundary, Title, ThreatAgent, Asset, Attack, AttackSurface, Impact, Description, Evidence, Likelihood, SecurityControl, ResidualRisk, Mitigation, Disposition, DispositionRationale = 21 columns total. The Disposition pair is the post-review block and stays empty during generation, so the agent is populating 19 columns of content during enumeration.)
 
-Sort the table by Severity (Critical first), then by Confidence (Confirmed before Likely), then by OWASP Top 10 item, then by ThreatID.
+Sort the table by Priority (Priority 1 first), then by Confidence (Confirmed before Likely), then by OWASP Top 10 item, then by ThreatID.
 
 #### Inferred Threats Table Schema (lighter)
 
@@ -621,9 +628,9 @@ Structure:
 - Threats excluded as out of scope: <N>
 
 ## Threat Table (Confirmed and Likely)
-| ThreatID | Confidence | Severity | Category | OWASP | Component | TrustBoundary | Title | ThreatAgent | Asset | Attack | AttackSurface | Impact | Description | Evidence | Likelihood | SecurityControl | ResidualRisk | Mitigation | Disposition | DispositionRationale |
+| ThreatID | Confidence | Priority | Category | OWASP | Component | TrustBoundary | Title | ThreatAgent | Asset | Attack | AttackSurface | Impact | Description | Evidence | Likelihood | SecurityControl | ResidualRisk | Mitigation | Disposition | DispositionRationale |
 |----------|------------|----------|----------|-------|-----------|---------------|-------|-------------|-------|--------|---------------|--------|-------------|----------|------------|-----------------|--------------|------------|-------------|----------------------|
-| 01 | Confirmed | Critical | Spoofing | A07:2021 | C-003 (Auth Service) | TB-002 | Session token replay due to absent token binding | External Attacker | AS-002 (Auth tokens) | Captured session cookie replayed against API (MITRE T1078) | External Interfaces | Confidentiality, Integrity | After intercepting a session cookie via XSS or network capture, attacker replays it against the API to impersonate the user. Edge terminates TLS, no token binding present, no anomaly detection. | AS-002 (auth tokens) reachable via DF-003 crossing TB-002; no token binding or anomaly detection on the session path [evidence: src/auth/session.go:120-158 issues bearer cookie with no binding; no device-binding config in src/auth/] | High | Partial -- TLS 1.3 on edge, no token binding | High | Implement RFC 8473 token binding (SC-8); reduce session lifetime to 30 min (AC-12); add anomalous-IP detection (SI-4). | | |
+| 01 | Confirmed | Priority 1 | Spoofing | A07:2021 | C-003 (Auth Service) | TB-002 | Session token replay due to absent token binding | External Attacker | AS-002 (Auth tokens) | Captured session cookie replayed against API (MITRE T1078) | External Interfaces | Confidentiality, Integrity | After intercepting a session cookie via XSS or network capture, attacker replays it against the API to impersonate the user. Edge terminates TLS, no token binding present, no anomaly detection. | AS-002 (auth tokens) reachable via DF-003 crossing TB-002; no token binding or anomaly detection on the session path [evidence: src/auth/session.go:120-158 issues bearer cookie with no binding; no device-binding config in src/auth/] | High | Partial -- TLS 1.3 on edge, no token binding | High | Implement RFC 8473 token binding (SC-8); reduce session lifetime to 30 min (AC-12); add anomalous-IP detection (SI-4). | | |
 
 ## Inferred Threats
 | ThreatID | Category | Component | Title | Description | WhatWouldConfirm |
@@ -632,6 +639,8 @@ Structure:
 ```
 
 If there are no Inferred threats, still include the `## Inferred Threats` heading followed by a single line: `None -- all enumerated threats were verified to Confirmed or Likely.`
+
+MANDATORY -- exactly these two tables, nothing else: `02b-threats.md` contains the Threat Filtering Notes, the Threat Table, and the Inferred Threats table, in that order, and no other section. Do NOT add a "Threat Narratives," "Threat Details," or similar prose section with one block per threat -- every piece of detail (Title, ThreatAgent, Attack, Impact, Description, Evidence, Mitigation, etc.) belongs in its own column of the Threat Table row, per the schema above, not in a separate narrative. If the table feels too wide or dense, that is not a valid reason to restructure the file -- use terse cell content instead, but keep every threat as a single table row.
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.`
 
@@ -646,7 +655,7 @@ Write with `create_new_file`. Verify per Operating Rule 7(d).
 **Phase 2B Completion Banner:**
 ```
 === PHASE 2B COMPLETE: 02b-threats.md WRITTEN ===
-Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Critical: <N>  |  High: <N>
+Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority 2: <N>
 Inferred threats: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Stakeholder explainer: outputs/architecture-threat-explanation.html written
@@ -723,7 +732,7 @@ Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `
 
 **Output 2: `02-threats.md`** -- the canonical, consolidated Phase 2 output that Phase 3 reads. The consolidation is intentionally done with PowerShell rather than by reading each sub-file into the agent's context and writing the union with `create_new_file` -- the latter forces all sub-files' content through the working window for no reasoning benefit, just file gluing. PowerShell streams the content through the OS and keeps Phase 2C's context cost low.
 
-The `02-threats.md` file should consist of, in order: a header section (title, project name, current date, one-paragraph summary of threat counts by severity, components reviewed, deployment exposure), then the verbatim contents of `02a-context.md`, `02b-threats.md`, `02c-assumptions.md`.
+The `02-threats.md` file should consist of, in order: a header section (title, project name, current date, one-paragraph summary of threat counts by priority, components reviewed, deployment exposure), then the verbatim contents of `02a-context.md`, `02b-threats.md`, `02c-assumptions.md`.
 
 Steps:
 
@@ -774,11 +783,11 @@ read_file
 
 If `02-threats.md` does not exist or is empty, STOP and report the error -- Phase 2C did not complete consolidation and Phase 3 cannot proceed. Re-run Phase 2C (which will rebuild `02-threats.md` from the surviving 02a/02b/02c sub-files).
 
-Disk content takes precedence over conversation memory. If a threat ID, component name, or severity value in your memory does not appear in the on-disk threats file, do not invent it into the exports.
+Disk content takes precedence over conversation memory. If a threat ID, component name, or priority value in your memory does not appear in the on-disk threats file, do not invent it into the exports.
 
 Mark `phase-3: in-progress` in STATE.md before continuing.
 
-After reading, acknowledge in one line the total threat count and severity breakdown found on disk.
+After reading, acknowledge in one line the total threat count and priority breakdown found on disk.
 
 ### Phase 3 Disposition Discovery
 
@@ -864,14 +873,6 @@ Disposition matching complete: <N> threats matched (high confidence), <M> threat
 
 This reporting is critical for the user to understand what dispositions transferred. Do not skip it.
 
-**Severity revision handling:**
-
-If a matched disposition entry has different OriginalSeverity and RevisedSeverity values, the team revised the severity during a prior stakeholder review. Both values carry forward to the exports:
-- The current threat's effective severity becomes the RevisedSeverity from the disposition
-- The OriginalSeverity from the disposition is preserved for display alongside the revision
-
-If OriginalSeverity == RevisedSeverity in the disposition entry, no revision was made and the threat's current severity is used as-is.
-
 **Goal:** Emit the threat model in three formats for different audiences.
 
 ### 3A -- Markdown
@@ -883,11 +884,13 @@ Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using `create_
 
 CRITICAL: produce the `create_new_file` call with minimal preamble. Acknowledge the threat count in one line, then go directly to the tool call. Do not write planning notes or section descriptions before generating the HTML -- every line of preamble consumes output budget that should go into the file content.
 
+MANDATORY -- every threat row required, no abbreviation: this is a stakeholder and developer review document. EVERY threat from the main table and EVERY threat from the Inferred Threats table in `02-threats.md` MUST appear as its own row in the HTML output. Do NOT write a partial table, a "preview," a sample of rows, or any placeholder/summary text such as "Table shows N of M threats for brevity" or "see complete report for full list." There is no other, more complete report -- this HTML file IS the complete report. If you are concerned about output length, that is not a valid reason to drop rows: write the full table across as many tokens as it takes, using terse cell content where needed, but never omit a row. If you genuinely cannot fit all rows in one `create_new_file` call, STOP and tell the user rather than silently truncating.
+
 Document requirements:
 
 - Single self-contained file: no external CSS/JS, no CDN references (air-gapped environment).
 - Inline `<style>` block, system font stack like `system-ui, -apple-system, Segoe UI, sans-serif`, print-friendly.
-- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast. (Only Critical and High can appear in the threats table given the prioritization rules; Medium/Low values are defined for the severity-revision display, the Confidence palette, and forward compatibility.)
+- Priority color coding: Priority 1 `#b00020`, Priority 2 `#e65100`, with WCAG-AA contrast.
 - ASCII-only content per Operating Rule 13.
 
 Layout (sticky left sidebar TOC):
@@ -905,11 +908,11 @@ Reviewer metadata block:
 
 Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 
-1. Summary -- a small table showing total threat count and counts by severity (Critical, High) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
+1. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
 2. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
 3. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
 4. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
-5. Threats -- the merged threat table (see detailed format below). Render with severity-colored row backgrounds and the color rules listed below.
+5. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
 5b. Inferred Threats -- the lighter Inferred table (see format below), rendered as a clearly-separated section below the main threat table.
 6. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
@@ -917,14 +920,14 @@ Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 
 The threats section uses a two-tier visibility pattern. Each threat is rendered as a primary row showing visible columns. Below each row is a collapsible `<details>` element containing the remaining columns.
 
-Visible columns (primary row): ThreatID, Confidence, Severity, Component, Title, ThreatAgent, Asset, SecurityControl, Disposition.
+Visible columns (primary row): ThreatID, Confidence, Priority, Component, Title, ThreatAgent, Asset, SecurityControl, Disposition.
 
 Inside the `<details>` element (collapsible, with `<summary>Threat detail</summary>`): Category, OWASP, TrustBoundary, Attack, AttackSurface, Impact, Description, Evidence, Likelihood, ResidualRisk, Mitigation, DispositionRationale.
 
 Color rules applied to the threats section:
 
-- Critical severity rows: background tinted with the Critical color at low opacity.
-- High severity rows: background tinted with the High color at low opacity.
+- Priority 1 rows: background tinted with the Priority 1 color at low opacity.
+- Priority 2 rows: background tinted with the Priority 2 color at low opacity.
 - ThreatAgent column: rendered bold.
 - SecurityControl cells with the exact value `None`: cell background highlighted orange (`#FFB74D` at low opacity).
 - Confidence column: render `Confirmed` in a confident green (`#2e7d32`) and `Likely` in a cautionary amber (`#f9a825`) so a reader can scan verification level at a glance.
@@ -935,7 +938,7 @@ Render the Inferred Threats table as a visually distinct section below the main 
 
 The Inferred table is a simple flat table (no two-tier collapsible pattern needed -- it has only six columns): ThreatID, Category, Component, Title, Description, WhatWouldConfirm.
 
-Style it with a muted/neutral background (not severity-colored) to visually signal that it is a different, lower-confidence class of content than the main table. If the Inferred table is empty, render the heading followed by "None -- all enumerated threats were verified to Confirmed or Likely."
+Style it with a muted/neutral background (not priority-colored) to visually signal that it is a different, lower-confidence class of content than the main table. If the Inferred table is empty, render the heading followed by "None -- all enumerated threats were verified to Confirmed or Likely."
 
 #### Disposition input fields (HTML form controls)
 
@@ -944,18 +947,6 @@ The `Disposition` and `DispositionRationale` cells in the threats section are NO
 For each threat row, render the Disposition cell as a `<select>` dropdown with options (in order): `--, Active, False Positive, Risk Accepted, Mitigated by Compensating Control, Duplicate, Other`. If a disposition was matched from a prior dispositions.csv, pre-select the matched value; otherwise default to `--`.
 
 Render the DispositionRationale cell (inside the `<details>` collapsible) as a `<textarea rows="2">`. Populate with the matched rationale value (HTML-escaped) if one exists; otherwise leave empty.
-
-#### Severity display with revisions (when applicable)
-
-If a matched disposition revised the severity (OriginalSeverity != RevisedSeverity), the HTML threat row shows the revised severity prominently with the original noted as context:
-
-```
-Severity: High (originally rated Critical)
-```
-
-The row's severity color coding follows the RevisedSeverity (the team's decision), not the OriginalSeverity. So a Critical threat that the team revised to High during disposition would render with the High color (orange) and the parenthetical note.
-
-If no severity revision exists (either no matched disposition, or the matched disposition has OriginalSeverity == RevisedSeverity), the severity is rendered normally without the parenthetical note.
 
 #### Print CSS for the form controls
 
@@ -969,26 +960,12 @@ Produce a single CSV file at `.\{PROJECT_NAME}-threat-model\outputs\threats.csv`
 `threats.csv` -- one row per threat from the main table only (Confirmed and Likely). Inferred threats are not included. Header row required, columns in this exact order:
 
 ```
-ThreatID,Confidence,OriginalSeverity,RevisedSeverity,Category,OWASP,Component,TrustBoundary,Title,ThreatAgent,Asset,Attack,AttackSurface,Impact,Description,Evidence,Likelihood,SecurityControl,ResidualRisk,Mitigation,Disposition,DispositionRationale
+ThreatID,Confidence,Priority,Category,OWASP,Component,TrustBoundary,Title,ThreatAgent,Asset,Attack,AttackSurface,Impact,Description,Evidence,Likelihood,SecurityControl,ResidualRisk,Mitigation,Disposition,DispositionRationale
 ```
 
-Column names must match the header row above verbatim (spacing, capitalization, no spaces inside names) so any downstream Excel templates or scripts have a stable contract. Sort rows by OriginalSeverity (Critical first, then High), then by Confidence (Confirmed before Likely), then by ThreatID ascending.
+Column names must match the header row above verbatim (spacing, capitalization, no spaces inside names) so any downstream Excel templates or scripts have a stable contract. Sort rows by Priority (Priority 1 first, then Priority 2), then by Confidence (Confirmed before Likely), then by ThreatID ascending.
 
-Column-by-column content comes from the main threat table in `02b-threats.md` (which Phase 2C rolled into `02-threats.md`). Every column except `OriginalSeverity`, `RevisedSeverity`, `Disposition`, and `DispositionRationale` is populated from the corresponding column in that table. The `Confidence` column carries the Confirmed/Likely value from the main table.
-
-**OriginalSeverity** is the current threat model's severity rating for the threat -- what the agent rated it in this run, before any disposition. This value is the same as what would have appeared in a `Severity` column under the prior schema. Always populated for every threat.
-
-**RevisedSeverity** indicates whether a disposition matched AND what severity decision the team made during stakeholder review:
-- If NO disposition matched for the threat: RevisedSeverity is EMPTY. An empty value means the threat has not been reviewed in any prior stakeholder session.
-- If a disposition matched and the team did NOT revise severity: RevisedSeverity equals OriginalSeverity. The matched value indicates the team reviewed and confirmed the severity rating.
-- If a disposition matched and the team DID revise severity: RevisedSeverity holds the revised value, which differs from OriginalSeverity.
-
-This creates a useful three-state signal in the CSV:
-- OriginalSeverity populated, RevisedSeverity empty: never reviewed.
-- OriginalSeverity populated, RevisedSeverity populated and equal: reviewed, no revision.
-- OriginalSeverity populated, RevisedSeverity populated and different: reviewed, severity revised.
-
-Do not default RevisedSeverity to OriginalSeverity when no disposition matched. An empty value carries information; defaulting hides that information and misleads readers about which threats have been through stakeholder review.
+Column-by-column content comes from the main threat table in `02b-threats.md` (which Phase 2C rolled into `02-threats.md`). Every column except `Disposition` and `DispositionRationale` is populated from the corresponding column in that table. The `Confidence` column carries the Confirmed/Likely value from the main table.
 
 **Disposition** and **DispositionRationale** are populated from matched dispositions (if any) discovered in Phase 3 Disposition Discovery:
 - If a disposition was matched for this threat: populate the cells with the matched values.
@@ -1077,7 +1054,7 @@ Trust boundaries: drawn as labeled bordered regions with `TB-NNN` identifiers, c
 
 Data flows: numbered `DF-NNN` matching 02a-context.md. Label with data type, protocol (HTTPS, TLS, mTLS), and encryption status; `🔒` for encrypted, `⚠` for plaintext. Show authentication requirements where present.
 
-Threat mapping: place threat IDs (`01`, `02`, ...) near affected components. Color-code component borders by highest threat severity present -- red for Critical, orange for High. The threat IDs ARE the cross-reference to the threat model table; no separate index needed.
+Threat mapping: place threat IDs (`01`, `02`, ...) near affected components. Color-code component borders by highest threat priority present -- red for Priority 1, orange for Priority 2. The threat IDs ARE the cross-reference to the threat model table; no separate index needed.
 
 Annotations: `⚠` for risks, `✓` for implemented controls. Component descriptions include technology stack (language, framework, version) where known. A dedicated security notes box on each diagram highlights critical issues. Resource limits (CPU, memory, connection pools) where applicable.
 

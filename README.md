@@ -5,7 +5,7 @@ Four LLM-driven prompts for security analysis of a source code repository. Each 
 The prompts:
 
 - **STRIDE Threat Modeling Prompt** (`stride-threat-model-prompt.md`) -- produces an architectural threat model: what could go wrong in the design, who would attack it, what to mitigate.
-- **Code Security Audit Prompt** (`CodeSecurityAudit.md`) -- produces a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance.
+- **Code Security Audit Prompt** (`code-security-audit.md`) -- produces a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance.
 - **Threat Model Comparison Prompt** (`threat-model-comparison.md`) -- compares two threat model runs (older archived vs current) to identify persistent threats, threats that disappeared, threats that are new, and ambiguous matches.
 - **Threat Model Disposition Prompt** (`threat-model-disposition.md`) -- interactive prompt for capturing stakeholder review decisions about threats (False Positive, Risk Accepted, etc.) into a structured file.
 
@@ -20,7 +20,7 @@ Use individually:
 - **Disposition alone:** you have a threat model and want to capture stakeholder review decisions.
 
 Use in combinations:
-- **Threat modeling + audit (coordinated mode):** the audit detects the threat model and produces a comparison output showing which anticipated threats were confirmed in code and which code defects the threat model did not anticipate. This is the most valuable combination.
+- **Threat modeling + audit (coordinated mode):** the audit detects the threat model and produces a comparison output showing which anticipated threats were confirmed in code and which code defects the threat model did not anticipate. The threat model also routes code-shaped concerns it deliberately excludes (Code-level rows in its Excluded Threats Ledger) to the audit as seeded leads, and the audit reports back whether each was verified. This is the most valuable combination.
 - **Threat modeling + disposition:** capture stakeholder decisions about the threat model so they're recorded in a structured file.
 - **Threat modeling + disposition + repeat runs:** on subsequent threat model runs, the prompt detects archived dispositions and transfers them forward, so reviewers don't re-make decisions they've already made.
 - **All four:** full toolchain. Track threats over time, capture decisions, audit against code, see what changed.
@@ -44,7 +44,7 @@ If you only want some of these, just use those. There's no requirement to run al
 
 A full run typically takes 60-90 minutes. Phases:
 
-- **Phase 0** -- Initialization and scope proposal. You will be asked about deployment exposure (internet-facing, internal, hybrid).
+- **Phase 0** -- Initialization and scope proposal. You will be asked about deployment exposure (internet-facing, internal, hybrid), application criticality, existing mitigating controls, data sensitivity, and compliance requirements.
 - **Phase 1** -- Architectural inventory: components, data stores, external integrations, trust boundaries.
 - **Phase 2** -- STRIDE threat enumeration, split into three sub-phases (2A context, 2B threats, 2C consolidation) for resilience.
 - **Phase 3** -- Markdown, HTML, and CSV exports. At the start of Phase 3, the prompt checks for an archived threat model directory containing a dispositions.csv file (from the disposition capture prompt). If found, prior dispositions are matched against current threats and pre-populated into the exports.
@@ -53,16 +53,17 @@ A full run typically takes 60-90 minutes. Phases:
 Outputs land in `{PROJECT_NAME}-threat-model/` inside the workspace, where `{PROJECT_NAME}` is the workspace's leaf directory name.
 
 Key outputs:
-- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields
+- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs
 - `outputs/threat-model.md` -- same content in Markdown
 - `outputs/threats.csv` -- comprehensive CSV for Excel import or scripted analysis
+- `outputs/architecture-threat-explanation.html` -- per-threat architecture-vs-code explainer, a leave-behind for answering stakeholder pushback on findings
 - `diagrams/*.drawio` -- the four architectural diagrams
 
 ## Running the Code Security Audit Prompt
 
 1. Open the source repository you want to audit in VS Code. The workspace root must be the repo root.
 2. Open the Continue.dev chat panel.
-3. Paste the contents of `CodeSecurityAudit.md` into the chat.
+3. Paste the contents of `code-security-audit.md` into the chat.
 4. Follow the prompts. The agent pauses at the end of each phase and waits for you to type `proceed`.
 
 A full run typically takes 60-90 minutes; longer for monorepos that partition into multiple worker reviews. Phases:
@@ -120,12 +121,12 @@ The workflow:
 2. **Open the workspace in VS Code.** The threat model HTML report should ideally also be open in a browser so the reviewers can see threats as they're discussed.
 3. **Paste the prompt.** Open the Continue.dev chat panel and paste the contents of `threat-model-disposition.md`.
 4. **Follow the session start.** The prompt asks who's reviewing and presents progress against the threat model.
-5. **Walk through threats.** Type a threat ID (e.g., `0007`) to begin dispositioning it. The agent presents threat context and a numbered menu of disposition options. Respond with format like `1 - rationale text` or `3, rationale text, severity high`.
+5. **Walk through threats.** Type a threat ID (e.g., `07`) to begin dispositioning it. The agent presents threat context and a numbered menu of disposition options. Respond with format like `1 - rationale text` or `3 - accepted for this release, revise to Priority 2`. Only the main (Confirmed/Likely) threat table is dispositioned; Inferred threats and Excluded Threats Ledger rows are not.
 6. **End the session.** Type `done` when finished. The agent presents a summary.
 
 A full session typically takes 30-60 minutes for a threat model of 20-25 threats. Sessions are resumable -- if interrupted, re-running the prompt picks up where the prior session left off.
 
-The disposition file `{PROJECT_NAME}-threat-model/dispositions.csv` is the output. Columns: ThreatID, Title, Component, OriginalSeverity, RevisedSeverity, Disposition, Rationale, Reviewer, ReviewDate.
+The disposition file `{PROJECT_NAME}-threat-model/dispositions.csv` is the output. Columns: ThreatID, Title, Component, OWASP, Description, OriginalPriority, RevisedPriority, Disposition, DispositionRationale, Reviewer, ReviewDate. This is the toolchain's canonical dispositions schema -- the threat model HTML's export button emits the same columns, and OWASP/Description are carried so future runs can semantically match dispositions to threats.
 
 The file becomes input to the threat modeling prompt on subsequent runs. When you re-run the threat modeling prompt after archiving the current threat model (by renaming the directory with a date suffix), Phase 3 of the new run detects the archived dispositions.csv and transfers matched dispositions forward.
 
@@ -133,33 +134,36 @@ The file becomes input to the threat modeling prompt on subsequent runs. When yo
 
 The threat modeling and audit prompts maintain a state file in their output directory that tracks completed phases. If a session ends before all phases finish (context window exhaustion, network issue, end of day), start a new session and paste the same prompt. The agent reads the state file and resumes at the next pending phase.
 
+Starting a fresh session at each phase boundary is recommended even without a failure -- the rehydration steps make it free, and instruction adherence is measurably better in a fresh session than late in a long-running one. This matters most for the heavy phases (threat model 2B/3/4; audit 3A on large partitions, 5, and 6).
+
 The disposition prompt saves to disk after every disposition is captured, so interrupted sessions can resume by re-running the prompt. It picks up at whichever threat hasn't been dispositioned yet.
 
 The threat model comparison prompt does not use a state file because it runs as a single phase and is short enough to complete in one session. If a comparison run fails partway through, re-run the prompt from the beginning.
 
 ## Working With the Threat Model HTML Report
 
-The HTML report contains interactive `<select>` dropdowns for Disposition and `<textarea>` fields for Rationale on every threat. These can be filled in directly in the browser during stakeholder review.
+The HTML report contains interactive `<select>` dropdowns for Disposition, a RevisedPriority control, and `<textarea>` fields for Rationale on every threat, plus an 'Export dispositions.csv' button. These can be filled in directly in the browser during stakeholder review.
 
 Two paths for capturing review decisions:
 
-**Path A: Fill in the HTML directly during review, then print to PDF.** Walk through threats with stakeholders, set the dropdown and rationale in the browser, then print to PDF (Ctrl+P → Save as PDF). The PDF is the dated artifact of record. Disposition values entered in the browser are NOT persisted to the source HTML file -- they only live in the current browser session, but they appear in the PDF.
+**Path A: Fill in the HTML directly during review, then export.** Walk through threats with stakeholders, set the dropdowns and rationale in the browser, then click 'Export dispositions.csv' and save the file into the run's output directory -- that CSV is what future threat model runs read to carry decisions forward. Print to PDF (Ctrl+P -> Save as PDF) for the dated artifact of record. Values entered in the browser are not saved into the HTML file itself; the export button and the PDF are the two ways to persist them.
 
 **Path B: Use the disposition prompt to capture decisions to a CSV file alongside the meeting.** This is faster for capture, produces a structured file, and feeds back into subsequent threat model runs to preserve decisions across re-runs. See "Running the Threat Model Disposition Prompt" above.
 
-Path A is simpler for a single review with no expected re-runs. Path B is more useful when you'll re-run the threat model periodically and want decisions to compound across runs.
+Both paths produce the same canonical dispositions.csv, so both feed future runs. Path A needs no agent session during the meeting; Path B is faster capture and adds reviewer attribution plus a polished HTML disposition report.
 
 ## Working With the Audit Comparison Output
 
-The comparison output (`threat_audit_comparison.html`) is structured into seven sections:
+The comparison output (`threat_audit_comparison.html`) is structured into six sections:
 
 1. **Executive Summary** -- one-paragraph synthesis plus counts table.
 2. **Threats Confirmed by Audit** -- threats the model anticipated AND the audit found in code. Highest-priority for remediation.
 3. **Threats Not Confirmed by Audit** -- threats the model anticipated but the audit did not find. Each entry includes the agent's reasoning category: well-mitigated, audit didn't reach this code, architectural only, or unable to determine.
 4. **Audit Findings Not Anticipated by Threat Model** -- code defects the threat model missed. Often the most valuable section because it reveals threat modeling gaps.
 5. **Partial Matches** -- threats where the audit confirmed part but not all.
-6. **Coverage Analysis** -- coverage percentages and severity correlation.
-7. **Recommended Next Steps** -- prioritized remediation list.
+6. **Coverage Analysis** -- coverage percentages and priority/severity correlation.
+
+There is deliberately no "Recommended Next Steps" or scheduled-roadmap section. Findings carry severity and fix guidance; sequencing and scheduling are left to the team that owns the code, which has the business context to prioritize.
 
 Each entry in sections 2, 3, 4, and 5 contains full content from the threat model and findings registry -- you do not need to open other files to act on a single entry.
 
@@ -202,9 +206,9 @@ If you are sharing outputs with stakeholders on Mac or Linux, files render corre
 
 These are real characteristics of the toolchain, not bugs. Knowing them helps set expectations.
 
-- **Run-to-run variation in findings.** The threat modeling and audit prompts produce different findings between runs against the same code. The threat model lands in a 15-25 threat range; the audit lands in a 20-30 finding range. This is expected behavior driven by LLM sampling -- not a bug. For higher determinism, run twice and compare. The comparison prompt is the right tool for evaluating that variation across runs.
+- **Run-to-run variation in findings.** The threat modeling and audit prompts produce different findings between runs against the same code. The threat model produces up to 20-25 threats -- a ceiling, not a target; a clean, well-scoped run may legitimately produce far fewer, and code-level candidates are deliberately routed to the audit via the Excluded Threats Ledger rather than padded into the table. The audit lands in a 20-30 finding range. This is expected behavior driven by LLM sampling -- not a bug. For higher determinism, run twice and compare. The comparison prompt is the right tool for evaluating that variation across runs.
 
-- **Disposition matching reliability varies.** When the threat modeling prompt detects an archived dispositions.csv and transfers matched dispositions to the new run, the matching is conservative (high confidence required) and probabilistic. In practice, about 50-70% of prior dispositions transfer to a new run, even when most underlying threats are unchanged. The matching may also produce different results across re-runs of the same prompt against the same data. Two implications: do not rely on disposition transfer as automatic; verify transferred dispositions during the next stakeholder review session; expect to re-disposition some threats each time even if the codebase is unchanged.
+- **Disposition matching reliability varies.** When the threat modeling prompt detects an archived dispositions.csv and transfers matched dispositions to the new run, the matching is conservative (high confidence required) and probabilistic. In practice, about 50-70% of prior dispositions transfer to a new run, even when most underlying threats are unchanged. The matching may also produce different results across re-runs of the same prompt against the same data. Two implications: do not rely on disposition transfer as automatic; verify transferred dispositions during the next stakeholder review session; expect to re-disposition some threats each time even if the codebase is unchanged. (The canonical schema carries OWASP and Description columns specifically to raise match rates; earlier schema versions omitted them, which structurally suppressed matching.)
 
 - **The threat model comparison cannot assess code-level mitigation.** It observes only what's in the threat model artifacts. Threats absent in a newer model may or may not be mitigated in code. For code-level confirmation, use the audit prompt against the current codebase.
 

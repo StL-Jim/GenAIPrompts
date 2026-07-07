@@ -65,7 +65,7 @@ Before doing any analysis, identify the two threat model directories to compare.
    - `02a-context.md` (assets, trust boundaries, data flows in detail)
    - `02c-assumptions.md` (threat filtering notes, excluded categories, assumptions, stakeholder questions)
 
-   If any required file is missing or empty in either directory, STOP and list the specific gap.
+   If any required file is missing or empty in either directory, STOP and list the specific gap. Also read each directory's STATE.md: if phase-2c is not marked complete in either run, warn the user that they are comparing against an incomplete threat model and wait for confirmation before proceeding.
 
    Note on filename variants: in older threat models, the assumptions file may be named `02d-assumptions.md` instead of `02c-assumptions.md` (the file was renamed in a later version of the threat modeling prompt). If `02c-assumptions.md` is not present in either directory, check for `02d-assumptions.md` and use that instead -- treat them as equivalent for comparison purposes.
 
@@ -109,6 +109,9 @@ Read both `02c-assumptions.md` files (or `02d-assumptions.md` for older threat m
 
 This information feeds into both Section 1 (high-level context) and the per-threat reasoning categories in Sections 3 and 4 (specific evidence for why threats are absent or new).
 
+**Step 4b: Disposition check (if present)**
+Check each directory for `dispositions.csv`. If found, read it. Prior disposition decisions contextualize the comparison: a threat dispositioned `False Positive` in the older run and absent from the newer is expected attrition, not an unexplained absence; a persistent threat previously dispositioned `Risk Accepted` should be flagged in its Section 2 entry so the acceptance gets re-confirmed; an `Active` disposition on a threat now absent deserves scrutiny in Section 3. If neither directory has a dispositions.csv, skip this step silently.
+
 **Step 5: Record all pre-check findings**
 The pre-checks produce structured data that the output sections will reference:
 - Deployment exposure: same or drifted (with values)
@@ -125,6 +128,8 @@ The pre-checks produce structured data that the output sections will reference:
 COMPARISON PROCEDURE
 
 VOCABULARY NORMALIZATION (apply before any matching): threat models from prompt v18+ rate threats Priority 1/Priority 2; older models used Severity Critical/High. Normalize: Priority 1 == Critical, Priority 2 == High. A pair differing only in vocabulary (older says Critical, newer says Priority 1) is NOT a rating change and must never be reported as one. In output entries, show each model's value verbatim and add the normalized form only where the two models use different vocabularies.
+
+TABLE SCOPE AND INFERRED TRANSITIONS: compare the MAIN threat tables (Confirmed/Likely) of both models against each other. The Inferred Threats tables (present in v17+ models) are compared only for transitions: (a) a threat Inferred in the older model that appears in the newer model's MAIN table was PROMOTED -- the newer run verified what the older could not; report it in Section 2 with a 'Promoted from Inferred' note, not in Section 4 as new. (b) a main-table threat in the older model that appears only as Inferred in the newer was DEMOTED -- verification weakened; report it in Section 2 with a 'Demoted to Inferred' note and a sentence on why that matters. Threats Inferred in both runs are out of matching scope beyond the Section 1 count.
 
 For each threat in the OLDER model's `02-threats.md`, attempt to find a matching threat in the NEWER model's `02-threats.md`. Matching uses multiple dimensions in priority order:
 
@@ -179,6 +184,8 @@ Then a multi-part counts table:
 | Metric                              | Older | Newer |
 |-------------------------------------|-------|-------|
 | Total threats included              | <N>   | <N>   |
+| Confirmed / Likely (main table)     | <N>/<N> | <N>/<N> |
+| Inferred threats (separate table)   | <N>   | <N>   |
 | Priority 1 / Critical               | <N>   | <N>   |
 | Priority 2 / High                   | <N>   | <N>   |
 | Total candidate threats identified  | <N>   | <N>   |
@@ -261,12 +268,15 @@ Each entry:
 
 **Changes between runs (if any):**
 - Priority: <if changed AFTER normalization, show "older=Priority 2 (was High), newer=Priority 1" etc; if same after normalization, omit this bullet -- a vocabulary-only difference is not a change>
+- Confidence: <if changed, e.g. "older=Likely, newer=Confirmed" (verification completed) or "older=Confirmed, newer=Likely" (verification weakened -- explain in one sentence); if same or absent (pre-v17 models), omit>
 - Threat Agent: <if changed; if same, omit>
 - Component: <if changed; if same, omit>
 - Description framing: <if the description shifted meaningfully between runs, brief note; if substantively the same, omit>
 - Mitigation: <if changed; if same, omit>
 
 If no changes are present, write: "No notable changes between runs."
+
+If the older run's dispositions.csv dispositioned this threat, add one line: "Prior disposition: <value> (<ReviewDate>)" -- and for Risk Accepted, append "re-confirm the acceptance still holds."
 ```
 
 Sort entries by Priority (Priority 1 first), then by newer threat ID.
@@ -310,7 +320,7 @@ One entry per threat in the newer model with no match (and no Low confidence can
 For each, classify into one of these reasoning categories, in priority order:
 
 - **Component/asset not in older model's inventory**: The threat references a component or asset that does not appear in the older model's inventory. The newer run identified architectural elements the older run did not. Cite the specific component or asset ID.
-- **Was excluded by category in older run**: The older model's `02c-assumptions.md` excluded a category that matches this threat's category. The newer run reclassified or no longer excluded that category. Cite the relevant exclusion note from the older model.
+- **Was excluded by category in older run**: The older model's `02c-assumptions.md` excluded a category that matches this threat's category. The newer run reclassified or no longer excluded that category. Cite the relevant exclusion note from the older model; if the older model's Excluded Threats Ledger has a matching EX-NN row, cite it verbatim -- the strongest form of this evidence.
 - **Decomposed from prior**: A broader threat in the older model has been split into more specific threats in the newer (e.g., "Authentication issues" became three specific concerns). If this applies, name the older threat ID it was decomposed from.
 - **Expanded coverage**: The threat addresses a component or area that exists in both models' inventories but was not deeply examined in the older run. The component is present in both, but threats targeting it were less thoroughly enumerated previously.
 - **Newly identified, no inventory or exclusion explanation**: The threat is in the newer model and no inventory gap, exclusion change, or decomposition explains it. May reflect new analytical depth, sampling variation, or a genuinely new finding. The agent cannot determine which from threat model artifacts alone.

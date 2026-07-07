@@ -8,7 +8,7 @@ Environment assumptions:
 - Repository contains a threat model directory produced by the STRIDE Threat Modeling Prompt
 
 PRIMARY OBJECTIVE
-Conduct an interactive stakeholder review session to capture disposition decisions for the threats in an existing threat model. Produce a structured CSV file recording each disposition decision, optionally including severity revisions.
+Conduct an interactive stakeholder review session to capture disposition decisions for the threats in an existing threat model. Produce a structured CSV file recording each disposition decision, optionally including priority revisions. (Threat models from prompt v18+ rate threats Priority 1/Priority 2; older models used Severity Critical/High. Normalize on read: Critical -> Priority 1, High -> Priority 2.)
 
 The prompt is designed to be used DURING a live stakeholder review meeting. The reviewer and developers have the threat model HTML open and are walking through threats. This prompt acts as a fast capture tool -- it records decisions as they happen rather than driving the conversation or providing extensive context per threat.
 
@@ -26,7 +26,7 @@ The agent saves to disk after every disposition is captured, so partial sessions
 FAIL CLOSED:
 - If the threat model directory or 02-threats.md is missing, STOP and explain what's needed
 - If user input cannot be parsed cleanly, ask for clarification rather than guess
-- Never invent disposition decisions, rationale text, or severity revisions
+- Never invent disposition decisions, rationale text, or priority revisions
 
 ---
 
@@ -40,7 +40,7 @@ Compute `{PROJECT_NAME}` as the workspace leaf directory name. Verify that `{PRO
 
 **Step 2: Read existing threats**
 
-Read `02-threats.md` and extract the threat table. Build an internal list of all threats with their ID, Title, Component, Severity (original), Category, OWASP, ThreatAgent, and any other fields you'll need for one-line context.
+Read `02-threats.md` and extract the threat table. Build an internal list of all threats with their ID, Title, Component, Priority (original; normalize older Severity values per the rule above), Category, OWASP, Description (full text -- a future threat model run matches dispositions semantically on Component + OWASP + Title/Description, so these fields must be carried into the CSV), ThreatAgent, and any other fields you'll need for one-line context.
 
 **Step 3: Check for existing dispositions**
 
@@ -65,8 +65,8 @@ Already dispositioned: <M> (from prior sessions, if any)
 Remaining: <N-M>
 Reviewer(s): <names from Step 4>
 
-Type a threat ID to begin (e.g., 0007), or 'next' for the next un-dispositioned threat.
-Special commands: status, skip, redo <ID>, revise <ID> severity to <level>, done
+Type a threat ID to begin (e.g., 07), or 'next' for the next un-dispositioned threat.
+Special commands: status, skip, redo <ID>, revise <ID> priority to <level>, done
 ```
 
 Then wait for user input.
@@ -79,14 +79,14 @@ After session start, the main loop runs until the user types `done`. Each iterat
 
 For each user message, identify what kind of input it is:
 
-**If the user types a threat ID (e.g., "0007"):**
+**If the user types a threat ID (e.g., "07"):**
 
-1. Verify the ID exists in the threat list from Step 2. If not, respond: "No threat with ID 0007 in the threat model. Valid IDs are <list a few>. Did you mean..." If the ID exists, proceed.
+1. Verify the ID exists in the threat list from Step 2. If not, respond: "No threat with ID 07 in the threat model. Valid IDs are <list a few>. Did you mean..." If the ID exists, proceed.
 
 2. Look up the threat's current context. Present a one-line summary plus the disposition menu:
 
 ```
-<ID> (<Severity>): <Title>, against <Component>.
+<ID> (<Priority>): <Title>, against <Component>.
 Disposition?
 1. Active
 2. False Positive
@@ -119,23 +119,25 @@ Parse the response:
 
 3. Extract the rationale (everything after the delimiter, trimmed). If no rationale, use empty string.
 
-4. Scan the rationale for severity revision intent. Look for these patterns (case-insensitive):
-   - "severity <X>" where X is Critical/High/Medium/Low
+4. Scan the rationale for priority revision intent. X is any of: Priority 1, Priority 2, P1, P2, Critical, High, Medium, Low -- normalize Critical -> Priority 1, High -> Priority 2, P1/P2 -> Priority 1/Priority 2; Medium and Low stay as-is (a team may deliberately revise below the model's inclusion floor). Look for these patterns (case-insensitive):
+   - "priority <X>" or "severity <X>"
    - "actually <X>" or "this is <X>" where X is one of the severity values
    - "revise to <X>" or "should be <X>" or "change to <X>"
    - "changing rating from <Y> to <X>" or "changing from <Y> to <X>" or "from <Y> to <X>" -- here X is the new severity
    - "rate as <X>" or "rated as <X>"
 
-   If a clear revision pattern is detected, extract the NEW severity value (X). If the rationale just happens to mention a severity word without revision intent (e.g., "this is medium-priority backlog work"), do NOT treat it as a revision -- only patterns that clearly express revision intent count.
+   If a clear revision pattern is detected, extract the NEW priority value (X). If the rationale just happens to mention a severity word without revision intent (e.g., "this is medium-priority backlog work"), do NOT treat it as a revision -- only patterns that clearly express revision intent count.
 
-   If detection is ambiguous, prefer no revision over false revision. The user can issue an explicit `revise <ID> severity to <level>` command if needed.
+   If detection is ambiguous, prefer no revision over false revision. The user can issue an explicit `revise <ID> priority to <level>` command if needed.
 
 5. Record the disposition entry:
    - ThreatID: the current threat ID
    - Title: from the threat list
    - Component: from the threat list
-   - OriginalSeverity: from the threat list
-   - RevisedSeverity: the new severity if detected, otherwise same as OriginalSeverity
+   - OWASP: from the threat list
+   - Description: from the threat list, full text
+   - OriginalPriority: from the threat list (normalized)
+   - RevisedPriority: the new priority if detected, otherwise same as OriginalPriority
    - Disposition: the disposition string from step 2
    - Rationale: the parsed rationale text
    - Reviewer: the session reviewer name(s)
@@ -145,7 +147,7 @@ Parse the response:
 
 7. Write the complete dispositions.csv file to disk (rewriting from in-memory list each time, not appending). This ensures persistence after every capture.
 
-8. Respond briefly: "Captured: <ID>, <Disposition>. <Note if severity revised: 'Severity revised <Original> -> <Revised>.'>. Next threat?"
+8. Respond briefly: "Captured: <ID>, <Disposition>. <Note if priority revised: 'Priority revised <Original> -> <Revised>.'>. Next threat?"
 
 **If the user types `next`:**
 
@@ -157,24 +159,24 @@ Respond with a brief summary:
 ```
 Progress: <N dispositioned> of <total> total
 Remaining: <list of undispositioned threat IDs, sorted>
-Severity revisions made this session: <count> (use 'done' to see details)
+Priority revisions made this session: <count> (use 'done' to see details)
 ```
 
 **If the user types `skip`:**
 
 The current threat (if one was being dispositioned) is left undispositioned. Respond: "Skipped. Next threat?"
 
-**If the user types `redo <ID>` (e.g., "redo 0007"):**
+**If the user types `redo <ID>` (e.g., "redo 07"):**
 
 Treat as if the user typed the threat ID fresh. The prior disposition entry will be replaced when the user provides a new disposition response.
 
-**If the user types `revise <ID> severity to <level>` (e.g., "revise 0011 severity to High"):**
+**If the user types `revise <ID> priority to <level>` (e.g., "revise 11 priority to Priority 2"):**
 
-This is a severity-only revision without re-dispositioning. Find the existing disposition entry for that threat ID. If no entry exists, respond: "No disposition recorded for <ID> yet. Disposition the threat first, then severity can be revised." If an entry exists, update only the RevisedSeverity field, rewrite the CSV, and respond: "Severity for <ID> revised to <level>. Next?"
+This is a severity-only revision without re-dispositioning. Find the existing disposition entry for that threat ID. If no entry exists, respond: "No disposition recorded for <ID> yet. Disposition the threat first, then severity can be revised." If an entry exists, update only the RevisedPriority field, rewrite the CSV, and respond: "Priority for <ID> revised to <level>. Next?"
 
 **If the user types something unrecognized:**
 
-Respond: "I didn't understand. Type a threat ID (like 0007), a disposition response (like '1 - rationale'), or a command (next, status, skip, redo <ID>, revise <ID> severity to <level>, done)."
+Respond: "I didn't understand. Type a threat ID (like 07), a disposition response (like '1 - rationale'), or a command (next, status, skip, redo <ID>, revise <ID> priority to <level>, done)."
 
 **If the user types `done`:**
 
@@ -202,10 +204,10 @@ By disposition type:
   - Duplicate: <count>
   - Other: <count>
 
-Severity revisions made:
+Priority revisions made:
   - <ID> (<title>): <Original> -> <Revised>
   - ... (list each revision)
-(or "No severity revisions made this session.")
+(or "No priority revisions made this session.")
 
 Undispositioned threats remaining: <count>
   - <list of IDs and one-word titles, if any>
@@ -214,7 +216,7 @@ Undispositioned threats remaining: <count>
 Session complete. The dispositions.csv file is saved.
 ```
 
-The summary gives the user a chance to spot any severity revisions that shouldn't have happened. If they spot a mistake, they can re-run the prompt and use `revise <ID> severity to <level>` to correct it.
+The summary gives the user a chance to spot any priority revisions that shouldn't have happened. If they spot a mistake, they can re-run the prompt and use `revise <ID> priority to <level>` to correct it.
 
 ---
 
@@ -227,7 +229,7 @@ The HTML report is produced as a single `create_new_file` call after every `done
 Styling requirements (consistent with other HTML outputs in the toolchain):
 - Single self-contained file: no external CSS or JS, no CDN references
 - Inline `<style>` block, system-ui font stack, print-friendly layout
-- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast
+- Priority color coding: Priority 1 `#b00020`, Priority 2 `#e65100`, Medium `#f9a825`, Low `#2e7d32` (Medium/Low appear only via revisions), with WCAG-AA contrast
 - Disposition color coding (concern-based): Active `#b00020` (alerting - needs action), False Positive `#6c757d` (neutral gray), Risk Accepted `#e65100` (orange - documented exposure), Mitigated by Compensating Control `#2e7d32` (green - handled), Duplicate `#6c757d` (neutral gray), Other `#6c757d` (neutral gray)
 - Semantic HTML5: `<header>`, `<main>`, `<section>` per content area
 - ASCII-only content per the same rule as other outputs
@@ -250,9 +252,9 @@ Threat Disposition Report
 
 Render as four equal-width tiles or cards with large numbers and small labels:
 
-| Total Threats Reviewed | Active Threats | Severity Revisions | Completion Rate |
+| Total Threats Reviewed | Active Threats | Priority Revisions | Completion Rate |
 | --- | --- | --- | --- |
-| <count of dispositioned this session and prior> | <count where Disposition == Active> | <count where OriginalSeverity != RevisedSeverity> | <dispositioned / total in threat model as percentage> |
+| <count of dispositioned this session and prior> | <count where Disposition == Active> | <count where OriginalPriority != RevisedPriority> | <dispositioned / total in threat model as percentage> |
 
 "Total Threats Reviewed" is the total number of threats that have a disposition recorded in dispositions.csv (across all sessions, not just the current one). "Completion Rate" compares this to the total threats in `02-threats.md` (e.g., 23 of 25 = 92%).
 
@@ -271,24 +273,24 @@ Each row has the disposition color (from the color coding above) applied to the 
 
 Include every disposition category (even ones with count 0) for consistent structure across sessions.
 
-**Severity Revisions** (list or table)
+**Priority Revisions** (list or table)
 
-If any threats had severity revised (OriginalSeverity != RevisedSeverity in dispositions.csv):
+If any threats had priority revised (OriginalPriority != RevisedPriority in dispositions.csv):
 
 ```
-ID | Title | Original Severity -> Revised Severity | Rationale (truncated to one line)
+ID | Title | Original Priority -> Revised Priority | Rationale (truncated to one line)
 ```
 
 Apply severity color coding to both Original and Revised values so the change is visually obvious.
 
-If no severity revisions exist, write: "No severity revisions made."
+If no priority revisions exist, write: "No priority revisions made."
 
 **Complete Disposition Details** (full table)
 
-| ID | Title | Component | Severity | Disposition | Rationale |
+| ID | Title | Component | Priority | Disposition | Rationale |
 |---|---|---|---|---|---|
 
-One row per dispositioned threat. Show RevisedSeverity in the Severity column (the team's decision), color-coded by severity. The Disposition value is color-coded by disposition. Rationale shows the full text (allow word wrap; don't truncate).
+One row per dispositioned threat. Show RevisedPriority in the Priority column (the team's decision), color-coded by priority. The Disposition value is color-coded by disposition. Rationale shows the full text (allow word wrap; don't truncate).
 
 Use a fixed table layout with these column widths so the Title and Rationale fields have room to display readably without being squeezed:
 
@@ -304,7 +306,7 @@ table.disposition-details td:nth-child(2) { width: 35%; }  /* Title */
 table.disposition-details th:nth-child(3),
 table.disposition-details td:nth-child(3) { width: 12%; }  /* Component */
 table.disposition-details th:nth-child(4),
-table.disposition-details td:nth-child(4) { width: 8%; }   /* Severity */
+table.disposition-details td:nth-child(4) { width: 8%; }   /* Priority */
 table.disposition-details th:nth-child(5),
 table.disposition-details td:nth-child(5) { width: 15%; }  /* Disposition */
 table.disposition-details th:nth-child(6),
@@ -313,7 +315,7 @@ table.disposition-details td:nth-child(6) { width: 25%; }  /* Rationale */
 
 Apply `word-wrap: break-word` to all cells so long titles and rationale text wrap rather than overflowing.
 
-Sort by Severity (Critical first, then High, etc.), then by ID ascending.
+Sort by Priority (Priority 1 first), then by ID ascending.
 
 **Footer (centered)**
 
@@ -332,12 +334,14 @@ OUTPUT FILE FORMAT
 
 Header row:
 ```
-ThreatID,Title,Component,OriginalSeverity,RevisedSeverity,Disposition,Rationale,Reviewer,ReviewDate
+ThreatID,Title,Component,OWASP,Description,OriginalPriority,RevisedPriority,Disposition,DispositionRationale,Reviewer,ReviewDate
 ```
 
 Data rows: one per threat that has been dispositioned (across all sessions; not just the current one).
 
-CSV escaping per RFC 4180: fields containing commas, quotes, or newlines are wrapped in double-quotes; embedded double-quotes become `""`. For the Rationale field specifically, replace internal newlines with `\\n` so each row stays on a single line.
+This header is the toolchain's canonical dispositions schema -- the threat model HTML report's 'Export dispositions.csv' button emits the same columns. When reading an existing dispositions.csv written by an older version (OriginalPriority/RevisedPriority, Rationale, no OWASP/Description), accept it: normalize Severity values to Priority, treat Rationale as DispositionRationale, and backfill OWASP/Description from the current threat list by ThreatID when rewriting the file.
+
+CSV escaping per RFC 4180: fields containing commas, quotes, or newlines are wrapped in double-quotes; embedded double-quotes become `""`. For the DispositionRationale and Description fields specifically, replace internal newlines with `\\n` so each row stays on a single line.
 
 If the Reviewer field has multiple names, they are separated by `; ` (semicolon-space) within the single CSV field. Example: `"Jim Smith; Jane Developer"`.
 
@@ -360,7 +364,7 @@ Permissive examples (all of these should parse the same way):
 Strict cases (do NOT guess; ask for clarification):
 - "Active - rationale" (no number; ask if they meant 1)
 - "1 or 2" (ambiguous disposition)
-- "1 - this is critical though we accept it" (don't assume severity revision; "critical" here is descriptive, not a revision)
+- "1 - this is critical though we accept it" (don't assume priority revision; "critical" here is descriptive, not a revision)
 
 The user's confidence in their response should be reflected in the format they use. Clear "from X to Y" phrasing means revision; ambient mention of a severity word in rationale does NOT mean revision.
 

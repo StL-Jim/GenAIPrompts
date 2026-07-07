@@ -124,6 +124,8 @@ The pre-checks produce structured data that the output sections will reference:
 
 COMPARISON PROCEDURE
 
+VOCABULARY NORMALIZATION (apply before any matching): threat models from prompt v18+ rate threats Priority 1/Priority 2; older models used Severity Critical/High. Normalize: Priority 1 == Critical, Priority 2 == High. A pair differing only in vocabulary (older says Critical, newer says Priority 1) is NOT a rating change and must never be reported as one. In output entries, show each model's value verbatim and add the normalized form only where the two models use different vocabularies.
+
 For each threat in the OLDER model's `02-threats.md`, attempt to find a matching threat in the NEWER model's `02-threats.md`. Matching uses multiple dimensions in priority order:
 
 1. **Component match** (strongest signal): Does the threat in the older model affect the same component (by ID like C-NNN, or by name) as a threat in the newer model? If components are referenced by stable IDs across runs, this is a clean filter. If component names changed between runs (e.g., refactoring), use semantic similarity on the component name.
@@ -134,7 +136,7 @@ For each threat in the OLDER model's `02-threats.md`, attempt to find a matching
 
 4. **Threat agent and attack surface**: Do these align? Useful secondary signal, especially for distinguishing between similar-sounding threats.
 
-5. **Severity**: Note severity for each, but DO NOT use severity as a matching criterion. The same threat may be rated differently between runs -- that's information worth surfacing, not a reason to fail to match.
+5. **Rating (Priority/Severity)**: Note the normalized rating for each, but DO NOT use it as a matching criterion. The same threat may be rated differently between runs -- that's information worth surfacing, not a reason to fail to match.
 
 CONFIDENCE CLASSIFICATION:
 
@@ -177,13 +179,14 @@ Then a multi-part counts table:
 | Metric                              | Older | Newer |
 |-------------------------------------|-------|-------|
 | Total threats included              | <N>   | <N>   |
-| Critical severity                   | <N>   | <N>   |
-| High severity                       | <N>   | <N>   |
+| Priority 1 / Critical               | <N>   | <N>   |
+| Priority 2 / High                   | <N>   | <N>   |
 | Total candidate threats identified  | <N>   | <N>   |
 | Threats excluded as Medium          | <N>   | <N>   |
 | Threats excluded as Low likelihood  | <N>   | <N>   |
 | Threats excluded as fully mitigated | <N>   | <N>   |
 | Threats excluded as out of scope    | <N>   | <N>   |
+| Threats excluded as Code-level (v19+, routed to code audit) | <N> | <N> |
 | Components in inventory             | <N>   | <N>   |
 | Trust boundaries identified         | <N>   | <N>   |
 | Assets enumerated                   | <N>   | <N>   |
@@ -250,14 +253,14 @@ Each entry:
 **Match confidence:** High | Medium
 
 **From the newer threat model:**
-- Severity: <newer Severity>
+- Priority: <newer rating, normalized>
 - Component: <newer Component>
 - Threat Agent: <newer ThreatAgent>
 - Description: <full Description from newer>
 - Mitigation: <full Mitigation from newer>
 
 **Changes between runs (if any):**
-- Severity: <if changed, show "older=High, newer=Critical" etc; if same, omit this bullet>
+- Priority: <if changed AFTER normalization, show "older=Priority 2 (was High), newer=Priority 1" etc; if same after normalization, omit this bullet -- a vocabulary-only difference is not a change>
 - Threat Agent: <if changed; if same, omit>
 - Component: <if changed; if same, omit>
 - Description framing: <if the description shifted meaningfully between runs, brief note; if substantively the same, omit>
@@ -266,7 +269,7 @@ Each entry:
 If no changes are present, write: "No notable changes between runs."
 ```
 
-Sort entries by severity (Critical first), then by newer threat ID.
+Sort entries by Priority (Priority 1 first), then by newer threat ID.
 
 ### Section 3: Threats Only in Older Model
 
@@ -275,7 +278,7 @@ One entry per threat in the older model with no match (and no Low confidence can
 For each, classify into one of these reasoning categories, in priority order (use the strongest applicable category):
 
 - **Component/asset not in newer model's inventory**: The threat references a component (C-NNN) or asset (AS-NNN) that does not appear in the newer model's inventory. The threat is absent because its foundation is not in the newer run's working set. Cite the specific missing component or asset ID. This is the most certain category because it's directly observable from inventory files.
-- **Excluded by category in newer run**: The newer model's `02c-assumptions.md` lists Excluded Threat Categories that match this threat's category, OR the filtering totals indicate threats in this category were excluded. The threat is absent because the newer run explicitly chose not to enumerate threats of this type. Cite the relevant exclusion note.
+- **Excluded by category in newer run**: The newer model's `02c-assumptions.md` lists Excluded Threat Categories matching this threat's category, OR the filtering totals indicate threats in this category were excluded, OR -- the strongest evidence -- the newer model's Excluded Threats Ledger contains an EX-NN row matching this threat's component and concern: cite the EX-NN row and its Exclusion Reason verbatim. A `Code-level` reason means the newer run deliberately routed the concern to the code security audit, not that it was dropped.
 - **Categorization shifted**: The concern appears to be present in the newer model under a different framing -- a related Section 2 entry covers it. If this applies, name the related newer threat ID.
 - **Absent from newer model, no explicit exclusion noted**: The threat is not in the newer model and no inventory gap or filtering decision explains the absence. The agent cannot determine whether the underlying concern was actually mitigated in code, whether the newer run's analysis just didn't surface it, or whether some other factor explains the difference. This category honestly acknowledges that absence from a threat model is not evidence of mitigation -- only a code-level review (such as the CodeSecurityAudit prompt's output) could provide that evidence.
 - **Unable to determine**: The agent examined the available threat model artifacts but cannot conclusively assign any of the above categories. State what would help determine the answer.
@@ -286,7 +289,7 @@ Each entry:
 #### Threat (older: <OlderID>): <Title from older>
 
 **From the older threat model:**
-- Severity: <Severity>
+- Priority: <normalized rating>
 - Component: <Component>
 - Threat Agent: <ThreatAgent>
 - Description: <full Description from older>
@@ -298,7 +301,7 @@ Each entry:
 
 "Absent from newer model, no explicit exclusion noted" and "Unable to determine" are honest, expected categories. Do NOT force a stronger category (like claiming mitigation) when the supporting evidence is not present. Threat model artifacts alone do not prove or disprove that a concern is mitigated in code.
 
-Sort by severity, then older ThreatID.
+Sort by Priority, then older ThreatID.
 
 ### Section 4: Threats Only in Newer Model
 
@@ -319,7 +322,7 @@ Each entry:
 #### Threat (newer: <NewerID>): <Title from newer>
 
 **From the newer threat model:**
-- Severity: <Severity>
+- Priority: <normalized rating>
 - Component: <Component>
 - Threat Agent: <ThreatAgent>
 - Description: <full Description from newer>
@@ -330,7 +333,7 @@ Each entry:
 **Reasoning:** <1-3 sentences explaining the assessment. Cite specific IDs or exclusion notes where the category requires it.>
 ```
 
-Sort by severity, then newer ThreatID.
+Sort by Priority, then newer ThreatID.
 
 ### Section 5: Ambiguous Matches
 
@@ -344,13 +347,13 @@ Each entry shows both threats side by side:
 **Why this is ambiguous:** <1-2 sentences explaining where the similarity is and where the divergence is>
 
 **Older threat:**
-- Severity: <Severity>
+- Priority: <normalized rating>
 - Component: <Component>
 - Title: <Title>
 - Description: <full Description>
 
 **Newer threat:**
-- Severity: <Severity>
+- Priority: <normalized rating>
 - Component: <Component>
 - Title: <Title>
 - Description: <full Description>
@@ -417,14 +420,14 @@ If no significant assumption changes are present, write "Assumptions and filteri
 
 A brief synthesis paragraph addressing:
 
-- **Severity distribution shift**: Did the newer run produce more or fewer Critical/High threats? What's the net direction?
+- **Rating distribution shift**: Did the newer run produce more or fewer Priority 1 / Priority 2 (normalized) threats? What's the net direction?
 - **Component coverage**: Are there components in the older model not addressed in the newer (or vice versa)? Flag as potential blind spots. Reference Section 6's Component Inventory Delta.
 - **Net direction**: Based on the comparison, is the security posture trending better, worse, or sideways? Be cautious in this judgment; significant scope or inventory drift makes this hard to determine. Note that the comparison cannot directly assess code-level mitigation; threats absent in the newer model may or may not be mitigated in code.
 
 End with a short "Use of this comparison" section:
 
 - For the security architect (you): the persistent threats in Section 2 are the long-standing concerns to track. Section 3 entries where the reasoning category is "Component/asset not in newer model's inventory" or "Excluded by category in newer run" have direct evidence; other categories (especially "Absent from newer model, no explicit exclusion noted") require additional code-level investigation if you want to confirm mitigation. Section 4 entries are the newest information from the newer threat model.
-- For developers: the threats most likely to need action are those in Section 2 marked Critical/High and any in Section 4 marked "Newly identified, no inventory or exclusion explanation" at Critical/High severity. Section 5 ambiguous matches in your area of ownership are worth a quick review. Section 6 inventory changes affecting your services are worth understanding.
+- For developers: the threats most likely to need action are those in Section 2 marked Critical/High and any in Section 4 marked "Newly identified, no inventory or exclusion explanation" at Priority 1/2. Section 5 ambiguous matches in your area of ownership are worth a quick review. Section 6 inventory changes affecting your services are worth understanding.
 
 ---
 
@@ -467,23 +470,23 @@ The verdict must be supportable by content in the long comparison document. Do n
 
 ## Things to investigate or remediate
 
-Critical and High severity threats from Section 2 (persistent) and Section 4 (newly identified) of the long comparison, listed by finding ID and one-line description. Sort by severity (Critical first), then by category.
+Priority 1 and Priority 2 threats (normalized) from Section 2 (persistent) and Section 4 (newly identified) of the long comparison, listed by threat ID and one-line description. Sort by Priority (Priority 1 first), then by category.
 
 Format:
-- **<NewerID>** (Critical, persistent): <one-line title> - <component>
-- **<NewerID>** (High, newly identified): <one-line title> - <component>
+- **<NewerID>** (Priority 1, persistent): <one-line title> - <component>
+- **<NewerID>** (Priority 2, newly identified): <one-line title> - <component>
 - ...
 
 For Section 4 entries, briefly note the reasoning category in parens after the severity (e.g., "newly identified" or "component not in older inventory") so readers understand the context.
 
-If there are more than 20 entries across these categories, list all of them anyway -- sorted by severity. The brief is short because each entry is one line, not because the count is capped.
+If there are more than 20 entries across these categories, list all of them anyway -- sorted by Priority. The brief is short because each entry is one line, not because the count is capped.
 
 ## Things to verify mitigation
 
-Critical and High severity threats from Section 3 (only in older model) that have the reasoning category "Absent from newer model, no explicit exclusion noted." These are threats where the agent has no observable evidence either way -- they might be mitigated in code or might just be absent from the newer threat model's analysis.
+Priority 1 and Priority 2 threats (normalized) from Section 3 (only in older model) that have the reasoning category "Absent from newer model, no explicit exclusion noted." These are threats where the agent has no observable evidence either way -- they might be mitigated in code or might just be absent from the newer threat model's analysis.
 
 Format:
-- **<OlderID>** (Critical): <one-line title> - <component> - was in older model, absent from newer model with no explicit exclusion
+- **<OlderID>** (Priority 1): <one-line title> - <component> - was in older model, absent from newer model with no explicit exclusion
 - ...
 
 If no entries qualify, omit this section entirely.
@@ -520,7 +523,7 @@ At 2-3 pages of content, the HTML brief fits reliably in a single create_new_fil
 Styling requirements (consistent with other HTML outputs in the toolchain):
 - Single self-contained file: no external CSS or JS, no CDN references
 - Inline `<style>` block with system-ui font stack, print-friendly layout
-- Severity color coding: Critical `#b00020`, High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast
+- Rating color coding: Priority 1/Critical `#b00020`, Priority 2/High `#e65100`, Medium `#f9a825`, Low `#2e7d32`, with WCAG-AA contrast
 - Semantic HTML5: `<header>`, `<main>`, `<section>` per content area, `<article>` per action item
 - Tables for the "At a glance" counts; styled lists for action items
 - Severity color coding applied prominently to action items and counts (developers scanning the brief make severity-based decisions quickly, so severity colors should be visually obvious)
@@ -541,7 +544,7 @@ After writing, verify the HTML exists and is non-empty.
 
 CRITICAL CONTENT DISCIPLINE
 
-Each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat models, not just IDs and pointers. A reader seeing "Threat 0007 matches older threat 0005" with no further detail cannot interpret the comparison. The reader must see what each threat said, in enough detail to understand and act on the entry.
+Each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat models, not just IDs and pointers. A reader seeing "Threat 07 matches older threat 05" with no further detail cannot interpret the comparison. The reader must see what each threat said, in enough detail to understand and act on the entry.
 
 The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
 

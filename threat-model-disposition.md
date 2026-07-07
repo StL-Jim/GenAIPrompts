@@ -38,9 +38,13 @@ When the prompt is first pasted, perform these steps in order:
 
 Compute `{PROJECT_NAME}` as the workspace leaf directory name. Verify that `{PROJECT_NAME}-threat-model/02-threats.md` exists. If not, STOP and explain: "No threat model found at {PROJECT_NAME}-threat-model/. This prompt requires a completed threat model to disposition. Run the STRIDE Threat Modeling Prompt first."
 
+If `{PROJECT_NAME}-threat-model/STATE.md` exists, check that phase-2c is marked complete. If it is not, warn: "The threat model run appears incomplete (phase-2c not complete per STATE.md); the threat table may be partial. Continue anyway?" and wait for confirmation.
+
 **Step 2: Read existing threats**
 
 Read `02-threats.md` and extract the threat table. Build an internal list of all threats with their ID, Title, Component, Priority (original; normalize older Severity values per the rule above), Category, OWASP, Description (full text -- a future threat model run matches dispositions semantically on Component + OWASP + Title/Description, so these fields must be carried into the CSV), ThreatAgent, and any other fields you'll need for one-line context.
+
+Scope: the MAIN threat table (Confirmed and Likely threats) only. 02-threats.md also contains an Inferred Threats table and an Excluded Threats Ledger -- neither is dispositioned here. Inferred threats are unverified by design (they get verified by the code security audit or promoted in a future threat model run before stakeholders are asked to disposition them), and ledger rows already carry the model's own recorded exclusion decision.
 
 **Step 3: Check for existing dispositions**
 
@@ -48,7 +52,7 @@ Check whether `{PROJECT_NAME}-threat-model/dispositions.csv` already exists.
 
 If it does NOT exist: this is a fresh disposition session. The CSV will be created when the first disposition is captured.
 
-If it DOES exist: read it. Parse existing dispositions. Note which threat IDs have been dispositioned and which haven't.
+If it DOES exist: read it. Parse existing dispositions. Note which threat IDs have been dispositioned and which haven't. The file may have been created by this prompt in a prior session or by the threat model HTML report's 'Export dispositions.csv' button during a review -- both emit the same canonical schema; treat them identically.
 
 **Step 4: Ask for reviewer name(s)**
 
@@ -119,6 +123,8 @@ Parse the response:
 
 3. Extract the rationale (everything after the delimiter, trimmed). If no rationale, use empty string.
 
+   If the disposition is 5 (Duplicate) and the rationale does not already name a threat ID, ask: "Duplicate of which threat ID?" -- then prefix the rationale with "Duplicate of <ID> -- " (the threat model's own Disposition example format, e.g. "Duplicate of 09"). Verify the referenced ID exists in the threat list.
+
 4. Scan the rationale for priority revision intent. X is any of: Priority 1, Priority 2, P1, P2, Critical, High, Medium, Low -- normalize Critical -> Priority 1, High -> Priority 2, P1/P2 -> Priority 1/Priority 2; Medium and Low stay as-is (a team may deliberately revise below the model's inclusion floor). Look for these patterns (case-insensitive):
    - "priority <X>" or "severity <X>"
    - "actually <X>" or "this is <X>" where X is one of the severity values
@@ -129,6 +135,8 @@ Parse the response:
    If a clear revision pattern is detected, extract the NEW priority value (X). If the rationale just happens to mention a severity word without revision intent (e.g., "this is medium-priority backlog work"), do NOT treat it as a revision -- only patterns that clearly express revision intent count.
 
    If detection is ambiguous, prefer no revision over false revision. The user can issue an explicit `revise <ID> priority to <level>` command if needed.
+
+   Valid RevisedPriority values are exactly: Priority 1, Priority 2, Medium, Low -- the same options as the threat model HTML report's RevisedPriority control. If the user supplies any other value, ask for clarification rather than recording it.
 
 5. Record the disposition entry:
    - ThreatID: the current threat ID
@@ -145,7 +153,7 @@ Parse the response:
 
 6. Append (or update if re-dispositioning) the entry in the in-memory disposition list.
 
-7. Write the complete dispositions.csv file to disk (rewriting from in-memory list each time, not appending). This ensures persistence after every capture.
+7. Write the complete dispositions.csv file to disk (rewriting from in-memory list each time, not appending). This ensures persistence after every capture. Use `create_new_file` (it overwrites) per the toolchain's file-writing convention; after writing, verify the file is non-empty. Never append with shell redirection.
 
 8. Respond briefly: "Captured: <ID>, <Disposition>. <Note if priority revised: 'Priority revised <Original> -> <Revised>.'>. Next threat?"
 

@@ -11,7 +11,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
 
 ## Operating Rules (read before every phase)
 
-1. **Phase discipline.** Execute phases **strictly in order**. At the end of each phase (and each Phase 2 sub-phase), STOP, print the completion banner, update STATE.md, and wait for the user to type `proceed` before starting the next step. Do not chain phases. Do not "get ahead."
+1. **Phase discipline.** Execute phases **strictly in order**. At the end of each phase (and each Phase 2 sub-phase), STOP, print the completion banner, update STATE.md, and wait for the user to type `proceed` before starting the next step. Do not chain phases. Do not "get ahead." Prefer starting a NEW session at each phase boundary rather than typing `proceed` in a long-running one -- instruction adherence degrades as the context fills with generated output, and the rehydration steps exist precisely so a fresh session costs nothing. This matters most for Phases 2B, 3, and 4.
 
 2. **Evidence or it didn't happen.** Every architectural claim, component, trust boundary, data flow, and threat MUST cite concrete evidence using the form `[evidence: <path>:<start-line>-<end-line>]`. Evidence paths are relative to the workspace root (which is the source repo root) and must use forward slashes for portability, e.g. `[evidence: src/api/handler.go:42-78]`. If you cannot cite evidence, you must either (a) read more files, or (b) mark the item as `ASSUMED` and list it in the Assumptions Log. Never invent code that does not exist in the repo.
 
@@ -387,13 +387,15 @@ Any architectural claim not backed by evidence. Each assumption gets `A-<NNN>` a
 
 After writing 01-inventory.md, update STATE.md: mark `phase-1: complete` with timestamp, set Last Completed Step to `phase-1 -- inventory written to 01-inventory.md`, set Resume Instruction to `Begin at Phase 2A (Assets, Trust Boundaries, Data Flows). Required rehydration: 01-inventory.md.`
 
+Before printing the banner, print a System Restatement: one paragraph stating what you believe this system is, what it talks to, who its users are, and what its single most sensitive asset is -- then ask the user to confirm or correct it. The user knows the real architecture; a wrong inventory produces confident, well-cited, wrong threats, and this is the cheapest place to catch that. Record any corrections in 01-inventory.md before proceeding.
+
 **Phase 1 Completion Banner:**
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
 Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
 STATE.md updated: phase-1 marked complete.
-Review the inventory. Type 'proceed' to begin Phase 2A (Assets, Trust Boundaries, Data Flows),
-or ask for corrections first.
+Review the inventory and confirm or correct the System Restatement above. Type 'proceed' to
+begin Phase 2A (Assets, Trust Boundaries, Data Flows), or provide corrections first.
 ```
 
 ---
@@ -513,6 +515,11 @@ Likelihood anchors -- score against the ThreatAgent named in the row, and do NOT
 - Medium: requires one prerequisite the agent plausibly achieves (valid low-privilege credentials, internal network position, one phished user).
 - Low / Very Low: requires chained prerequisites, insider collusion, or nation-state resources. Excluded by the gate.
 
+Impact anchors:
+- Critical: bulk exposure of the highest-classification data the system handles, cross-tenant boundary crossing, or code execution / full control in production.
+- High: compromise scoped to a single user, session, or component; partial data exposure; sustained outage of a critical service.
+- Medium / Low: degraded service, or exposure of internal metadata or non-sensitive data.
+
 Risk severity calculation:
 - CRITICAL = High Likelihood x Critical Impact
 - HIGH = High Likelihood x High Impact, OR Medium Likelihood x Critical Impact
@@ -568,6 +575,8 @@ While walking the matrix, keep a compact working list of every candidate threat 
 For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed, Likely, or Inferred) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. Inferred threats are filled into the lighter Inferred Threats table.
 
 Self-check before finalizing: for each Confirmed or Likely threat you must be able to write the architecture-vs-code explanation required by the Stakeholder Explainer below. If the honest explanation reduces to a specific implementation defect, the threat fails the architecture-level test -- move it to the Excluded Threats Ledger (`Code-level`) before writing 02b-threats.md.
+
+Citation audit (Confirmed threats only): before writing 02b-threats.md, re-open the cited line range of each Confirmed threat and verify the exact lines support the control-state claim. If the cited code does not actually show the flaw or the absence of the control, fix the citation or demote the threat to Likely. This is bounded work -- only Confirmed rows, only the already-cited ranges -- and it is what makes the Evidence column trustworthy rather than merely plausible-looking.
 
 For each Confirmed or Likely threat, fill in every column of the main threat table schema below. For each Inferred threat, fill in the lighter Inferred schema.
 
@@ -627,6 +636,7 @@ Structure:
 
 ## Threat Filtering Notes
 - Matrix cells evaluated ((components + boundary-crossing flows) x 6 STRIDE categories): <N>
+- Component coverage: every C-NNN from the inventory MUST appear at least once in the Threat Table, the Inferred Threats table, or the Excluded Threats Ledger. Components appearing in none of the three, each with a one-line justification: <list, or 'none'>
 - Total candidate threats identified during STRIDE matrix walk: <N>
 - Confirmed threats (main table): <N>
 - Likely threats (main table): <N>

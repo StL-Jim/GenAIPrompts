@@ -27,6 +27,8 @@ SECONDARY OUTPUTS
 OPERATING MODEL (CRITICAL)
 You MUST execute in STRICT PHASES.
 
+SESSION START: Before Phase 1, always run the Session-Start Behavior check (see STATE FILE SYSTEM section below) to determine whether this is a fresh run or a resume of a prior run. Do not skip this even if the conversation seems to already know the audit's history -- audit_state/STATE.md, not chat memory, is the source of truth for what has been completed.
+
 For EACH phase:
 1. Read required state files from audit_state/
 2. Perform ONLY that phase's scope
@@ -37,6 +39,7 @@ For EACH phase:
 After STOP:
 - Clear working memory conceptually
 - The next phase MUST rehydrate from audit_state/ files only
+- Prefer starting a NEW session at each phase boundary rather than continuing in a long-running one -- rehydration from audit_state/ makes this free, and instruction adherence degrades as a session's context fills. This matters most for Phase 3A on large partitions, Phase 5, and Phase 6.
 
 FAIL CLOSED:
 - If required state files are missing, STOP and list missing files
@@ -60,6 +63,7 @@ PROGRESS TRACKING:
 ---
 
 GLOBAL RULES
+- SEVERITY SCOPE (mandatory): this audit reports Critical and High severity findings ONLY. Do not produce, score, or write up Medium, Low, or Info findings -- not in worker findings.md files, not in findings_registry.md, not in any deliverable. If a worker notices a Medium/Low/Info-level issue while reviewing code, do not analyze it further, do not draft an issue/impact/fix/verify write-up for it, and do not assign it a finding ID. This keeps worker output budget concentrated on the findings that matter and prevents the consolidated report from being diluted with low-value entries. This applies identically in COORDINATED and STANDALONE mode.
 - Use ONLY evidence from:
   - Files in the workspace
   - Executed commands and tool outputs actually produced in this session
@@ -147,6 +151,7 @@ STATE FILE SYSTEM (SOURCE OF TRUTH)
 Maintain ALL of the following global state files:
 
 audit_state/
+- STATE.md (the resume signal -- see schema below; checked at the start of every session)
 - coordination_mode.md (NEW: records COORDINATED vs STANDALONE and binding info)
 - 00_workspace_context.md
 - 01_discovery.md
@@ -178,6 +183,87 @@ RULES:
 - If new evidence invalidates a prior conclusion, update the earlier state file and note the correction
 - State files are canonical truth, NOT chat memory
 - Before writing any files get the current date to know when artifacts were created, last updated or to use for Finding IDs
+
+STATE.md SCHEMA (the resume signal):
+
+`audit_state/STATE.md` is the single file that answers "is this a new audit or a continuation, and what's next?" It is the audit's equivalent of the threat modeling prompt's STATE.md and Operating Rule 12. Every phase, on completion, updates this file as part of its own STOP step (see the Completion Banner instructions in each phase below) -- it is never a separate, deferred bookkeeping task.
+
+```markdown
+# Audit STATE
+
+PROJECT_NAME: <target repo name>
+WORKSPACE: <target path>
+MODE: COORDINATED | STANDALONE
+EXECUTOR_MODEL: <model identifier, e.g. claude-sonnet-4-5-20250929, deepseek-chat>
+LAST_UPDATED: <ISO 8601 timestamp>
+
+## Phase Status
+
+- Phase 1 (Global Discovery): pending | done
+- Phase 2 (Risk Prioritization): pending | done
+- Phase 3A (Worker Security Review):
+  - <partition_id_1>: pending | in_progress | done
+  - <partition_id_2>: pending | in_progress | done
+  ...
+- Phase 4A (Worker Architecture Review):
+  - <partition_id_1>: pending | in_progress | done
+  - <partition_id_2>: pending | in_progress | done
+  ...
+- Phase 3B/4B (Shared Component Review): not_applicable | pending | done
+- Phase 5 (Consolidation): pending | done
+- Phase 6 (Comparison HTML Render): not_applicable | pending | done
+
+## Last Completed Step
+
+<plain-language description of the most recent completed phase/partition>
+
+## Resume Instruction
+
+<exact instruction for what to run next>
+```
+
+Schema notes:
+- Phase 3A and Phase 4A are nested per-partition, not flat, because resume must be able to target a specific partition rather than just a phase number -- this mirrors the granularity already maintained in `partition_status.md`.
+- Set Phase 3B/4B and Phase 6 to `not_applicable` when they will never run (no critical shared components for 3B/4B; STANDALONE mode for Phase 6), so resume logic never waits on a phase that was never going to execute.
+- EXECUTOR_MODEL records which model is running the audit. Self-report your own model identifier if you can determine it; if you cannot determine it with confidence, write `unknown` rather than guessing -- a recorded `unknown` is more useful than a wrong guess, since it correctly signals the gap to anyone comparing runs later. This field exists because finding counts and review depth can vary by model, and without a record, that variable becomes unrecoverable once a run is done -- comparing two runs' results is unreliable if you can't first confirm they used the same model.
+- Initialize STATE.md at the start of Phase 1 with PROJECT_NAME, WORKSPACE, EXECUTOR_MODEL, and all phases marked `pending` (partitions are added to the per-partition lists once `partition_plan.md` exists later in Phase 1), Resume Instruction = "Begin Phase 1 (Global Discovery)."
+
+SESSION-START BEHAVIOR (run before Phase 1 on every session):
+
+Before doing any other work, check whether this is a new audit or a continuation:
+
+```powershell
+$STATE_FILE = ".\audit_state\STATE.md"
+if (Test-Path $STATE_FILE) {
+    "STATE.md found -- reading existing run state."
+    Get-Content $STATE_FILE
+} else {
+    "No STATE.md -- fresh run. Starting at Phase 1."
+}
+```
+
+If STATE.md does not exist, proceed to Phase 1.
+
+If it exists, read it and tell the user:
+- The current Phase Status for every phase/partition
+- The Last Completed Step
+- The Resume Instruction
+
+Then ask whether to resume from the Resume Instruction, or restart a specific phase/partition. Wait for explicit confirmation before doing any work.
+
+To restart a phase or partition, mark it and all later phases/partitions back to `pending` before running. For partitioned phases, only the affected partition needs resetting unless the restart point is Phase 1 or Phase 2, which invalidates all downstream phases and partitions.
+
+PRIOR-AUDIT ACKNOWLEDGMENT (runs as part of the same Session-Start check, only when `audit_state/STATE.md` does NOT exist, i.e. this is a fresh run):
+
+A fresh run by definition does not read `audit_state/`, so a renamed prior audit directory is already excluded from this run's evidence by construction -- no exclusion logic is needed. The only gap is visibility: without an explicit check, a leftover renamed directory goes unmentioned, and there is no confirmation it was noticed rather than missed. Close that gap with a one-line acknowledgment, never a read of contents:
+
+```powershell
+Get-ChildItem -Directory -Filter "audit_state-*" | Where-Object { $_.Name -match '^audit_state-\d{8}$' }
+```
+
+If this returns one or more directories, tell the user: "Found prior audit run(s): `<name(s)>`. Starting a fresh audit; their contents will not be read or referenced." Do not open, list contents of, or otherwise inspect the matched directories -- the check is presence-only. Then proceed to Phase 1 as normal.
+
+If it returns nothing, proceed to Phase 1 without comment.
 
 ---
 
@@ -221,6 +307,7 @@ INVENTORY_TRUST_BOUNDARY_COUNT: <N>
 THREAT_COUNT_MAIN: <N, threats in the main Confirmed/Likely table of 02-threats.md>
 THREAT_COUNT_INFERRED: <N, threats in the Inferred Threats table of 02-threats.md>
 EXCLUDED_LEDGER_COUNT: <N, rows in the Excluded Threats Ledger of 02-threats.md, 0 if absent>
+SEEDED_LEAD_COUNT: <N, ledger rows whose Exclusion Reason begins with Code-level -- code-level concerns the threat model deliberately routed to this audit, 0 if absent>
 
 ## Deployment Exposure (STANDALONE mode only)
 DEPLOYMENT_EXPOSURE: <Internet-facing | Internal | Hybrid | Unknown, asked from user>
@@ -229,7 +316,7 @@ DEPLOYMENT_EXPOSURE: <Internet-facing | Internal | Hybrid | Unknown, asked from 
 In COORDINATED mode:
 - Read `{PROJECT_NAME}-threat-model/STATE.md` and copy the LAST_UPDATED timestamp into `coordination_mode.md`. This timestamp becomes the binding contract -- Phase 5 will verify it hasn't changed before producing the comparison output.
 - Read `{PROJECT_NAME}-threat-model/00-scope.md` and extract the deployment exposure value. Record it in `coordination_mode.md`.
-- Note the threat model component count, trust boundary count, and threat counts (main table, Inferred table, and Excluded Threats Ledger separately) for sanity checking later.
+- Note the threat model component count, trust boundary count, and threat counts (main table, Inferred table, and Excluded Threats Ledger separately) for sanity checking later. Count ledger rows with `Code-level` exclusion reasons separately as seeded leads.
 
 In STANDALONE mode:
 - STOP and prompt the user with: "How is this application exposed?"
@@ -243,6 +330,7 @@ In STANDALONE mode:
 The deployment exposure value affects risk scoring throughout the audit -- specifically the Exploitability scale (see RISK SCORING section). Apply this consistently across all subsequent phases.
 
 ACTIONS (after mode detection):
+- If this is a fresh run (no audit_state/STATE.md existed at Session-Start), initialize audit_state/STATE.md per the schema in the STATE FILE SYSTEM section: PROJECT_NAME, WORKSPACE, MODE (from coordination_mode.md just detected above), all phases marked `pending`, Resume Instruction = "Begin Phase 1 (Global Discovery)." If this is a resumed run continuing into Phase 1 work, update LAST_UPDATED only.
 - Exclude the audit output directory from the source repo's git tracking, using the repo-local un-committed exclude file (same technique as the threat modeling prompt). Add an `audit_state/` entry to `.git/info/exclude` if not already present; if `.git/info/exclude` does not exist, warn the user that `audit_state/` will appear in `git status`. This matters because audit state files contain findings and secret locations and must not be accidentally committed.
 - Perform full repo scan
 - Build:
@@ -271,6 +359,17 @@ OUTPUT FILES:
 - audit_state/partition_plan.md
 - audit_state/partition_status.md (if multiple partitions detected)
 
+**Phase 1 Completion Banner:**
+```
+=== PHASE 1 COMPLETE: GLOBAL DISCOVERY DONE ===
+  audit_state/coordination_mode.md
+  audit_state/01_discovery.md
+  audit_state/resource_inventory.md
+  audit_state/partition_plan.md
+Update audit_state/STATE.md: mark Phase 1 done; Resume Instruction = "Begin Phase 2 (Risk Prioritization)."
+Type 'proceed' to begin Phase 2 (Risk Prioritization).
+```
+
 STOP
 
 ---
@@ -289,9 +388,26 @@ ACTIONS:
 - Identify:
   - highest-risk areas
   - exact files and interfaces for deep inspection
+- In COORDINATED mode, read the `Code-level` rows of the threat model's Excluded Threats Ledger: these are seeded leads -- code-level defects the threat model already predicted and routed to this audit. The files and components they name are automatically top-tier inspection targets.
+- Account for every file in the partition (see FILE COVERAGE ACCOUNTING below) -- ranking guides inspection depth in Phase 3A/4A, it must never cause a file to be silently dropped from consideration.
+
+FILE COVERAGE ACCOUNTING:
+
+Tiering exists to focus depth of review, not to shrink the set of files Phase 3A/4A will look at. Every file belonging to the partition (per `resource_inventory.md` / `partition_plan.md`) must be accounted for somewhere in `02_risk_prioritization.md` -- either in a ranked tier with rationale, or in a single rolled-up lowest-priority bucket (e.g., "Tier N (pattern-scan only): <count> files -- <category description, such as 'test files, generated code, simple utility modules'>"). The rolled-up bucket does not need per-file rationale; a category description and a count are sufficient -- this keeps the accounting cheap regardless of partition size.
+
+Before writing the completion banner, compute `tier1 + tier2 + ... + tierN == total files in partition`. Report this count in the banner (see below) so a coverage gap is visible immediately rather than discovered later by re-reading the file. This is a visibility check, not a hard gate -- if the count is short, report it honestly and proceed; do not loop re-deriving the table to force an exact match, since that costs tokens without necessarily adding review value.
 
 OUTPUT:
 - audit_state/02_risk_prioritization.md
+
+**Phase 2 Completion Banner:**
+```
+=== PHASE 2 COMPLETE: RISK PRIORITIZATION DONE ===
+  audit_state/02_risk_prioritization.md
+  Tier coverage: <N> of <total> partition files accounted for
+Update audit_state/STATE.md: mark Phase 2 done; Resume Instruction = "Begin Phase 3A (Worker Security Review) for partition '<first_partition_id>'."
+Type 'proceed' to begin Phase 3A for partition '<first_partition_id>'.
+```
 
 STOP
 
@@ -311,6 +427,7 @@ INPUT:
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
+- Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
 
 MODE-DEPENDENT BEHAVIOR:
 
@@ -324,14 +441,14 @@ THREAT CROSS-REFERENCE PROCEDURE (COORDINATED mode only):
 
 For each new finding the worker produces in this partition:
 1. Read the threats from `{PROJECT_NAME}-threat-model/02-threats.md`. The threat model contains THREE matchable structures, all in that file:
-   - The MAIN threat table (Confirmed and Likely threats), tabular with stable IDs like `0001`, `0002`. Each threat has a Component (matches inventory C-NNN IDs), Title, Category (STRIDE), OWASP mapping, and Description.
+   - The MAIN threat table (Confirmed and Likely threats), tabular with stable IDs like `01`, `02` (two digits; the threat model caps at 25 threats). Each threat has a Component (matches inventory C-NNN IDs), Title, Category (STRIDE), OWASP mapping, and Description.
    - The INFERRED threats table (same ID sequence, lighter schema with a WhatWouldConfirm column). These are threats the model judged plausible but could not verify.
    - The EXCLUDED THREATS LEDGER (EX-NNN rows, from Phase 2C of the threat model; may be absent in models generated by older prompt versions). These are candidates the model considered and deliberately excluded, with a reason.
 2. For the current finding, scan in this order and stop at the first qualifying match:
-   a. MAIN table -- Strong match: same Component, same OWASP category, technical content aligns (e.g., audit found "SQL injection in `searchContacts()`" and threat 0007 is "SQL injection in Contact search API" against the same C-003 component). Set `threat_id = "0007"`, `threat_match = confirms`.
-   b. MAIN table -- Partial match: same Component, related but not identical concern (e.g., audit found "missing CSRF token validation" and threat 0011 is "session hijacking in user dashboard" against the same C-005 component -- both are session-related but addressing different aspects). Set `threat_id = "0011"`, `threat_match = partial`.
+   a. MAIN table -- Strong match: same Component, same OWASP category, technical content aligns (e.g., audit found "bearer session cookie issued with no token binding at src/auth/session.go:120" and threat 01 is "Session token replay due to absent token binding" against the same C-003 component). Set `threat_id = "01"`, `threat_match = confirms`.
+   b. MAIN table -- Partial match: same Component, related but not identical concern (e.g., audit found "missing CSRF token validation" and threat 11 is "session hijacking in user dashboard" against the same C-005 component -- both are session-related but addressing different aspects). Set `threat_id = "11"`, `threat_match = partial`.
    c. INFERRED table -- Strong match (same criteria as 2a, and the finding answers the threat's WhatWouldConfirm question in the affirmative): set `threat_id` to the Inferred threat's ID, `threat_match = promotes-inferred`. This is a high-value outcome: the audit has supplied the code-level verification the threat model could not, effectively promoting the Inferred threat to Confirmed.
-   d. EXCLUDED THREATS LEDGER -- match on Component + STRIDE category + technical content: if the matched ledger row's Exclusion Reason begins with `Fully mitigated`, set `threat_id` to the EX-NNN ID, `threat_match = contradicts-exclusion`. This means the threat model judged the issue mitigated and the audit found a code defect anyway -- the mitigation judgment was wrong. Flag prominently. If the matched ledger row was excluded for any other reason (severity floor, likelihood, scope), set `threat_id` to the EX-NNN ID, `threat_match = excluded-by-design` -- the finding is real but its absence from the threat model is a scoping decision, not a miss.
+   d. EXCLUDED THREATS LEDGER -- match on Component + STRIDE category + technical content: if the matched ledger row's Exclusion Reason begins with `Fully mitigated`, set `threat_id` to the EX-NNN ID, `threat_match = contradicts-exclusion`. This means the threat model judged the issue mitigated and the audit found a code defect anyway -- the mitigation judgment was wrong. Flag prominently. If the matched ledger row's Exclusion Reason begins with `Code-level`, set `threat_id` to the EX-NNN ID, `threat_match = confirms-seeded` -- the threat model deliberately routed this concern to the audit as a seeded lead, and the audit has now verified it: the coordinated handoff working as designed. If the matched ledger row was excluded for any other reason (severity floor, likelihood, scope), set `threat_id` to the EX-NNN ID, `threat_match = excluded-by-design` -- the finding is real but its absence from the threat model is a scoping decision, not a miss.
    e. No match anywhere: set `threat_id = null`, `threat_match = unanticipated`.
 3. Record the match decision in the finding's `threat_id` and `threat_match` fields.
 4. Do NOT invent new threats during this phase. If a finding has no matching threat, it is `unanticipated` -- that's the value-add of the audit.
@@ -392,6 +509,16 @@ OUTPUT FILES:
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
 
+**Phase 3A Completion Banner:**
+```
+=== PHASE 3A COMPLETE: SECURITY REVIEW DONE FOR PARTITION '<partition_id>' ===
+  audit_state/workers/<partition_id>/security_review.md
+  audit_state/workers/<partition_id>/findings.md
+  audit_state/findings_registry.md
+Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 3A; Resume Instruction = "Begin Phase 3A for partition '<next_partition_id>'." (or "Begin Phase 4A for partition '<first_partition_id>'." if this was the last partition).
+Type 'proceed' to continue.
+```
+
 STOP
 
 ---
@@ -410,6 +537,7 @@ INPUT:
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
+- Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
 
 MODE-DEPENDENT BEHAVIOR:
 
@@ -433,6 +561,16 @@ OUTPUT FILES:
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
 
+**Phase 4A Completion Banner:**
+```
+=== PHASE 4A COMPLETE: ARCHITECTURE REVIEW DONE FOR PARTITION '<partition_id>' ===
+  audit_state/workers/<partition_id>/architecture_review.md
+  audit_state/workers/<partition_id>/findings.md
+  audit_state/findings_registry.md
+Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 4A; Resume Instruction = "Begin Phase 4A for partition '<next_partition_id>'." (or, if this was the last partition: "Begin Phase 3B/4B (Shared Component Review)." if shared_components.md lists critical components, else "Begin Phase 5 (Consolidation).").
+Type 'proceed' to continue.
+```
+
 STOP
 
 ---
@@ -449,6 +587,7 @@ INPUT:
 SCOPE:
 - only security-critical or architecture-critical shared components
 - plus directly affected trust-boundary files
+- Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
 
 MODE-DEPENDENT BEHAVIOR:
 
@@ -458,6 +597,15 @@ OUTPUT FILES:
 - audit_state/shared_components.md
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
+
+**Phase 3B/4B Completion Banner:**
+```
+=== PHASE 3B/4B COMPLETE: SHARED COMPONENT REVIEW DONE ===
+  audit_state/shared_components.md
+  audit_state/findings_registry.md
+Update audit_state/STATE.md: mark Phase 3B/4B done; Resume Instruction = "Begin Phase 5 (Consolidation)."
+Type 'proceed' to begin Phase 5 (Consolidation).
+```
 
 STOP
 
@@ -549,7 +697,7 @@ In Phase 5, produce the comparison as Markdown only:
 
 Use `create_new_file` to write `audit_state/threat_audit_comparison.md`. This is the canonical content artifact -- everything described in the Structure section below goes in this file with full per-entry detail. The Markdown form has tested reliably at large sizes (typically 100-200KB), so single-call generation is appropriate. Phase 6 then renders this Markdown to HTML.
 
-CRITICAL CONTENT DISCIPLINE for the Markdown comparison: each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 0007 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
+CRITICAL CONTENT DISCIPLINE for the Markdown comparison: each entry in Sections 2, 3, 4, and 5 must contain actual content reproduced from the threat model and findings registry, NOT just IDs and pointers. A reader seeing "Threat 07 confirmed by F-20240315-001" with no further detail cannot act on that. The reader must see what the threat said, where the code is broken, with what evidence, and how to fix it -- all in one place.
 
 The agent's natural tendency on this output is to summarize aggressively (list IDs, count categories, produce a thin index). That tendency is wrong here. The comparison output is comprehensive by design. Every entry contains essential row-level content.
 
@@ -557,18 +705,18 @@ Structure:
 
 - Section 1: Executive Summary
   - One paragraph synthesizing how well the threat model anticipated the code-level reality: what proportion of threats were confirmed, what kinds of issues were unanticipated, whether there's severity divergence between the model and the audit.
-  - Counts table: total threats in threat model (main and Inferred shown separately), total audit findings, threats confirmed, threats partial, Inferred threats promoted, exclusion contradictions, threats unconfirmed, audit unanticipated findings. Include percentages.
-  - SEVERITY-FLOOR STRATIFICATION (mandatory): the threat model excludes Medium and Low severity threats BY DESIGN, so every Medium/Low/Info audit finding is structurally guaranteed not to match a threat. Counting those as "unanticipated" inflates the gap metric without meaning the threat model missed anything. The counts table MUST therefore stratify unanticipated findings by severity: report "unanticipated (Critical/High)" -- the true threat-model misses -- separately from "unanticipated (Medium/Low/Info)" -- expected non-matches given the model's severity floor. The executive paragraph must use the Critical/High number when characterizing how much the threat model missed, with a one-sentence note explaining why lower-severity non-matches are expected.
+  - Counts table: total threats in threat model (main and Inferred shown separately), total audit findings, threats confirmed, threats partial, Inferred threats promoted, seeded leads confirmed, exclusion contradictions, threats unconfirmed, audit unanticipated findings. Include percentages.
+  - Both the threat model (Priority 1/2 Confirmed/Likely threats; Priority 1 corresponds to Critical, Priority 2 to High) and the audit (Critical/High per SEVERITY SCOPE in GLOBAL RULES) share the same severity floor, so no severity-floor stratification is needed here -- every unanticipated finding is, by construction, a genuine Critical/High gap in the threat model's coverage, not an artifact of comparing across severity floors.
 
 - Section 2: Threats Confirmed by Audit
-  - One entry per threat from `02-threats.md` that has at least one finding with `threat_match = confirms`, PLUS one entry per Inferred threat with at least one `threat_match = promotes-inferred` finding. Promoted Inferred entries use the same entry format but are clearly labeled "PROMOTED FROM INFERRED" and additionally quote the threat's original WhatWouldConfirm question alongside the finding evidence that answers it -- these entries demonstrate the audit completing the threat model's unfinished verification, which is a key value of running the two together.
+  - One entry per threat from `02-threats.md` that has at least one finding with `threat_match = confirms`, PLUS one entry per Inferred threat with at least one `threat_match = promotes-inferred` finding, PLUS one entry per `Code-level` ledger row with at least one `threat_match = confirms-seeded` finding -- labeled "SEEDED BY THREAT MODEL" and quoting the ledger row's exclusion clause alongside the finding evidence that verifies it. Promoted Inferred entries use the same entry format but are clearly labeled "PROMOTED FROM INFERRED" and additionally quote the threat's original WhatWouldConfirm question alongside the finding evidence that answers it -- these entries demonstrate the audit completing the threat model's unfinished verification, which is a key value of running the two together.
   - Each entry MUST contain the following content (do NOT use a table for this -- use a section header per threat with substructure):
 
     ```
     ### Threat <ThreatID>: <Title>
 
     **From the threat model:**
-    - Severity: <from 02-threats.md>
+    - Priority: <from 02-threats.md; Priority 1 | Priority 2>
     - Component: <from 02-threats.md>
     - Threat Agent: <from 02-threats.md>
     - Description: <full Description from 02-threats.md, not abbreviated>
@@ -582,11 +730,11 @@ Structure:
       - Evidence: <full evidence from finding's ev field, including any code snippets, command outputs, or tool results>
       - Fix: <full fix guidance from findings_registry.md>
 
-    **Synthesis:** One sentence explaining specifically how the audit evidence validates the threat. Not "this confirms threat 0007" but "the unparameterized query at user_controller.py:45 is exactly the SQL injection vector the threat model anticipated against the Contact search API."
+    **Synthesis:** One sentence explaining specifically how the audit evidence validates the threat. Not "this confirms threat 07" but "the unparameterized query at user_controller.py:45 is exactly the SQL injection vector the threat model anticipated against the Contact search API."
     ```
 
   - These entries are NOT a table. They are detail blocks. Each is roughly 150-300 words depending on the complexity of the threat and its findings.
-  - Sort by severity (Critical first, then High, etc.), then by ThreatID.
+  - Sort by Priority (Priority 1 first), then by ThreatID.
 
 - Section 3: Threats Not Confirmed by Audit
   - One entry per threat from `02-threats.md` that has NO finding with `threat_match` of `confirms` or `partial`.
@@ -603,7 +751,7 @@ Structure:
     ### Threat <ThreatID>: <Title>
 
     **From the threat model:**
-    - Severity: <from 02-threats.md>
+    - Priority: <from 02-threats.md; Priority 1 | Priority 2>
     - Component: <from 02-threats.md>
     - Description: <full Description from 02-threats.md, not abbreviated>
 
@@ -613,13 +761,13 @@ Structure:
     ```
 
   - "Unable to determine" is an acceptable and frequently honest answer. The agent MUST NOT force a confident category when uncertainty is real.
-  - Sort by severity, then ThreatID.
+  - Sort by Priority (Priority 1 first), then ThreatID.
 
 - Section 4: Audit Findings Not Anticipated by Threat Model (the value-add gaps)
   - One entry per audit finding with `threat_match = unanticipated` or `threat_match = contradicts-exclusion`. These are the highest-value entries in the entire comparison output -- they reveal what threat modeling missed or wrongly judged mitigated.
   - `contradicts-exclusion` entries are listed FIRST, clearly labeled "CONTRADICTS THREAT MODEL EXCLUSION", and additionally quote the Excluded Threats Ledger row (EX-NNN, exclusion reason, cited mitigation evidence) that the finding disproves. These are the most serious entries in the section: the threat model looked at this exact concern and concluded it was handled.
   - Findings with `threat_match = excluded-by-design` do NOT get full entries here. List them in a compact table at the end of the section (FindingID, severity, EX-NNN, exclusion reason) with a one-line explanation that their absence from the threat model was a deliberate scoping decision, not a miss. Do not count them in the "unanticipated" totals.
-  - Order the full entries by severity within each group, applying the same severity-floor framing as Section 1: Critical/High unanticipated findings are genuine threat-model misses; Medium/Low/Info ones are expected given the model's severity floor and should be grouped under a subheading saying so.
+  - Order the full entries by severity (Critical first, then High). All entries here are genuine threat-model misses -- there is no lower-severity subgroup to separate out, since the audit does not produce Medium/Low/Info findings (see SEVERITY SCOPE in GLOBAL RULES).
   - Each entry MUST contain the following content:
 
     ```
@@ -663,12 +811,12 @@ Structure:
     **Remaining work:** Brief summary of what aspects of the original threat are not addressed by any current audit finding, and where additional investigation should focus.
     ```
 
-  - Sort by severity, then ThreatID.
+  - Sort by Priority (Priority 1 first), then ThreatID.
 
 - Section 6: Coverage Analysis
   - Percentage of threat model entries with at least one confirming finding (severity-weighted and unweighted both shown). Report main-table and Inferred-table coverage separately.
-  - Percentage of audit findings that map to anticipated threats vs unanticipated findings -- computed twice: once over all findings, and once over Critical/High findings only. The Critical/High figure is the meaningful coverage number; state explicitly that the all-findings figure is depressed by the threat model's deliberate Medium/Low severity floor.
-  - Severity correlation: does the threat model's severity distribution align with the audit's? Note any divergence (e.g., the threat model rated 5 threats as Critical but only 2 of those have any audit findings -- the other 3 may be well-mitigated or out of reach).
+  - Percentage of audit findings that map to anticipated threats vs unanticipated findings. Since both the threat model and the audit are scoped to Critical/High severity, this single figure is already the meaningful coverage number -- no separate all-findings vs. Critical/High-only split is needed.
+  - Priority correlation: does the threat model's Priority distribution align with the audit's severity distribution (Priority 1 ~ Critical, Priority 2 ~ High)? Note any divergence (e.g., the threat model rated 5 threats Priority 1 but only 2 of those have any audit findings -- the other 3 may be well-mitigated or out of reach).
   - Component coverage: are there components in `01-inventory.md` that have neither threat model entries nor audit findings? Flag as potential blind spots.
 
 Do NOT include a "Recommended Next Steps", "Prioritized Roadmap", "Recommendations", or any similar section that sequences or schedules remediation work. The comparison presents what was confirmed, what was not, and what was unanticipated, each with severity and evidence. Sequencing and scheduling the work is left to the team that owns the code -- they have the business context to prioritize, and the audit should not fabricate a priority ordering or time estimates.
@@ -715,6 +863,7 @@ In COORDINATED mode:
   audit_state/executive_briefing.html
   audit_state/threat_audit_comparison.md   <-- input for Phase 6
 Comparison HTML deliverable will be produced in Phase 6.
+Update audit_state/STATE.md: mark Phase 5 done; Resume Instruction = "Begin Phase 6 (Comparison HTML Render)."
 Type 'proceed' to begin Phase 6 (Comparison HTML Render).
 ```
 
@@ -725,6 +874,7 @@ In STANDALONE mode:
   audit_state/executive_briefing.html
 No threat model detected; no comparison output produced.
 Phase 6 is SKIPPED in STANDALONE mode.
+Update audit_state/STATE.md: mark Phase 5 done, Phase 6 not_applicable; Resume Instruction = "Audit complete."
 The audit is complete.
 ```
 
@@ -818,6 +968,7 @@ WRITE (Phase 6):
 === PHASE 6 COMPLETE: AUDIT FINISHED ===
   audit_state/threat_audit_comparison.html
   {PROJECT_NAME}-threat-model/threat_audit_comparison.html (reciprocal copy)
+Update audit_state/STATE.md: mark Phase 6 done; Resume Instruction = "Audit complete."
 The audit is complete.
 ```
 
@@ -833,7 +984,7 @@ FIELD DEFINITIONS:
 - pid: Partition/service identifier (e.g., auth-service, payment-api)
 - src: Source file path(s) with line numbers (e.g., src/auth/login.py:45-52)
 - class: Classification (Confirmed | Suspected | Not Assessable)
-- sev: Severity (Critical | High | Medium | Low | Info)
+- sev: Severity (Critical | High | Medium | Low | Info). The audit only ever produces Critical or High findings -- see SEVERITY SCOPE in GLOBAL RULES. Medium/Low/Info are listed here only because the field shares its enum with other contexts (e.g., a future manual status update); workers must never assign them.
 - conf: Confidence (High | Medium | Low)
 - score: Risk score (0-100, calculated per RISK SCORING section)
 - cat: OWASP category (e.g., A01:2021, A03:2021), or `ARCH` for architecture findings from Phase 4A/4B that have no meaningful OWASP mapping (coupling, resilience, operational fragility). Do not force-fit an OWASP category onto a non-security architecture finding.
@@ -841,7 +992,7 @@ FIELD DEFINITIONS:
 - title: Short descriptive title (<=80 chars)
 - scope: Impact scope (local | service-wide | cross-service | global)
 - deps: Dependency classification (local | shared | boundary-crossing)
-- ev: Evidence (file:line references, command outputs, tool results)
+- ev: Evidence (file:line references, command outputs, tool results). For class=Confirmed findings, ev MUST include at least one exact line quoted from the cited source -- a citation without a quoted line is not verification.
 - issue: Technical description of the vulnerability or architectural issue
 - impact: Business/security impact analysis (data exposure, availability, compliance)
 - fix: Remediation guidance (specific, actionable steps)
@@ -849,8 +1000,8 @@ FIELD DEFINITIONS:
 - status: Status (open | mitigated | accepted | false_positive)
 - rel: Related finding IDs (comma-separated, e.g., F-20240315-002,F-20240315-005)
 - sup: Suppression rationale (required if status = accepted or false_positive)
-- threat_id: COORDINATED mode only. The threat model threat ID this finding corresponds to (e.g., `0007`), or `null` if no matching threat. Populated by cross-reference in Phase 3A when coordination_mode.md is COORDINATED. Leave null in STANDALONE mode.
-- threat_match: COORDINATED mode only. One of: `confirms` (audit found code-level evidence of a threat the model anticipated), `partial` (audit found code addressing part but not all of a threat), `promotes-inferred` (audit verified an Inferred threat, answering its WhatWouldConfirm question), `contradicts-exclusion` (audit found a defect the threat model's Excluded Threats Ledger judged fully mitigated), `excluded-by-design` (finding matches a ledger row excluded for severity/likelihood/scope reasons -- real but deliberately out of the model's scope), `unanticipated` (audit finding has no matching threat anywhere in the model -- the value-add gap finding). Set to `null` in STANDALONE mode.
+- threat_id: COORDINATED mode only. The threat model threat ID this finding corresponds to (e.g., `07`), or `null` if no matching threat. Populated by cross-reference in Phase 3A when coordination_mode.md is COORDINATED. Leave null in STANDALONE mode.
+- threat_match: COORDINATED mode only. One of: `confirms` (audit found code-level evidence of a threat the model anticipated), `partial` (audit found code addressing part but not all of a threat), `promotes-inferred` (audit verified an Inferred threat, answering its WhatWouldConfirm question), `contradicts-exclusion` (audit found a defect the threat model's Excluded Threats Ledger judged fully mitigated), `excluded-by-design` (finding matches a ledger row excluded for severity/likelihood/scope reasons -- real but deliberately out of the model's scope), `confirms-seeded` (finding verifies a ledger row the threat model excluded as `Code-level` and routed to this audit as a seeded lead), `unanticipated` (audit finding has no matching threat anywhere in the model -- the value-add gap finding). Set to `null` in STANDALONE mode.
 
 Field constraints:
 - class = Confirmed | Suspected | Not Assessable
@@ -900,7 +1051,7 @@ verify: |
 status: open
 rel: F-20240315-012
 sup: null
-threat_id: "0007"
+threat_id: "07"
 threat_match: confirms
 ```
 
@@ -999,12 +1150,14 @@ Finding: SQL injection in public-facing user search endpoint
 - exploitability = Trivial (10) [public endpoint, no auth required]
 - score = (10 x 1.0 x 10 x 10) / 10 = 100
 
-Finding: Missing HTTP security headers
-- severity = Low (2) [best practice, minimal direct impact]
-- confidence = High (1.0) [verified in HTTP responses]
-- blast_radius = Service-wide (5) [affects all requests]
-- exploitability = Moderate (4) [requires complementary vulnerability]
-- score = (2 x 1.0 x 5 x 4) / 10 = 4
+Finding: IDOR on internal admin API (internal-only deployment)
+- severity = High (7) [cross-user data exposure]
+- confidence = High (1.0) [verified in code, no ownership check present]
+- blast_radius = Service-wide (5) [all users of the service]
+- exploitability = Easy (7) x Internal modifier (0.6) = 4.2
+- score = (7 x 1.0 x 5 x 4.2) / 10 = 14.7 -> 15
+
+Note: the first example scores at the ceiling; most real Critical/High findings land between 15 and 70. No Medium/Low example is shown because, per SEVERITY SCOPE, the audit never writes up Medium/Low/Info findings.
 
 Use explicit reasoning in findings; do not hand-wave the score.
 

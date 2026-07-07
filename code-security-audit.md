@@ -14,7 +14,7 @@ PRIMARY OBJECTIVE
 Perform a deterministic, multi-pass security and architecture audit of the repository using ONLY verifiable evidence from visible files and executed tools.
 
 SECONDARY OUTPUTS
-- Generate C4_architecture.md
+- Generate audit_state/C4_architecture.md
 - Generate/update security_architecture_audit.md idempotently
 - Generate Final Report in HTML format
 - Generate Executive Briefing in HTML format
@@ -158,6 +158,7 @@ audit_state/
 - 02_risk_prioritization.md
 - 05_consolidated_report.html (Phase 5 deliverable, HTML-only)
 - executive_briefing.html (Phase 5 deliverable, HTML-only)
+- C4_architecture.md (Phase 5 deliverable, Mermaid C4 diagrams)
 - threat_audit_comparison.md (Phase 5 working intermediate, COORDINATED mode only)
 - threat_audit_comparison.html (Phase 5 deliverable, COORDINATED mode only, rendered from the Markdown intermediate)
 - resource_inventory.md
@@ -845,7 +846,7 @@ WRITE (Phase 5):
 - audit_state/threat_audit_comparison.md (COORDINATED mode only; Markdown intermediate, Phase 6 will render it to HTML)
 
 ALSO:
-- Generate C4_architecture.md from persisted c4_input.md state
+- Generate audit_state/C4_architecture.md from persisted c4_input.md state -- this file goes INSIDE audit_state/, not the workspace root; the workspace root belongs to the source repo and must not accumulate audit artifacts
   - Include Level 1 (System Context) and Level 2 (Container) diagrams
   - Use Mermaid syntax for IDE compatibility
   - Highlight trust boundaries and high-risk data flows

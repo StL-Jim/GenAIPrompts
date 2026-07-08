@@ -108,7 +108,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
     <short description, e.g. "phase-2b -- STRIDE threat table written to 02b-threats.md">
 
     ## Resume Instruction
-    <what the next session should do, e.g. "Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.">
+    <what the next session should do, e.g. "Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.">
     ```
     Update STATE.md with `single_find_and_replace` for surgical updates, or rewrite the whole file with `create_new_file` if multiple sections change. After every write, verify per Operating Rule 7(d).
 
@@ -385,7 +385,7 @@ Any architectural claim not backed by evidence. Each assumption gets `A-<NNN>` a
 - Known gaps: <list>
 ```
 
-After writing 01-inventory.md, update STATE.md: mark `phase-1: complete` with timestamp, set Last Completed Step to `phase-1 -- inventory written to 01-inventory.md`, set Resume Instruction to `Begin at Phase 2A (Assets, Trust Boundaries, Data Flows). Required rehydration: 01-inventory.md.`
+After writing 01-inventory.md, update STATE.md: mark `phase-1: complete` with timestamp, set Last Completed Step to `phase-1 -- inventory written to 01-inventory.md`, set Resume Instruction to `Begin at Phase 2A (Assets, Trust Boundaries, Data Flows). Required rehydration: 00-scope.md, 01-inventory.md.`
 
 Before printing the banner, print a System Restatement: one paragraph stating what you believe this system is, what it talks to, who its users are, and what its single most sensitive asset is -- then ask the user to confirm or correct it. The user knows the real architecture; a wrong inventory produces confident, well-cited, wrong threats, and this is the cheapest place to catch that. Record any corrections in 01-inventory.md before proceeding.
 
@@ -414,11 +414,13 @@ If a session dies anywhere inside Phase 2, the next session reads STATE.md plus 
 
 #### Phase 2A Rehydration (MANDATORY FIRST STEP)
 
-Read STATE.md and 01-inventory.md. The inventory is the authoritative source for components, trust boundaries, data stores, and external integrations. Disk content takes precedence over conversation memory.
+Read STATE.md, 00-scope.md, and 01-inventory.md. The inventory is the authoritative source for components, trust boundaries, data stores, and external integrations. 00-scope.md is small and carries the Phase 0 user inputs that Phase 2 decisions depend on -- deployment exposure, criticality, existing controls, data sensitivity, governance framework, and the out-of-scope list. Disk content takes precedence over conversation memory.
 
 ```
 read_file
   filepath: {PROJECT_NAME}-threat-model/STATE.md
+read_file
+  filepath: {PROJECT_NAME}-threat-model/00-scope.md
 read_file
   filepath: {PROJECT_NAME}-threat-model/01-inventory.md
 ```
@@ -469,7 +471,7 @@ Structure:
 | DF-001 | C-001 (Edge) | C-003 (API) | Auth tokens, request bodies | HTTPS | mTLS | TLS 1.3 | TB-002 | [evidence: src/edge/router.go:88-104]; [evidence: terraform/alb.tf:1-30] |
 ```
 
-Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2a: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2B (STRIDE threat enumeration). Required rehydration: 01-inventory.md, 02a-context.md.`
+Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2a: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2B (STRIDE threat enumeration). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md.`
 
 **Phase 2A Completion Banner:**
 ```
@@ -485,11 +487,13 @@ Type 'proceed' to begin Phase 2B (STRIDE Threat Enumeration).
 
 #### Phase 2B Rehydration (MANDATORY FIRST STEP)
 
-Read STATE.md, 01-inventory.md, and 02a-context.md. You will reason about threats against the components in the inventory and the data flows in 02a-context.md, with particular attention to flows that cross trust boundaries.
+Read STATE.md, 00-scope.md, 01-inventory.md, and 02a-context.md. You will reason about threats against the components in the inventory and the data flows in 02a-context.md, with particular attention to flows that cross trust boundaries. 00-scope.md is required here, not optional: the threat inclusion criteria and the ThreatAgent column both key off the deployment exposure it records, the Mitigation column keys off its governance framework, the SecurityControl column keys off the existing controls the user listed, and its out-of-scope list bounds any code verification reads.
 
 ```
 read_file
   filepath: {PROJECT_NAME}-threat-model/STATE.md
+read_file
+  filepath: {PROJECT_NAME}-threat-model/00-scope.md
 read_file
   filepath: {PROJECT_NAME}-threat-model/01-inventory.md
 read_file
@@ -662,7 +666,7 @@ If there are no Inferred threats, still include the `## Inferred Threats` headin
 
 MANDATORY -- exactly these two tables, nothing else: `02b-threats.md` contains the Threat Filtering Notes, the Threat Table, and the Inferred Threats table, in that order, and no other section. Do NOT add a "Threat Narratives," "Threat Details," or similar prose section with one block per threat -- every piece of detail (Title, ThreatAgent, Attack, Impact, Description, Evidence, Mitigation, etc.) belongs in its own column of the Threat Table row, per the schema above, not in a separate narrative. If the table feels too wide or dense, that is not a valid reason to restructure the file -- use terse cell content instead, but keep every threat as a single table row.
 
-Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 01-inventory.md, 02a-context.md, 02b-threats.md.`
+Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.`
 
 #### Phase 2B Stakeholder Explainer: `.\{PROJECT_NAME}-threat-model\outputs\architecture-threat-explanation.html`
 
@@ -689,11 +693,13 @@ Type 'proceed' to begin Phase 2C (Questions, Assumptions, Consolidation).
 
 #### Phase 2C Rehydration (MANDATORY FIRST STEP)
 
-Read STATE.md, 01-inventory.md, 02a-context.md, and 02b-threats.md.
+Read STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, and 02b-threats.md. (00-scope.md informs the Excluded Threat Categories rationale and the 02-threats.md header's deployment exposure line.)
 
 ```
 read_file
   filepath: {PROJECT_NAME}-threat-model/STATE.md
+read_file
+  filepath: {PROJECT_NAME}-threat-model/00-scope.md
 read_file
   filepath: {PROJECT_NAME}-threat-model/01-inventory.md
 read_file

@@ -618,7 +618,7 @@ CRITICAL execution discipline for this phase: produce the consolidated outputs w
 
 This discipline matters because the agent has a fixed per-response output budget. Every paragraph of prose written before producing output files consumes that budget and leaves less for the actual report content. The observed failure mode is: agent reads findings_registry.md with N findings, writes several paragraphs planning the report structure, then begins producing the consolidated report, then runs out of budget mid-consolidation and produces a summarized findings list rather than a complete one. Findings that were detailed in the registry become bullet points or get cut entirely. This narrowing is a budget-exhaustion artifact, not a deliberate filtering decision. The fix is to spend response budget on the report content, not on planning notes about the report content.
 
-Additional discipline: the consolidated report MUST include every finding from findings_registry.md. The registry is the canonical list of findings, and Phase 5 is consolidation and presentation, not re-filtering. If you find yourself selecting which findings to include in the report, STOP -- you are filtering, which is wrong. Every finding in the registry appears in the consolidated report. The Executive Briefing is the artifact that contains only Critical/High findings; the Final Report is comprehensive.
+Additional discipline: the consolidated report MUST include every finding from findings_registry.md. The registry is the canonical list of findings, and Phase 5 is consolidation and presentation, not re-filtering. If you find yourself selecting which findings to include in the report, STOP -- you are filtering, which is wrong. Every finding in the registry appears in the consolidated report. The Executive Briefing is the selective artifact (Critical findings plus attack-path-relevant High findings, per its selection rule below); the Final Report is comprehensive.
 
 INPUT (ALL REQUIRED):
 - audit_state/coordination_mode.md
@@ -682,7 +682,7 @@ OUTPUT PATTERN A -- single-call HTML (used for outputs that complete reliably in
    - HTML: `audit_state/05_consolidated_report.html`
 
 2. **Executive Briefing (HTML)** -- Concise executive summary (2-4 pages) containing:
-   - Critical findings only (severity: Critical or High)
+   - Selected findings per this rule: every Critical finding, plus each High finding that appears in a Top 3-5 attack path. (Since SEVERITY SCOPE means the registry contains ONLY Critical/High findings, "Critical or High" selects everything and would duplicate the Final Report -- this rule is what keeps the briefing at 2-4 pages. Remaining High findings are represented by a one-line count pointing to the Final Report, not by entries.)
    - Top 3-5 attack paths
    - Produced in a single create_new_file call
    - HTML: `audit_state/executive_briefing.html`
@@ -909,7 +909,7 @@ STEP 1 -- Write the HTML skeleton.
 
 Use `create_new_file` to write `audit_state/threat_audit_comparison.html` containing:
 - Full DOCTYPE and `<html>` opening
-- `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100, Medium #f9a825, Low #2e7d32), system-ui font stack, print-friendly layout, sticky left-side TOC
+- `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100 -- per SEVERITY SCOPE no other severities exist in audit content), system-ui font stack, print-friendly layout, sticky left-side TOC
 - `<body>` opening
 - Title heading and a brief introductory paragraph (1-2 sentences identifying this as the headline deliverable of the audit)
 - A `<nav class="toc">` element containing a placeholder comment

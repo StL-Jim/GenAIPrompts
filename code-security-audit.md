@@ -189,7 +189,7 @@ RULES:
 
 STATE.md SCHEMA (the resume signal):
 
-`audit_state/STATE.md` is the single file that answers "is this a new audit or a continuation, and what's next?" It is the audit's equivalent of the threat modeling prompt's STATE.md and Operating Rule 12. Every phase, on completion, updates this file as part of its own STOP step (see the Completion Banner instructions in each phase below) -- it is never a separate, deferred bookkeeping task.
+`audit_state/STATE.md` is the single file that answers "is this a new audit or a continuation, and what's next?" It is the audit's equivalent of the threat modeling prompt's STATE.md and Operating Rule 12. Every phase, on completion, updates this file as part of its own STOP step -- the update is an ACTION performed before printing the completion banner (each phase has an explicit "Before printing the banner, update audit_state/STATE.md: ..." instruction), never text merely displayed in the banner, and never a separate, deferred bookkeeping task. The banner then carries a confirmation line that the update happened.
 
 ```markdown
 # Audit STATE
@@ -364,6 +364,8 @@ OUTPUT FILES:
 - audit_state/partition_status.md (if multiple partitions detected; every partition initialized as pending)
 - audit_state/workers/<partition_id>/worker_context.md (one per partition, when partitioning is used)
 
+Before printing the banner, update audit_state/STATE.md: mark Phase 1 done; Resume Instruction = "Begin Phase 2 (Risk Prioritization)."
+
 **Phase 1 Completion Banner:**
 ```
 === PHASE 1 COMPLETE: GLOBAL DISCOVERY DONE ===
@@ -371,7 +373,7 @@ OUTPUT FILES:
   audit_state/01_discovery.md
   audit_state/resource_inventory.md
   audit_state/partition_plan.md
-Update audit_state/STATE.md: mark Phase 1 done; Resume Instruction = "Begin Phase 2 (Risk Prioritization)."
+STATE.md updated: Phase 1 marked done.
 Type 'proceed' to begin Phase 2 (Risk Prioritization).
 ```
 
@@ -405,12 +407,14 @@ Before writing the completion banner, compute `tier1 + tier2 + ... + tierN == to
 OUTPUT:
 - audit_state/02_risk_prioritization.md
 
+Before printing the banner, update audit_state/STATE.md: mark Phase 2 done; Resume Instruction = "Begin Phase 3A (Worker Security Review) for partition '<first_partition_id>'."
+
 **Phase 2 Completion Banner:**
 ```
 === PHASE 2 COMPLETE: RISK PRIORITIZATION DONE ===
   audit_state/02_risk_prioritization.md
   Tier coverage: <N> of <total> partition files accounted for
-Update audit_state/STATE.md: mark Phase 2 done; Resume Instruction = "Begin Phase 3A (Worker Security Review) for partition '<first_partition_id>'."
+STATE.md updated: Phase 2 marked done.
 Type 'proceed' to begin Phase 3A for partition '<first_partition_id>'.
 ```
 
@@ -515,7 +519,9 @@ OUTPUT FILES:
 - audit_state/attack_paths.md
 - audit_state/partition_status.md (this partition set to security_complete)
 
-Before printing the banner, update audit_state/partition_status.md: set partition '<partition_id>' to security_complete.
+Before printing the banner, perform both state updates:
+1. Update audit_state/partition_status.md: set partition '<partition_id>' to security_complete.
+2. Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 3A. Before writing Resume Instruction, check the Phase 3A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 3A, Resume Instruction = "Begin Phase 3A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 3A done should Resume Instruction = "Begin Phase 4A for partition '<first_partition_id>'."
 
 **Phase 3A Completion Banner:**
 ```
@@ -523,7 +529,8 @@ Before printing the banner, update audit_state/partition_status.md: set partitio
   audit_state/workers/<partition_id>/security_review.md
   audit_state/workers/<partition_id>/findings.md
   audit_state/findings_registry.md
-Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 3A. Before writing Resume Instruction, check the Phase 3A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 3A, Resume Instruction = "Begin Phase 3A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 3A done should Resume Instruction = "Begin Phase 4A for partition '<first_partition_id>'."
+STATE.md and partition_status.md updated: partition '<partition_id>' recorded as security_complete.
+Resume Instruction set to: <the instruction written in the state update above>
 Type 'proceed' to continue.
 ```
 
@@ -570,7 +577,9 @@ OUTPUT FILES:
 - audit_state/attack_paths.md
 - audit_state/partition_status.md (this partition set to done)
 
-Before printing the banner, update audit_state/partition_status.md: set partition '<partition_id>' to done.
+Before printing the banner, perform both state updates:
+1. Update audit_state/partition_status.md: set partition '<partition_id>' to done.
+2. Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 4A. Before writing Resume Instruction, check the Phase 4A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 4A, Resume Instruction = "Begin Phase 4A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 4A done should Resume Instruction = "Begin Phase 3B/4B (Shared Component Review)." (if shared_components.md lists critical components) or "Begin Phase 5 (Consolidation)." (otherwise).
 
 **Phase 4A Completion Banner:**
 ```
@@ -578,7 +587,8 @@ Before printing the banner, update audit_state/partition_status.md: set partitio
   audit_state/workers/<partition_id>/architecture_review.md
   audit_state/workers/<partition_id>/findings.md
   audit_state/findings_registry.md
-Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 4A. Before writing Resume Instruction, check the Phase 4A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 4A, Resume Instruction = "Begin Phase 4A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 4A done should Resume Instruction = "Begin Phase 3B/4B (Shared Component Review)." (if shared_components.md lists critical components) or "Begin Phase 5 (Consolidation)." (otherwise).
+STATE.md and partition_status.md updated: partition '<partition_id>' recorded as done.
+Resume Instruction set to: <the instruction written in the state update above>
 Type 'proceed' to continue.
 ```
 
@@ -609,12 +619,14 @@ OUTPUT FILES:
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
 
+Before printing the banner, update audit_state/STATE.md: mark Phase 3B/4B done; Resume Instruction = "Begin Phase 5 (Consolidation)."
+
 **Phase 3B/4B Completion Banner:**
 ```
 === PHASE 3B/4B COMPLETE: SHARED COMPONENT REVIEW DONE ===
   audit_state/shared_components.md
   audit_state/findings_registry.md
-Update audit_state/STATE.md: mark Phase 3B/4B done; Resume Instruction = "Begin Phase 5 (Consolidation)."
+STATE.md updated: Phase 3B/4B marked done.
 Type 'proceed' to begin Phase 5 (Consolidation).
 ```
 
@@ -866,6 +878,10 @@ ALSO:
   - Finding IDs are date-based (F-YYYYMMDD-NNN), so the ID alone CANNOT serve as the cross-run identity of a finding -- the same defect re-discovered in a later run gets a new ID. Match findings across runs by the stable content key: (pid + src file path + sub + normalized title). When the key matches an existing entry, UPDATE that entry in place (status, evidence, latest finding ID, last-seen date) instead of appending a duplicate. When the key is new, append. When a previously logged finding's key produces no match in the current run, mark its entry "not observed in latest run" rather than deleting it.
   - Track remediation over time via the status field on each entry
 
+Before printing the mode-appropriate banner, update audit_state/STATE.md:
+- In COORDINATED mode: mark Phase 5 done; Resume Instruction = "Begin Phase 6 (Comparison HTML Render)."
+- In STANDALONE mode: mark Phase 5 done and ensure Phase 6 is not_applicable; Resume Instruction = "Audit complete."
+
 **Phase 5 Completion Banner:**
 
 In COORDINATED mode:
@@ -875,7 +891,7 @@ In COORDINATED mode:
   audit_state/executive_briefing.html
   audit_state/threat_audit_comparison.md   <-- input for Phase 6
 Comparison HTML deliverable will be produced in Phase 6.
-Update audit_state/STATE.md: mark Phase 5 done; Resume Instruction = "Begin Phase 6 (Comparison HTML Render)."
+STATE.md updated: Phase 5 marked done.
 Type 'proceed' to begin Phase 6 (Comparison HTML Render).
 ```
 
@@ -886,7 +902,7 @@ In STANDALONE mode:
   audit_state/executive_briefing.html
 No threat model detected; no comparison output produced.
 Phase 6 is SKIPPED in STANDALONE mode.
-Update audit_state/STATE.md: mark Phase 5 done, Phase 6 not_applicable; Resume Instruction = "Audit complete."
+STATE.md updated: Phase 5 marked done, Phase 6 not_applicable.
 The audit is complete.
 ```
 
@@ -975,12 +991,14 @@ WRITE (Phase 6):
 - audit_state/threat_audit_comparison.html (HTML deliverable, produced via scaffold-and-fill)
 - {PROJECT_NAME}-threat-model/threat_audit_comparison.html (copy for threat model directory)
 
+Before printing the banner, update audit_state/STATE.md: mark Phase 6 done; Resume Instruction = "Audit complete."
+
 **Phase 6 Completion Banner:**
 ```
 === PHASE 6 COMPLETE: AUDIT FINISHED ===
   audit_state/threat_audit_comparison.html
   {PROJECT_NAME}-threat-model/threat_audit_comparison.html (reciprocal copy)
-Update audit_state/STATE.md: mark Phase 6 done; Resume Instruction = "Audit complete."
+STATE.md updated: Phase 6 marked done.
 The audit is complete.
 ```
 

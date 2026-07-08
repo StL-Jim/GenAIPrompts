@@ -237,9 +237,8 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
    Q4: "What is the sensitivity of the data the application handles?"
    (e.g. PII / PHI / financial data / internal config only / public data)
 
-   Q5: "Any compliance requirements or standards that apply? (optional)"
-   (e.g. SOC 2, HIPAA, PCI-DSS, GDPR -- or press Enter to skip)
-   If none are specified, NIST 800-53 Rev 5 is the default governance framework for all mitigation recommendations.
+   Q5: "Mitigation recommendations will use NIST 800-53 Rev 5 as the governance framework. Press Enter to accept, or name a different framework or compliance requirement (e.g. SOC 2, HIPAA, PCI-DSS, GDPR) to override."
+   If the user accepts the default or gives no answer, GOVERNANCE_FRAMEWORK = NIST 800-53 Rev 5.
 
    Record all answers in STATE.md under a ## User Inputs section and include them in 00-scope.md.
    After user responds, validate the exposure answer against infrastructure evidence.

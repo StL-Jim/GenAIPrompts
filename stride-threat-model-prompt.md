@@ -104,13 +104,20 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
     - phase-3: <complete | in-progress | pending> [<timestamp if complete>]
     - phase-4: <complete | in-progress | pending> [<timestamp if complete>]
 
+    ## User Inputs
+    - Q1 Exposure: <answer, or 'pending' until Phase 0 step 6>
+    - Q2 Criticality: <answer>
+    - Q3 Existing Controls: <answer>
+    - Q4 Data Sensitivity: <answer>
+    - Q5 Governance Framework: <answer, default NIST 800-53 Rev 5>
+
     ## Last Completed Step
     <short description, e.g. "phase-2b -- STRIDE threat table written to 02b-threats.md">
 
     ## Resume Instruction
     <what the next session should do, e.g. "Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.">
     ```
-    Update STATE.md with `single_find_and_replace` for surgical updates, or rewrite the whole file with `create_new_file` if multiple sections change. After every write, verify per Operating Rule 7(d).
+    Update STATE.md with `single_find_and_replace` for surgical updates, or rewrite the whole file with `create_new_file` if multiple sections change. A full rewrite MUST preserve the User Inputs section verbatim -- those answers are collected exactly once, in Phase 0 step 6, and every later phase depends on them. After every write, verify per Operating Rule 7(d).
 
 13. **Production scope only.** Threat findings apply exclusively to production environment code paths and configurations. Dev, QA, staging, and test artifacts -- `.env.test`, `.env.dev`, `docker-compose.dev.yml`, `docker-compose.test.yml`, test fixtures, seed data files, test-only dependencies -- may be noted in the Phase 1 inventory but do NOT generate threat findings. When a configuration file exists in both production and non-production variants, analyze only the production variant.
 

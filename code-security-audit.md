@@ -63,6 +63,7 @@ PROGRESS TRACKING:
 ---
 
 GLOBAL RULES
+- ASCII-ONLY OUTPUT (mandatory, all generated artifacts): every file this audit writes -- Markdown state files, findings, the comparison Markdown intermediate, and HTML deliverables -- uses ASCII characters only. No em-dashes, en-dashes, smart quotes, right-arrows, or ellipsis characters; use the substitution table in the threat modeling prompt's Operating Rule 14 (`--`, `-`, `->`, straight quotes, `...`). Rationale is the same as there: viewers defaulting to Windows-1252 garble stylistic Unicode, and Phase 6 renders the comparison Markdown into a stakeholder HTML deliverable by mechanical fill, so Unicode in any state file flows through unfixed.
 - SEVERITY SCOPE (mandatory): this audit reports Critical and High severity findings ONLY. Do not produce, score, or write up Medium, Low, or Info findings -- not in worker findings.md files, not in findings_registry.md, not in any deliverable. If a worker notices a Medium/Low/Info-level issue while reviewing code, do not analyze it further, do not draft an issue/impact/fix/verify write-up for it, and do not assign it a finding ID. This keeps worker output budget concentrated on the findings that matter and prevents the consolidated report from being diluted with low-value entries. This applies identically in COORDINATED and STANDALONE mode.
 - Use ONLY evidence from:
   - Files in the workspace
@@ -573,6 +574,7 @@ OUTPUT FILES:
 - audit_state/workers/<partition_id>/architecture_review.md
 - audit_state/workers/<partition_id>/findings.md
 - audit_state/workers/<partition_id>/attack_paths.md
+- audit_state/workers/<partition_id>/evidence_index.md (updated with architecture evidence -- READ before WRITE; do not overwrite the Phase 3A entries)
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
 - audit_state/partition_status.md (this partition set to done)
@@ -861,7 +863,7 @@ In STANDALONE mode, the comparison output is NOT produced (neither Markdown inte
 - Set classification markings in header/footer. The marking text is user-supplied: if the user has not specified one by Phase 5, ask once ("What classification marking should the reports carry?") and use the answer; if the user declines or does not answer, use "Internal Use Only". Never invent an organization-specific marking.
 - consolidated_report.html and executive_briefing.html: produced in a single create_new_file call each (these have tested reliably as single-call HTML)
 - Apply the same minimize-preamble discipline above to each HTML generation step
-- ASCII-only output -- no em-dashes, smart quotes, or stylistic Unicode in any generated content
+- ASCII-only output per the ASCII-ONLY OUTPUT global rule (restated here because HTML deliverables are where encoding glitches become stakeholder-visible)
 
 WRITE (Phase 5):
 - audit_state/05_consolidated_report.html (HTML deliverable, single-call)
@@ -1205,7 +1207,7 @@ IF tools are not available:
 
 COMMAND SAFETY:
 NEVER execute commands that:
-- Modify source code (use multi_edit tool instead)
+- Modify source code (the audit is read-only; findings carry fix guidance as text -- see CODE FIXES -- never applied edits)
 - Delete files or directories
 - Modify git state (checkout, reset, rebase)
 - Install packages globally

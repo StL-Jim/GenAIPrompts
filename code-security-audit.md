@@ -516,7 +516,7 @@ OUTPUT FILES:
   audit_state/workers/<partition_id>/security_review.md
   audit_state/workers/<partition_id>/findings.md
   audit_state/findings_registry.md
-Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 3A; Resume Instruction = "Begin Phase 3A for partition '<next_partition_id>'." (or "Begin Phase 4A for partition '<first_partition_id>'." if this was the last partition).
+Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 3A. Before writing Resume Instruction, check the Phase 3A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 3A, Resume Instruction = "Begin Phase 3A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 3A done should Resume Instruction = "Begin Phase 4A for partition '<first_partition_id>'."
 Type 'proceed' to continue.
 ```
 
@@ -568,7 +568,7 @@ OUTPUT FILES:
   audit_state/workers/<partition_id>/architecture_review.md
   audit_state/workers/<partition_id>/findings.md
   audit_state/findings_registry.md
-Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 4A; Resume Instruction = "Begin Phase 4A for partition '<next_partition_id>'." (or, if this was the last partition: "Begin Phase 3B/4B (Shared Component Review)." if shared_components.md lists critical components, else "Begin Phase 5 (Consolidation).").
+Update audit_state/STATE.md: mark partition '<partition_id>' done under Phase 4A. Before writing Resume Instruction, check the Phase 4A per-partition list in STATE.md (or partition_plan.md) for ANY partition still pending or in_progress -- never assume the partition just completed was the last one without checking this list. If at least one partition still needs Phase 4A, Resume Instruction = "Begin Phase 4A for partition '<next_pending_partition_id>'." Only if EVERY partition shows Phase 4A done should Resume Instruction = "Begin Phase 3B/4B (Shared Component Review)." (if shared_components.md lists critical components) or "Begin Phase 5 (Consolidation)." (otherwise).
 Type 'proceed' to continue.
 ```
 

@@ -614,7 +614,7 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 | Evidence | The ARCHITECTURAL claim that makes this threat real, with code/IaC citations in support. Lead with the architectural conditions -- the asset (AS-NNN), the path (DF-NNN and the TB-NNN it crosses), and the control-state (absent or partial) -- then cite the code or IaC that supports the control-state claim. Example: `AS-004 (customer PII) reachable via DF-007 crossing TB-003; no query-logging or DLP control on this path [evidence: infra/db/reporting_role.tf:12-30 grants broad SELECT; no audit config in infra/db/]`. The citation supports the architectural claim; it is not the claim by itself. Mandatory per Operating Rule 2; multiple citations separated by `;`. Never cite `audit_state/` or `{PROJECT_NAME}-threat-model/` paths (Operating Rule 13a). |
 | Likelihood | One of: Medium, High. The likelihood of exploitation given the architecture and real-world risk. (Low likelihood threats are excluded by prioritization rules.) |
 | SecurityControl | EXISTING controls already in place that affect this threat. Use `None` if no controls exist. Use `Partial -- <what's missing>` if controls are incomplete. |
-| ResidualRisk | The residual risk remaining after existing SecurityControl is applied but before recommended Mitigation. One of: Severe, Elevated. (Severe corresponds to the CRITICAL calc outcome, Elevated to HIGH -- the words Critical and High never appear as ratings in stakeholder-facing artifacts.) |
+| ResidualRisk | The residual risk remaining after existing SecurityControl is applied but before recommended Mitigation. One of: Severe, Elevated. Re-run the risk severity calculation crediting the existing SecurityControl as it actually operates, then map the outcome: CRITICAL -> Severe, HIGH -> Elevated. Because existing controls can lower the outcome, ResidualRisk may map lower than the Priority column, which reflects the calculation before existing controls are credited (the schema example row is Priority 1 with ResidualRisk Elevated for exactly this reason). The words Critical and High never appear as ratings in stakeholder-facing artifacts. |
 | Mitigation | Specific, actionable controls to add or strengthen. Default governance framework is NIST 800-53 Rev 5 unless the user specified a different compliance requirement in Phase 0. Always cite the specific control ID (e.g. `AC-3 Access Enforcement`, `SI-10 Information Input Validation`, `SC-8 Transmission Confidentiality and Integrity`), not just the framework name. Reference OWASP and CIS Benchmarks where they add specificity. |
 | Disposition | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in after the threat model is reviewed (e.g., `Active`, `False Positive`, `Risk Accepted`, `Mitigated by Compensating Control`, `Duplicate of 09`). |
 | DispositionRationale | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in with the reason for the disposition above. |
@@ -679,7 +679,7 @@ Write the file with `create_new_file`. After writing, update STATE.md: mark `pha
 
 For each threat in the table above, explain why it is an architecture-level finding and not a code-level finding, so the user can use this to answer stakeholders (developers, management, fellow security professionals) who push back on a finding. Use your own judgment on explanation and structure per threat; a card per threat with a short Architecture Issue / Why Not Just Code / Explain to Developers framing is a reasonable default, but prioritize a clear, accurate explanation over rigid adherence to that shape.
 
-Write as a single self-contained HTML file (inline `<style>`, no external CSS/JS), ASCII-only per Operating Rule 13. Plain and simple -- this is a leave-behind for conversations, not the main report.
+Write as a single self-contained HTML file (inline `<style>`, no external CSS/JS), ASCII-only per Operating Rule 14. Plain and simple -- this is a leave-behind for conversations, not the main report.
 
 Write with `create_new_file`. Verify per Operating Rule 7(d).
 
@@ -730,7 +730,7 @@ Required sections:
 
 ## Threat Filtering Summary
 - Total threats identified during STRIDE matrix walk: <N>
-- Threats included in the model: <20-25>
+- Threats included in the model: <N> (25 is a ceiling, not a target -- emit only what qualifies per Phase 2B prioritization)
   - Confirmed (main table): <N>
   - Likely (main table): <N>
   - Inferred (separate table): <N>
@@ -929,7 +929,7 @@ Document requirements:
 - Single self-contained file: no external CSS/JS, no CDN references (air-gapped environment).
 - Inline `<style>` block, system font stack like `system-ui, -apple-system, Segoe UI, sans-serif`, print-friendly.
 - Priority color coding: Priority 1 `#b00020`, Priority 2 `#e65100`, with WCAG-AA contrast.
-- ASCII-only content per Operating Rule 13.
+- ASCII-only content per Operating Rule 14.
 
 Layout (sticky left sidebar TOC):
 
@@ -1028,7 +1028,7 @@ Header row must include both columns; data rows have either populated values or 
 #### CSV rules:
 - Use RFC 4180 escaping. Fields containing commas, quotes, or newlines must be wrapped in double-quotes; embedded double-quotes become `""`.
 - Replace internal newlines in multi-line fields with ` | ` (space-pipe-space) so Excel cells stay single-line -- important for the Description and Mitigation columns where cells can get long.
-- ASCII-only content per Operating Rule 13. With pure ASCII there is no BOM concern; Excel and other consumers will render correctly without encoding fallback issues.
+- ASCII-only content per Operating Rule 14. With pure ASCII there is no BOM concern; Excel and other consumers will render correctly without encoding fallback issues.
 - Write with `create_new_file` per the decision table in Operating Rule 7. PowerShell + `Out-File` is the fallback only if `create_new_file` fails (e.g., on very long content).
 
 After writing, validate by reading the first 3 lines with `Get-Content -TotalCount 3` and print them so the user can confirm the header row and the first data row look right.

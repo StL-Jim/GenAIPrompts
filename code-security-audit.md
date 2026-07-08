@@ -178,6 +178,8 @@ audit_state/workers/<partition_id>/
 - attack_paths.md
 - evidence_index.md
 
+One file deliberately lives OUTSIDE audit_state/: `security_architecture_audit.md`, at the workspace root (`.\security_architecture_audit.md`). It is the persistent cross-run audit log (see Phase 5) and must survive the archive-and-fresh-start model -- archiving `audit_state/` to `audit_state-YYYYMMDD` between runs must not carry the log away with it. It is the SOLE exception to the rule that the workspace root accumulates no audit artifacts, and it gets its own `.git/info/exclude` entry (Phase 1). Reading and updating this existing file during Phase 5 is expected and is NOT a violation of the fresh-run rules: it is, by design, the only artifact that crosses runs.
+
 RULES:
 - Always READ before WRITE
 - Always UPDATE, never blindly overwrite
@@ -332,7 +334,7 @@ The deployment exposure value affects risk scoring throughout the audit -- speci
 
 ACTIONS (after mode detection):
 - If this is a fresh run (no audit_state/STATE.md existed at Session-Start), initialize audit_state/STATE.md per the schema in the STATE FILE SYSTEM section: PROJECT_NAME, WORKSPACE, MODE (from coordination_mode.md just detected above), all phases marked `pending`, Resume Instruction = "Begin Phase 1 (Global Discovery)." If this is a resumed run continuing into Phase 1 work, update LAST_UPDATED only.
-- Exclude the audit output directory from the source repo's git tracking, using the repo-local un-committed exclude file (same technique as the threat modeling prompt). Add an `audit_state/` entry to `.git/info/exclude` if not already present; if `.git/info/exclude` does not exist, warn the user that `audit_state/` will appear in `git status`. This matters because audit state files contain findings and secret locations and must not be accidentally committed.
+- Exclude the audit output directory from the source repo's git tracking, using the repo-local un-committed exclude file (same technique as the threat modeling prompt). Add an `audit_state/` entry AND a `security_architecture_audit.md` entry to `.git/info/exclude` if not already present; if `.git/info/exclude` does not exist, warn the user that both will appear in `git status`. This matters because audit state files and the cross-run log contain findings and secret locations and must not be accidentally committed.
 - Perform full repo scan
 - Build:
   - repository map
@@ -846,12 +848,12 @@ WRITE (Phase 5):
 - audit_state/threat_audit_comparison.md (COORDINATED mode only; Markdown intermediate, Phase 6 will render it to HTML)
 
 ALSO:
-- Generate audit_state/C4_architecture.md from persisted c4_input.md state -- this file goes INSIDE audit_state/, not the workspace root; the workspace root belongs to the source repo and must not accumulate audit artifacts
+- Generate audit_state/C4_architecture.md from persisted c4_input.md state -- this file goes INSIDE audit_state/, not the workspace root; the workspace root belongs to the source repo and must not accumulate audit artifacts (sole exception: security_architecture_audit.md, the cross-run log -- see below)
   - Include Level 1 (System Context) and Level 2 (Container) diagrams
   - Use Mermaid syntax for IDE compatibility
   - Highlight trust boundaries and high-risk data flows
-- Update security_architecture_audit.md idempotently from consolidated state only
-  - This is a persistent audit log across multiple audit runs
+- Update `.\security_architecture_audit.md` (workspace root -- the fixed cross-run location declared in STATE FILE SYSTEM) idempotently from consolidated state only
+  - This is a persistent audit log across multiple audit runs. It lives at the workspace root precisely so that archiving `audit_state/` between runs does not orphan it; reading the existing file here is expected and exempt from the fresh-run "never read prior state" rules -- it is by design the only cross-run artifact
   - Finding IDs are date-based (F-YYYYMMDD-NNN), so the ID alone CANNOT serve as the cross-run identity of a finding -- the same defect re-discovered in a later run gets a new ID. Match findings across runs by the stable content key: (pid + src file path + sub + normalized title). When the key matches an existing entry, UPDATE that entry in place (status, evidence, latest finding ID, last-seen date) instead of appending a duplicate. When the key is new, append. When a previously logged finding's key produces no match in the current run, mark its entry "not observed in latest run" rather than deleting it.
   - Track remediation over time via the status field on each entry
 

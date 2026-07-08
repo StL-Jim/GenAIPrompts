@@ -57,7 +57,7 @@ PHASE EXECUTION ORDER:
 
 PROGRESS TRACKING:
 - Maintain audit_state/partition_status.md during multi-partition audits
-- Track each partition: pending | security_complete | architecture_complete | done
+- Track each partition: pending | security_complete | done. Lifecycle under the mandated phase ordering: Phase 1 creates every partition as pending; each Phase 3A completion sets its partition to security_complete; each Phase 4A completion sets its partition to done. (No other value is used -- the file is updated at exactly those two points, as part of each worker phase's completion step.)
 - Phase 5 checks this file; if any partition is not "done", STOP and report incomplete partitions
 
 ---
@@ -349,6 +349,7 @@ ACTIONS (after mode detection):
     - Repository has >10,000 SLOC (source lines of code)
     - Multiple deployable services detected (e.g., microservices)
     - Distinct security boundaries between modules
+  - For each partition, WRITE audit_state/workers/<partition_id>/worker_context.md now, as a Phase 1 output: partition name, root path, entrypoints, key dependencies, data ownership, trust-boundary relevance, and the highest-risk files to start from. This is the file Phase 3A rehydrates from -- it is created here, not by the worker phases.
   - Each partition's worker context summary (worker_context.md plus the evidence index) should fit in ~5,000-10,000 tokens; the worker then reads targeted files within the partition as needed during review. The partition's full source can be larger -- the budget applies to what must be rehydrated, not to the code itself.
 - Identify shared components requiring separate review
 
@@ -360,7 +361,8 @@ OUTPUT FILES:
 - audit_state/c4_input.md (populated with services, dependencies, trust boundaries for C4 diagram generation)
 - audit_state/shared_components.md
 - audit_state/partition_plan.md
-- audit_state/partition_status.md (if multiple partitions detected)
+- audit_state/partition_status.md (if multiple partitions detected; every partition initialized as pending)
+- audit_state/workers/<partition_id>/worker_context.md (one per partition, when partitioning is used)
 
 **Phase 1 Completion Banner:**
 ```
@@ -511,6 +513,9 @@ OUTPUT FILES:
 - audit_state/workers/<partition_id>/evidence_index.md
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
+- audit_state/partition_status.md (this partition set to security_complete)
+
+Before printing the banner, update audit_state/partition_status.md: set partition '<partition_id>' to security_complete.
 
 **Phase 3A Completion Banner:**
 ```
@@ -563,6 +568,9 @@ OUTPUT FILES:
 - audit_state/workers/<partition_id>/attack_paths.md
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
+- audit_state/partition_status.md (this partition set to done)
+
+Before printing the banner, update audit_state/partition_status.md: set partition '<partition_id>' to done.
 
 **Phase 4A Completion Banner:**
 ```
@@ -626,6 +634,7 @@ INPUT (ALL REQUIRED):
 - audit_state/coordination_mode.md
 - audit_state/01_discovery.md
 - audit_state/02_risk_prioritization.md
+- audit_state/partition_status.md (when partitioning was used -- this is the file the completeness gate below checks)
 - audit_state/findings_registry.md
 - audit_state/attack_paths.md
 - audit_state/c4_input.md

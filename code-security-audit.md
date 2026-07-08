@@ -1207,7 +1207,7 @@ IF tools are not available:
 
 COMMAND SAFETY:
 NEVER execute commands that:
-- Modify source code (the audit is read-only; findings carry fix guidance as text -- see CODE FIXES -- never applied edits)
+- Modify the source code under audit -- with any tool, not just terminal commands. Findings carry fix guidance as text (see CODE FIXES), never applied edits. This restriction is about the TARGET, not about writing in general: the audit's own files (audit_state/**, security_architecture_audit.md, the HTML deliverables) are created and updated throughout the run as every phase requires -- but via the file tools (create_new_file, single_find_and_replace), never via shell redirection (>, >>, echo, Out-File except as a documented fallback)
 - Delete files or directories
 - Modify git state (checkout, reset, rebase)
 - Install packages globally

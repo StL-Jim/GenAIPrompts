@@ -1083,7 +1083,7 @@ XML format rules (follow exactly):
   <mxCell id="0"/>
   <mxCell id="1" parent="0"/>
   ```
-  All real shapes and edges use `parent="1"` (or a group/container cell id)
+  Edges and shapes that belong to no trust boundary use `parent="1"`. Components inside a trust boundary MUST use `parent="<TB-cell-id>"` (e.g., `parent="TB-002"`) with geometry relative to that container -- see Trust boundaries under Visual Standards
 - Shapes: `vertex="1"` with `<mxGeometry x y width height as="geometry"/>`; integer coordinates on a 40-pixel grid
 - Edges: `edge="1"` with `source` and `target` referencing cell ids, plus `<mxGeometry relative="1" as="geometry"/>`; label in `value`
 - Cell ids derived from inventory ids exactly: `C-001`, `TB-002`, `EXT-003`, `DS-001`. Edge ids: `flow-<sourceId>-<targetId>-<NN>`
@@ -1092,7 +1092,7 @@ XML format rules (follow exactly):
 
 ### Visual Standards (apply to every diagram)
 
-Size: minimum 1400x1000 px, presentation-ready, adequate spacing.
+Size: minimum 1400x1000 px. Layout is a stated procedure, not an aesthetic judgment -- follow it exactly: arrange in columns left to right by trust zone (external actors, then edge, then application tier, then data tier, then external SaaS), one boundary container per zone, components within a column ordered to minimize edge crossings, integer coordinates on the 40-pixel grid with at least 80 px between containers. Consistent shape across runs matters more than beauty; a human polishes spacing in draw.io afterward.
 
 Color scheme:
 - Blue `#438DD5`: internal containers and components
@@ -1102,9 +1102,9 @@ Color scheme:
 - Yellow `#FFF4E6`: medium-risk areas
 - Green `#D5E8D4`: validated/secured components
 
-Trust boundaries: drawn as labeled bordered regions with `TB-NNN` identifiers, color-coded by trust zone -- red border for internet-facing/untrusted, orange for DMZ/perimeter, yellow for internal network, green for secured/isolated. Mark every data flow crossing a boundary with `⚠`.
+Trust boundaries: each boundary is a draw.io CONTAINER cell (style includes `container=1;collapsible=0;`), cell id exactly `TB-NNN`, labeled with its TB-NNN identifier and name, color-coded by trust zone -- red border for internet-facing/untrusted, orange for DMZ/perimeter, yellow for internal network, green for secured/isolated. Every component belonging to a boundary sets `parent="TB-NNN"` with coordinates RELATIVE to that container -- containment is structural, not visual, so a member can never render outside its zone and stays inside it when a human drags shapes during manual tidy-up. Do NOT draw boundaries as free-floating rectangles sized to visually surround members. Mark every data flow crossing a boundary with `⚠`.
 
-Data flows: numbered `DF-NNN` matching 02a-context.md. Label with data type, protocol (HTTPS, TLS, mTLS), and encryption status; `🔒` for encrypted, `⚠` for plaintext. Show authentication requirements where present.
+Data flows: numbered `DF-NNN` matching 02a-context.md. Edge labels are MINIMAL: the DF-NNN id, the encryption glyph (`🔒` encrypted, `⚠` plaintext), and the protocol name -- nothing else. Do NOT put data type, data classification, or authentication details on edge labels; those attributes live in the 02a Data Flows table, joined by the DF id, and belong there, not on the diagram. Line style: ALL data flows are solid lines; dashed is reserved exclusively for asynchronous/queued flows (message brokers, event buses); no other line-style variation is permitted.
 
 Threat mapping: place threat IDs (`01`, `02`, ...) near affected components. Color-code component borders by highest threat priority present -- red for Priority 1, orange for Priority 2. The threat IDs ARE the cross-reference to the threat model table; no separate index needed.
 

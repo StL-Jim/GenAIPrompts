@@ -134,10 +134,11 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
 
 ## Session-Start Behavior (run before Phase 0 on every session)
 
-Check whether STATE.md exists:
+Check whether STATE.md exists. This block must be self-contained: PowerShell variables do not survive across sessions, and this check runs before Phase 0 ever derives `$PROJECT_NAME`, so derive it here rather than assuming it is set. (If it were assumed, every resumed session would test a malformed path like `.\-threat-model\STATE.md`, wrongly declare a fresh run, and Phase 0 would then overwrite STATE.md -- destroying the run state this check exists to protect.)
 
 ```powershell
-$STATE_FILE = ".\$PROJECT_NAME-threat-model\STATE.md"
+$PROJECT_NAME = Split-Path -Leaf (Get-Location).Path
+$STATE_FILE   = ".\$PROJECT_NAME-threat-model\STATE.md"
 if (Test-Path $STATE_FILE) { "STATE.md found -- reading existing run state."; Get-Content $STATE_FILE }
 else { "No STATE.md -- fresh run. Starting at Phase 0." }
 ```

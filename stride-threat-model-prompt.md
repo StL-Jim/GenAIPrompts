@@ -527,7 +527,7 @@ read_file
   filepath: {PROJECT_NAME}-threat-model/02a-context.md
 ```
 
-Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code only when verifying a specific control is absent or a flaw is present -- read targeted line ranges, not whole files. Inferred threats do not require code verification.
+Mark `phase-2b: in-progress` in STATE.md before continuing. Re-read source code only when verifying a specific control is absent or a flaw is present -- read targeted line ranges, not whole files. A candidate you cannot ground in the System Map does not require code verification -- it becomes an Unverified ledger row (Phase 2C), not a threat.
 
 #### Threat Prioritization (apply during enumeration)
 
@@ -535,7 +535,7 @@ Include ONLY threats meeting all five criteria: CRITICAL or HIGH risk severity c
 
 Architecture-level test. A threat must be expressible as actor -> path -> asset -> missing or weak control at component, data-flow, or trust-boundary granularity. Litmus: would this finding survive a correct re-implementation of the same design? If rewriting the code without changing the architecture eliminates it (an injection in one function, missing sanitization at one handler, a hardcoded secret), it is a code-audit finding, not a threat-model finding -- record it in the Excluded Threats Ledger with reason `Code-level` and move on; the partner code audit consumes that ledger. A present flaw may still anchor a threat when it evidences a systemic gap (e.g., no central parameterization standard on the app-to-data-tier flow): state the threat at the architectural level and cite the flaw as supporting evidence.
 
-Maximum 20-25 threats in the final tables (Confirmed/Likely plus Inferred combined). This is a ceiling, NOT a target: if only 7 threats qualify, emit 7. A small table of verified architectural exposures is worth more than a padded one -- never backfill with code-level or generic findings to reach the range. If more than 25 qualify, rank by risk severity (Likelihood x Impact) and select the top 20-25; record the count of lower-priority threats excluded in the Phase 2C Filtering Summary.
+Maximum 20-25 threats in the main threat table (Confirmed and Likely). This is a ceiling, NOT a target: if only 7 threats qualify, emit 7. A small table of verified architectural exposures is worth more than a padded one -- never backfill with code-level or generic findings to reach the range. If more than 25 qualify, rank by risk severity (Likelihood x Impact) and select the top 20-25; record the count of lower-priority threats excluded in the Phase 2C Filtering Summary.
 
 Scales used in the risk severity calculation (defined here once; no other values are valid):
 - Likelihood scale: Very Low, Low, Medium, High
@@ -575,15 +575,13 @@ Code citations serve the architectural claim; they are not the claim itself. The
 
 #### Confidence levels
 
-Every threat carries a confidence level that reflects WHAT YOU VERIFIED against the system model, not how sure you feel. The level determines which table the threat goes in.
+Every threat carries a confidence level that reflects WHAT YOU VERIFIED against the system model, not how sure you feel. It is recorded in the Confidence column of the main threat table.
 
 - **Confirmed**: All three architectural conditions are verified. The asset and path are present in 02a-context.md, and the control-state (absent or partial) is verified -- for a present-flaw threat, the flaw is confirmed in cited code; for an absent-control threat, you looked where the control should be and it was not there. This is the reputation-grade level.
 - **Likely**: The asset and path are confirmed, but the control-state is uncertain. A control might exist that the system model did not capture, or runtime configuration determines whether the exposure is real. State explicitly what you would need to check to reach Confirmed.
-- **Inferred**: The threat is architecturally reasonable for this kind of system, but the specific conditions (asset, path, control-state) were not all confirmed for THIS system. A developer reviewing it may recognize a genuine weakness the model could not structurally confirm -- but it is not reputation-grade.
+Confirmed and Likely are the only two confidence levels, and both go in the main threat table -- they are the only threats the model emits. There is no third "Inferred" level and no separate Inferred table. A candidate that cannot reach at least Likely -- its asset or path cannot be confirmed against the System Map in 02a-context.md -- is NOT written as a threat. Record it instead as an `Unverified` row in the Excluded Threats Ledger (Phase 2C), stating the specific question a reviewer or the code audit would answer to confirm it. This keeps the main table to threats the top-down method actually grounded, and hands the unconfirmable leads to the code audit, which verifies them bottom-up.
 
-Confirmed and Likely threats go in the main threat table. Inferred threats go in a separate, clearly-labeled Inferred Threats table below the main one.
-
-The verification effort is bounded: spend the rigor on candidates aiming for Confirmed or Likely. Inferred threats are cheap by definition -- they are the ones you did not (or could not) fully verify, so they do not require deep code reading. Do not burn budget trying to verify threats that are headed for the Inferred table anyway.
+The verification effort is bounded: spend the rigor on candidates aiming for Confirmed or Likely. A candidate you cannot ground in the System Map is cheap by definition -- do not burn budget trying to verify it; record it as an `Unverified` ledger row and move on.
 
 Realistic threat assessment -- for each candidate threat, ask:
 1. Is this an OWASP Top 10 item? (If yes, prioritize and tag in the table.)
@@ -605,22 +603,22 @@ Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every co
 
 While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full mitigation, scope rules, or the architecture-level test). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. Phase 2C writes this list to the Excluded Threats Ledger so a downstream code audit can distinguish "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
 
-For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed, Likely, or Inferred) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. Inferred threats are filled into the lighter Inferred Threats table.
+For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed or Likely) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. A candidate that cannot reach Likely -- asset or path not confirmable from the System Map -- is recorded as an `Unverified` row in the Excluded Threats Ledger (Phase 2C), not emitted as a threat.
 
 Self-check before finalizing: for each Confirmed or Likely threat you must be able to write the architecture-vs-code explanation required by the Stakeholder Explainer below. If the honest explanation reduces to a specific implementation defect, the threat fails the architecture-level test -- move it to the Excluded Threats Ledger (`Code-level`) before writing 02b-threats.md.
 
 Citation audit (Confirmed threats only): before writing 02b-threats.md, re-open the cited line range of each Confirmed threat and verify the exact lines support the control-state claim. If the cited code does not actually show the flaw or the absence of the control, fix the citation or demote the threat to Likely. This is bounded work -- only Confirmed rows, only the already-cited ranges -- and it is what makes the Evidence column trustworthy rather than merely plausible-looking.
 
-For each Confirmed or Likely threat, fill in every column of the main threat table schema below. For each Inferred threat, fill in the lighter Inferred schema.
+For each Confirmed or Likely threat, fill in every column of the main threat table schema below.
 
 #### Threat Table Schema (main table: Confirmed and Likely threats)
 
-Only Confirmed and Likely threats go in this table. Inferred threats go in the separate Inferred Threats table (schema further below).
+Only Confirmed and Likely threats go in this table -- and they are the only threats the model emits. Candidates that cannot be grounded in the System Map are routed to the Excluded Threats Ledger (Phase 2C, reason `Unverified`), not given a threat row here.
 
 | Column | Description |
 |--------|-------------|
 | ThreatID | `01`, `02`, etc. Stable across re-runs. Maximum 25 threats so two digits is sufficient. |
-| Confidence | One of: `Confirmed`, `Likely`. Reflects what was verified against the system model per the Confidence Levels section. Confirmed = asset, path, and control-state all verified. Likely = asset and path verified, control-state uncertain (the Description must state what would confirm it). Inferred threats do not appear in this table. |
+| Confidence | One of: `Confirmed`, `Likely`. Reflects what was verified against the system model per the Confidence Levels section. Confirmed = asset, path, and control-state all verified. Likely = asset and path verified, control-state uncertain (the Description must state what would confirm it). |
 | Priority | One of: Priority 1, Priority 2. Priority 1 = threats meeting the risk severity calculation's CRITICAL outcome; Priority 2 = threats meeting the HIGH outcome. (Medium and Low risk-calc outcomes are excluded entirely by the prioritization rules.) |
 | Category | STRIDE category, exactly one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. |
 | OWASP | The OWASP Top 10 item this maps to (e.g., A01:2021), or `N/A`. |
@@ -645,21 +643,6 @@ Only Confirmed and Likely threats go in this table. Inferred threats go in the s
 
 Sort the table by Priority (Priority 1 first), then by Confidence (Confirmed before Likely), then by OWASP Top 10 item, then by ThreatID.
 
-#### Inferred Threats Table Schema (lighter)
-
-The Inferred table uses a lighter schema -- there is no point filling 21 columns of verified detail for threats that, by definition, were not verified (see Confidence Levels above):
-
-| Column | Description |
-|--------|-------------|
-| ThreatID | Continue the same numbering sequence as the main table (do not restart at 01). |
-| Category | STRIDE category, exactly one. |
-| Component | The architectural component from the inventory. |
-| Title | Specific, detailed name -- same standard as the main table. |
-| Description | What the threat is and why it is plausible, kept tight. |
-| WhatWouldConfirm | What a reviewer would need to check to promote this to Confirmed or Likely -- e.g., "verify whether the reporting endpoint enforces row-level authorization" or "confirm whether DLP runs on the egress path." This tells the developer exactly what question to answer. |
-
-Sort the Inferred table by Component, then by ThreatID.
-
 #### Phase 2B Output: `.\{PROJECT_NAME}-threat-model\02b-threats.md`
 
 Structure:
@@ -669,31 +652,25 @@ Structure:
 
 ## Threat Filtering Notes
 - Matrix cells evaluated ((components + boundary-crossing flows) x 6 STRIDE categories): <N>
-- Component coverage: every C-NNN from the inventory MUST appear at least once in the Threat Table, the Inferred Threats table, or the Excluded Threats Ledger. Components appearing in none of the three, each with a one-line justification: <list, or 'none'>
+- Component coverage: every C-NNN from the inventory MUST appear at least once in the Threat Table or the Excluded Threats Ledger. Components appearing in neither, each with a one-line justification: <list, or 'none'>
 - Total candidate threats identified during STRIDE matrix walk: <N>
 - Confirmed threats (main table): <N>
 - Likely threats (main table): <N>
-- Inferred threats (separate table): <N>
 - Threats excluded as Medium severity: <N>
 - Threats excluded as Low likelihood: <N>
 - Threats excluded as fully mitigated: <N>
 - Threats excluded as out of scope: <N>
 - Threats excluded as Code-level (routed to code audit): <N>
+- Candidates recorded as Unverified (plausible but not grounded in the System Map; routed to code audit): <N>
 
 ## Threat Table (Confirmed and Likely)
 | ThreatID | Confidence | Priority | Category | OWASP | Component | TrustBoundary | Title | ThreatAgent | Asset | Attack | AttackSurface | Impact | Description | Evidence | Likelihood | SecurityControl | ResidualRisk | Mitigation | Disposition | DispositionRationale |
 |----------|------------|----------|----------|-------|-----------|---------------|-------|-------------|-------|--------|---------------|--------|-------------|----------|------------|-----------------|--------------|------------|-------------|----------------------|
 | 01 | Confirmed | Priority 1 | Spoofing | A07:2021 | C-003 (Auth Service) | TB-002 | Session token replay due to absent token binding | External Attacker | AS-002 (Auth tokens) | Captured session cookie replayed against API (MITRE T1550.004) | External Interfaces | Confidentiality, Integrity | After intercepting a session cookie via XSS or network capture, attacker replays it against the API to impersonate the user. Edge terminates TLS, no token binding present, no anomaly detection. | AS-002 (auth tokens) reachable via DF-003 crossing TB-002; no token binding or anomaly detection on the session path [evidence: src/auth/session.go:120-158 issues bearer cookie with no binding; no device-binding config in src/auth/] | High | Partial -- TLS 1.3 on edge, no token binding | Elevated | Implement RFC 8473 token binding (SC-8); reduce session lifetime to 30 min (AC-12); add anomalous-IP detection (SI-4). | | |
 
-## Inferred Threats
-| ThreatID | Category | Component | Title | Description | WhatWouldConfirm |
-|----------|----------|-----------|-------|-------------|------------------|
-| 19 | Elevation of Privilege | C-005 (Reporting Service) | Possible missing row-level authorization on report export | The reporting export endpoint may return rows across tenant boundaries if it does not enforce per-tenant filtering, but the authorization logic could not be located to confirm. | Verify whether the export query in the reporting service applies a tenant or row-level authorization filter. |
 ```
 
-If there are no Inferred threats, still include the `## Inferred Threats` heading followed by a single line: `None -- all enumerated threats were verified to Confirmed or Likely.`
-
-MANDATORY -- exactly these two tables, nothing else: `02b-threats.md` contains the Threat Filtering Notes, the Threat Table, and the Inferred Threats table, in that order, and no other section. Do NOT add a "Threat Narratives," "Threat Details," or similar prose section with one block per threat -- every piece of detail (Title, ThreatAgent, Attack, Impact, Description, Evidence, Mitigation, etc.) belongs in its own column of the Threat Table row, per the schema above, not in a separate narrative. If the table feels too wide or dense, that is not a valid reason to restructure the file -- use terse cell content instead, but keep every threat as a single table row.
+MANDATORY -- exactly this one table, nothing else: `02b-threats.md` contains the Threat Filtering Notes and the Threat Table, in that order, and no other section. There is no Inferred Threats table -- it has been removed; candidates that could not be grounded in the System Map are recorded in the Excluded Threats Ledger (reason `Unverified`) during Phase 2C, not here. Do NOT add a "Threat Narratives," "Threat Details," or similar prose section with one block per threat -- every piece of detail (Title, ThreatAgent, Attack, Impact, Description, Evidence, Mitigation, etc.) belongs in its own column of the Threat Table row, per the schema above, not in a separate narrative. If the table feels too wide or dense, that is not a valid reason to restructure the file -- use terse cell content instead, but keep every threat as a single table row.
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Questions, Assumptions, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.`
 
@@ -709,7 +686,7 @@ Write with `create_new_file`. Verify per Operating Rule 7(d).
 ```
 === PHASE 2B COMPLETE: 02b-threats.md WRITTEN ===
 Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority 2: <N>
-Inferred threats: <N>
+Unverified candidates routed to ledger: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Stakeholder explainer: outputs/architecture-threat-explanation.html written
 STATE.md updated: phase-2b marked complete.
@@ -755,27 +732,28 @@ Required sections:
 - Threats included in the model: <N> (25 is a ceiling, not a target -- emit only what qualifies per Phase 2B prioritization)
   - Confirmed (main table): <N>
   - Likely (main table): <N>
-  - Inferred (separate table): <N>
-- Threats excluded:
+- Threats not promoted to the main table:
   - <N> Medium severity (excluded per scope constraints)
   - <N> Low likelihood (not realistic for this system)
   - <N> Fully mitigated (no residual risk)
   - <N> Out of scope (e.g., client-side only, physical security)
   - <N> Code-level (routed to the code security audit via the Excluded Threats Ledger)
+  - <N> Unverified (plausible but not grounded in the System Map; routed to the code audit via the ledger)
 
 ## Excluded Threat Categories
 - <Category>: <one-line rationale for deprioritization>
 - ...
 
 ## Excluded Threats Ledger
-One row per candidate threat that was considered during the Phase 2B matrix walk and excluded. This ledger exists so a downstream code audit (COORDINATED mode) can distinguish "considered and excluded" from "never considered" -- in particular, an audit finding that contradicts a "fully mitigated" exclusion is a significant result. Keep each row to one line; do not expand into full threat rows.
+One row per candidate threat that was considered during the Phase 2B matrix walk but not promoted to the main table -- either excluded (severity, likelihood, scope, or full mitigation) or admitted-but-Unverified (architecturally plausible, but its asset or path could not be grounded in the System Map). This ledger exists so a downstream code audit (COORDINATED mode) can distinguish "considered and not promoted" from "never considered" -- an audit finding that contradicts a "fully mitigated" exclusion, or that verifies an "Unverified" lead, is a significant result. Keep each row to one line; do not expand into full threat rows.
 
 | ExcludedID | Component | STRIDE Category | Short Title | Exclusion Reason |
 |------------|-----------|-----------------|-------------|------------------|
 | EX-01 | C-003 | Tampering | SQL injection in admin report filter | Fully mitigated -- parameterized queries verified [evidence: src/admin/reports.go:40-66] |
 | EX-02 | C-001 | Denial of Service | Generic volumetric DDoS on edge | Generic-to-all-systems; CDN/WAF absorbs; Low likelihood |
+| EX-03 | C-005 | Elevation of Privilege | Reporting export may lack row-level authorization | Unverified -- confirm whether the export query in the reporting service applies a tenant or row-level authorization filter |
 
-Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `Low likelihood`, `Out of scope`, `Generic-to-all-systems`, `Code-level`. For `Fully mitigated` rows, cite the evidence for the mitigating control. For `Code-level` rows, add one clause naming the suspected defect and its location so the partner code audit can use the row as a seeded lead.
+Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `Low likelihood`, `Out of scope`, `Generic-to-all-systems`, `Code-level`, `Unverified`. For `Fully mitigated` rows, cite the evidence for the mitigating control. For `Code-level` rows, add one clause naming the suspected defect and its location so the partner code audit can use the row as a seeded lead. For `Unverified` rows, add the specific question a reviewer or the code audit would answer to confirm the threat (the content earlier prompt versions recorded in an Inferred table's WhatWouldConfirm column), e.g. `Unverified -- confirm whether the reporting export applies a row-level authorization filter`.
 
 ## Questions for Stakeholders
 - <Specific question about unclear architecture or security controls>
@@ -944,7 +922,7 @@ Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using `create_
 
 CRITICAL: produce the `create_new_file` call with minimal preamble. Acknowledge the threat count in one line, then go directly to the tool call. Do not write planning notes or section descriptions before generating the HTML -- every line of preamble consumes output budget that should go into the file content.
 
-MANDATORY -- every threat row required, no abbreviation: this is a stakeholder and developer review document. EVERY threat from the main table and EVERY threat from the Inferred Threats table in `02-threats.md` MUST appear as its own row in the HTML output. Do NOT write a partial table, a "preview," a sample of rows, or any placeholder/summary text such as "Table shows N of M threats for brevity" or "see complete report for full list." There is no other, more complete report -- this HTML file IS the complete report. If you are concerned about output length, that is not a valid reason to drop rows: write the full table across as many tokens as it takes, using terse cell content where needed, but never omit a row. If you genuinely cannot fit all rows in one `create_new_file` call, STOP and tell the user rather than silently truncating.
+MANDATORY -- every threat row required, no abbreviation: this is a stakeholder and developer review document. EVERY threat from the main table in `02-threats.md` MUST appear as its own row in the HTML output. Do NOT write a partial table, a "preview," a sample of rows, or any placeholder/summary text such as "Table shows N of M threats for brevity" or "see complete report for full list." There is no other, more complete report -- this HTML file IS the complete report. If you are concerned about output length, that is not a valid reason to drop rows: write the full table across as many tokens as it takes, using terse cell content where needed, but never omit a row. If you genuinely cannot fit all rows in one `create_new_file` call, STOP and tell the user rather than silently truncating.
 
 Document requirements:
 
@@ -975,7 +953,6 @@ Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 3. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
 4. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
 5. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-5b. Inferred Threats -- the lighter Inferred table (see format below), rendered as a clearly-separated section below the main threat table.
 6. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
 #### Threats section format
@@ -993,14 +970,6 @@ Color rules applied to the threats section:
 - ThreatAgent column: rendered bold.
 - SecurityControl cells with the exact value `None`: cell background highlighted orange (`#FFB74D` at low opacity).
 - Confidence column: render `Confirmed` in a confident green (`#2e7d32`) and `Likely` in a cautionary amber (`#f9a825`) so a reader can scan verification level at a glance.
-
-#### Inferred Threats section format
-
-Render the Inferred Threats table as a visually distinct section below the main threat table, under a clear heading like "Inferred Threats (not verified against the system model -- for reviewer evaluation)." Include a one-line explainer: these threats are architecturally plausible but their specific conditions were not confirmed for this system; a developer may recognize a real weakness here that the model could not structurally confirm.
-
-The Inferred table is a simple flat table (no two-tier collapsible pattern needed -- it has only six columns): ThreatID, Category, Component, Title, Description, WhatWouldConfirm.
-
-Style it with a muted/neutral background (not priority-colored) to visually signal that it is a different, lower-confidence class of content than the main table. If the Inferred table is empty, render the heading followed by "None -- all enumerated threats were verified to Confirmed or Likely."
 
 #### Disposition input fields (HTML form controls)
 
@@ -1029,7 +998,7 @@ Verify per Operating Rule 7(d) after writing. If the file is missing or truncate
 ### 3C -- CSV for Excel
 Produce a single CSV file at `.\{PROJECT_NAME}-threat-model\outputs\threats.csv`.
 
-`threats.csv` -- one row per threat from the main table only (Confirmed and Likely). Inferred threats are not included. Header row required, columns in this exact order:
+`threats.csv` -- one row per threat from the main table (Confirmed and Likely); this is every threat the model emits. Header row required, columns in this exact order:
 
 ```
 ThreatID,Confidence,OriginalPriority,RevisedPriority,Category,OWASP,Component,TrustBoundary,Title,ThreatAgent,Asset,Attack,AttackSurface,Impact,Description,Evidence,Likelihood,SecurityControl,ResidualRisk,Mitigation,Disposition,DispositionRationale

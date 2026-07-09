@@ -129,7 +129,7 @@ COMPARISON PROCEDURE
 
 VOCABULARY NORMALIZATION (apply before any matching): threat models from prompt v18+ rate threats Priority 1/Priority 2; older models used Severity Critical/High. Normalize: Priority 1 == Critical, Priority 2 == High. A pair differing only in vocabulary (older says Critical, newer says Priority 1) is NOT a rating change and must never be reported as one. In output entries, show each model's value verbatim and add the normalized form only where the two models use different vocabularies.
 
-TABLE SCOPE AND INFERRED TRANSITIONS: compare the MAIN threat tables (Confirmed/Likely) of both models against each other. The Inferred Threats tables (present in v17+ models) are compared only for transitions: (a) a threat Inferred in the older model that appears in the newer model's MAIN table was PROMOTED -- the newer run verified what the older could not; report it in Section 2 with a 'Promoted from Inferred' note, not in Section 4 as new. (b) a main-table threat in the older model that appears only as Inferred in the newer was DEMOTED -- verification weakened; report it in Section 2 with a 'Demoted to Inferred' note and a sentence on why that matters. Threats Inferred in both runs are out of matching scope beyond the Section 1 count.
+TABLE SCOPE AND UNVERIFIED-LAYER TRANSITIONS: compare the MAIN threat tables (Confirmed/Likely) of both models against each other. Each model also has an "unverified layer" of plausible-but-ungrounded candidates, but its representation depends on prompt version: in v20+ models these are Excluded Threats Ledger rows with reason `Unverified` (carrying a confirming question); in v17-v19 models they are a separate Inferred Threats table (with a WhatWouldConfirm column). Treat the two representations as EQUIVALENT. The unverified layer is compared only for transitions: (a) a candidate in the older model's unverified layer that appears in the newer model's MAIN table was PROMOTED -- the newer run grounded what the older could not; report it in Section 2 with a 'Promoted from unverified' note, not in Section 4 as new. (b) a main-table threat in the older model that appears only in the newer model's unverified layer was DEMOTED -- grounding weakened; report it in Section 2 with a 'Demoted to unverified' note and a sentence on why that matters. A candidate that is merely relocated between the two representations without changing layer (Inferred in an older run, `Unverified` ledger row in a newer run -- both unverified) is NOT a transition: it is the same status in different prompt-version formats and must never be reported as a change. Candidates unverified in both runs are out of matching scope beyond the Section 1 count.
 
 For each threat in the OLDER model's `02-threats.md`, attempt to find a matching threat in the NEWER model's `02-threats.md`. Matching uses multiple dimensions in priority order:
 
@@ -185,7 +185,7 @@ Then a multi-part counts table:
 |-------------------------------------|-------|-------|
 | Total threats included              | <N>   | <N>   |
 | Confirmed / Likely (main table)     | <N>/<N> | <N>/<N> |
-| Inferred threats (separate table)   | <N>   | <N>   |
+| Unverified layer (ledger `Unverified` rows; Inferred table in v17-v19) | <N>   | <N>   |
 | Priority 1 / Critical               | <N>   | <N>   |
 | Priority 2 / High                   | <N>   | <N>   |
 | Total candidate threats identified  | <N>   | <N>   |

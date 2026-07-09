@@ -17,6 +17,8 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
 
    This rule is enforced through schemas: every output table that captures a threat-modeling artifact has an explicit `Evidence` column. Populating that column is mandatory -- a row with an empty `Evidence` cell is a rule violation, not an oversight. A single cell may contain multiple citations separated by `;` when one claim draws on more than one location (e.g., `[evidence: src/api/handler.go:42-78]; [evidence: terraform/iam.tf:10-22]`). In the Phase 2B threat table, an Evidence cell containing only code citations with no AS-NNN, DF-NNN, or TB-NNN reference is equally a violation -- the architectural claim is mandatory; code citations are supporting.
 
+   No speculative preconditions. A threat may not depend on a fact you assumed rather than observed. Positing an actor, principal, permission, or control weakness you did not find in the repo -- "assuming there are other users with broader access", "there may be a more-permissive policy", "presumably another service does not enforce mTLS" -- is speculation, not evidence: it manufactures an attack path the System Map does not support. These tell-phrases ("assuming", "there may be", "presumably", "other ... likely") mark the seam where evidence stopped and story-completion took over; when you write one, stop and drop the threat. Absence-of-evidence is only meaningful inside the boundary you searched: if the control that would prevent a threat lives OUTSIDE the assessed repository (a platform IAM policy, a shared CI/CD pipeline, another team's service), not finding it here does NOT establish it is absent -- record the dependency in the Assumptions Log, never as a Confirmed or Likely threat. This does not weaken legitimate absent-control reasoning for controls that SHOULD live in this repo: there, looking where the control belongs and not finding it is valid evidence per the Confidence Levels section. The distinguishing test is one question -- "could I, in principle, point at the evidence: does the thing I am claiming live inside the boundary I am assessing?"
+
 3. **No hallucinated CVEs, CWEs, or versions.** Only reference a CVE if you literally see the identifier in the source (e.g., in a lockfile comment or SECURITY.md). CWE references are allowed because they are a stable taxonomy; CVEs are not.
 
 4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and decide threat or `N/A`. Do NOT write out per-cell N/A justifications -- the recorded artifacts of the walk are the matrix-cell count and per-category counts in the Phase 2B Filtering Notes and completion banner, plus the Excluded Threats Ledger in Phase 2C for candidates that were considered and excluded. Per-cell prose for non-applicable cells wastes token budget and is not required.
@@ -110,6 +112,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
     - Q3 Existing Controls: <answer>
     - Q4 Data Sensitivity: <answer>
     - Q5 Governance Framework: <answer, default NIST 800-53 Rev 5>
+    - Q6 Infrastructure Ownership: <SELF-MANAGED | PLATFORM-INHERITED>
 
     ## Last Completed Step
     <short description, e.g. "phase-2b -- STRIDE threat table written to 02b-threats.md">
@@ -248,12 +251,17 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
    Q5: "Mitigation recommendations will use NIST 800-53 Rev 5 as the governance framework. Press Enter to accept, or name a different framework or compliance requirement (e.g. SOC 2, HIPAA, PCI-DSS, GDPR) to override."
    If the user accepts the default or gives no answer, GOVERNANCE_FRAMEWORK = NIST 800-53 Rev 5.
 
+   Q6: "Is the runtime infrastructure -- container platform / cluster (e.g. Kubernetes, EKS), cloud IAM roles and policies, and the CI/CD pipeline -- managed by THIS application team, or provided as a managed platform by a separate team this application team cannot modify?"
+   - (a) This team manages it -> INFRA_OWNERSHIP = SELF-MANAGED. Infrastructure-as-code in this repo is in scope; assess it normally.
+   - (b) Separate platform team; this app team cannot modify it -> INFRA_OWNERSHIP = PLATFORM-INHERITED. The cluster, the IAM baseline, and the pipeline are inherited controls assessed elsewhere (ideally a separate threat model run against the platform repo). In this run: treat them as assumed-correct inherited controls, do NOT enumerate threats against the platform's own configuration, and do NOT hypothesize the permissions of principals or policies that are not defined by a file in this repo. Emit an infrastructure or IAM threat ONLY when a file in THIS repo that this app team owns (its own k8s manifests, its own IaC) shows the misconfiguration -- cite that file or omit the threat. Record reliance on the platform's controls in the Assumptions Log.
+   If the answer is unclear, default to PLATFORM-INHERITED and note the uncertainty -- the conservative choice, since it suppresses unevidenced platform findings while still surfacing app-owned misconfigurations (which are evidenced by repo files either way).
+
    Record all answers in STATE.md under a ## User Inputs section and include them in 00-scope.md.
    After user responds, validate the exposure answer against infrastructure evidence.
 
 7. **Identify primary language(s), framework(s), and build system(s)** -- only from files you have directly observed. Look for `package.json`, `pom.xml`, `*.csproj`, `go.mod`, `requirements.txt`, `Cargo.toml`, `*.tf`, `Dockerfile`, `*.yaml` (k8s/helm), etc. Use `read_file` for each detection file and cite with evidence paths relative to the workspace root.
 
-8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Use `create_new_file` per Operating Rule 7(a).
+8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), the infrastructure ownership mode (Q6: SELF-MANAGED or PLATFORM-INHERITED -- and when PLATFORM-INHERITED, state explicitly that the cluster, IAM baseline, and CI/CD pipeline are inherited controls out of scope for this run), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Use `create_new_file` per Operating Rule 7(a).
 
 9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?). This is the proposal the user reviews before Phase 1 begins.
 
@@ -538,6 +546,8 @@ Risk severity calculation:
 Displayed Priority label mapping (explicit, not left to inference): the threat table's `Priority` column is the display label for this calculation's outcome -- CRITICAL displays as **Priority 1**, HIGH displays as **Priority 2**. Likelihood and Impact themselves are never renamed or displayed as Priority; only the final CRITICAL/HIGH outcome is relabeled.
 
 Each threat must be specific to this application's architecture, worth defending against given the deployment exposure recorded in 00-scope.md, and clear on why it matters for this system.
+
+Infrastructure ownership gate (INFRA_OWNERSHIP in 00-scope.md). When PLATFORM-INHERITED: do NOT emit threats against the managed platform's cluster, IAM baseline, or CI/CD pipeline, and never predicate a threat on an unobserved principal or a hypothesized more-permissive policy (Operating Rule 2, no speculative preconditions). An infrastructure or IAM threat is admissible here ONLY if a file in this repo that the app team owns (its own k8s manifests, its own IaC) evidences the misconfiguration; otherwise reliance on the platform's controls is an Assumption (Assumptions Log), not a threat. When SELF-MANAGED: assess this repo's IaC normally -- absent-control findings against infrastructure the app team owns are valid, because those controls should live in this repo.
 
 #### Verify against the system model, not the code
 

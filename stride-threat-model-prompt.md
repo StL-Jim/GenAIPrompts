@@ -420,6 +420,7 @@ Before printing the banner, print a System Restatement: one paragraph stating wh
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
 Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+System Restatement: recorded in 01-inventory.md (confirmed/corrected version).
 STATE.md updated: phase-1 marked complete.
 Review the inventory and confirm or correct the System Restatement above. Type 'proceed' to
 begin Phase 2A (Assets, Trust Boundaries, Data Flows), or provide corrections first.
@@ -954,17 +955,16 @@ Reviewer metadata block:
 - Two fields: `Reviewed By:` and `Reviewer Notes:`.
 - Both fields render as visibly empty placeholders for post-generation manual completion. Use a light-gray underlined blank or `&nbsp;` styled cell. Do NOT populate or guess values during generation. Do NOT guess at a reviewer name.
 
-System Restatement (opening section): immediately after the reviewer metadata block and before the Summary section, render the System Restatement from the `02-threats.md` header as a short prose paragraph under an `<h2>` with a TOC entry -- it orients every reader (developer, manager, assessor) on what the system IS before they see what threatens it. Render it as emphasized lead prose, not a table.
+Sections in order (each gets an `<h2>` and an `id` matching its TOC link; every numbered section below is MANDATORY -- a report missing one is incomplete):
 
-Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
-
-1. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
-2. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking down to its threat row, Count). It sits here, with the Summary, because together they are the report's dashboard: what threatens the system and which governance controls answer it, visible before any detail.
-3. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
-4. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
-5. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
-6. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-7. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
+1. System Restatement -- the confirmed restatement from the `02-threats.md` header, rendered as a short emphasized prose paragraph (not a table): what the system is, what it talks to, who its users are, its most sensitive asset. It opens the report because it orients every reader (developer, manager, assessor) on what the system IS before they see what threatens it.
+2. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
+3. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking down to its threat row, Count). It sits here, with the Summary, because together they are the report's dashboard: what threatens the system and which governance controls answer it, visible before any detail.
+4. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
+5. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
+6. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
+7. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
+8. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
 #### Threats section format
 

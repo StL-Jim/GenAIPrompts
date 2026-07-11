@@ -609,6 +609,8 @@ Self-check before finalizing: for each Confirmed or Likely threat you must be ab
 
 Citation audit (Confirmed threats only): before writing 02b-threats.md, re-open the cited line range of each Confirmed threat and verify the exact lines support the control-state claim. If the cited code does not actually show the flaw or the absence of the control, fix the citation or demote the threat to Likely. This is bounded work -- only Confirmed rows, only the already-cited ranges -- and it is what makes the Evidence column trustworthy rather than merely plausible-looking.
 
+Speculation audit (every row): also before writing 02b-threats.md, scan every threat's Description and Evidence cells for the anti-speculation tell-phrases from Operating Rule 2 ("assuming", "there may be", "if there exists", "presumably", "other users/roles/services likely") and for any precondition naming a principal, role, permission, or policy that no repo file and no Phase 0 attestation establishes. A failing row has exactly two exits: re-ground it (fix the Evidence cell to cite the repo file or user-attested fact that establishes the precondition) or remove it to the Excluded Threats Ledger as `Unverified` with its confirming question. No third option; a row may not stay in the table on the strength of plausibility. This audit is bounded, mechanical work -- a scan of cells just written -- and it exists because stated rules degrade as the context window fills; the audit at the end catches what the rule missed in the middle. Typical catch: an over-privileged-IAM-role threat whose role is defined in no file in this repo.
+
 For each Confirmed or Likely threat, fill in every column of the main threat table schema below.
 
 #### Threat Table Schema (main table: Confirmed and Likely threats)
@@ -957,11 +959,11 @@ System Restatement (opening section): immediately after the reviewer metadata bl
 Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 
 1. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
-2. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
-3. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
-4. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
-5. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-6. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking to its threat row, Count). Place it after Threats so a reader moves from "what threatens us" to "which controls answer it."
+2. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking down to its threat row, Count). It sits here, with the Summary, because together they are the report's dashboard: what threatens the system and which governance controls answer it, visible before any detail.
+3. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
+4. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
+5. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
+6. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
 7. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
 #### Threats section format

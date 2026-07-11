@@ -635,7 +635,7 @@ Only Confirmed and Likely threats go in this table -- and they are the only thre
 | Likelihood | One of: Medium, High. The likelihood of exploitation given the architecture and real-world risk. (Low likelihood threats are excluded by prioritization rules.) |
 | SecurityControl | EXISTING controls already in place that affect this threat. Use `None` if no controls exist. Use `Partial -- <what's missing>` if controls are incomplete. |
 | ResidualRisk | The residual risk remaining after existing SecurityControl is applied but before recommended Mitigation. One of: Severe, Elevated. Re-run the risk severity calculation crediting the existing SecurityControl as it actually operates, then map the outcome: CRITICAL -> Severe, HIGH -> Elevated. Because existing controls can lower the outcome, ResidualRisk may map lower than the Priority column, which reflects the calculation before existing controls are credited (the schema example row is Priority 1 with ResidualRisk Elevated for exactly this reason). The words Critical and High never appear as ratings in stakeholder-facing artifacts. |
-| Mitigation | Specific, actionable controls to add or strengthen. Default governance framework is NIST 800-53 Rev 5 unless the user specified a different compliance requirement in Phase 0. Always cite the specific control ID (e.g. `AC-3 Access Enforcement`, `SI-10 Information Input Validation`, `SC-8 Transmission Confidentiality and Integrity`), not just the framework name. Reference OWASP and CIS Benchmarks where they add specificity. |
+| Mitigation | Specific, actionable controls to add or strengthen. Each recommended action ends with its governance-framework control identifier in parentheses, e.g. `Enforce row-level authorization on the export path (AC-3); add query audit logging (AU-2); enforce TLS on the internal hop (SC-8(1))`. The framework is GOVERNANCE_FRAMEWORK from Phase 0 Q5 (default NIST 800-53 Rev 5); always use its specific control identifiers, never just the framework name. A Mitigation cell containing no parenthesized control identifier is a rule violation, not an oversight -- the same standard the Evidence column carries. These parenthesized identifiers are machine-extractable and are what the Phase 2C Control Coverage Summary aggregates. Reference OWASP and CIS Benchmarks where they add specificity. |
 | Disposition | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in after the threat model is reviewed (e.g., `Active`, `False Positive`, `Risk Accepted`, `Mitigated by Compensating Control`, `Duplicate of 09`). |
 | DispositionRationale | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in with the reason for the disposition above. |
 
@@ -754,6 +754,14 @@ One row per candidate threat that was considered during the Phase 2B matrix walk
 | EX-03 | C-005 | Elevation of Privilege | Reporting export may lack row-level authorization | Unverified -- confirm whether the export query in the reporting service applies a tenant or row-level authorization filter |
 
 Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `Low likelihood`, `Out of scope`, `Generic-to-all-systems`, `Code-level`, `Unverified`. For `Fully mitigated` rows, cite the evidence for the mitigating control. For `Code-level` rows, add one clause naming the suspected defect and its location so the partner code audit can use the row as a seeded lead. For `Unverified` rows, add the specific question a reviewer or the code audit would answer to confirm the threat (the content earlier prompt versions recorded in an Inferred table's WhatWouldConfirm column), e.g. `Unverified -- confirm whether the reporting export applies a row-level authorization filter`.
+
+## Control Coverage Summary
+The reverse index from governance-framework controls to the threats whose Mitigation cites them. Build it by extracting every parenthesized control identifier from the main threat table's Mitigation column (for NIST 800-53 the `AC-3` / `SC-8(1)` form; other Q5 frameworks use their own identifier form). One row per distinct control; sort by Count descending, then control ID. This is the "which controls keep recurring" view -- heavily-cited controls and families indicate where the system's protection gaps concentrate.
+
+| Control | Name | Family | Cited By | Count |
+|---------|------|--------|----------|-------|
+| AC-3 | Access Enforcement | AC | 01, 04, 09 | 3 |
+| SC-8 | Transmission Confidentiality and Integrity | SC | 02, 07 | 2 |
 
 ## Questions for Stakeholders
 - <Specific question about unclear architecture or security controls>
@@ -953,7 +961,8 @@ Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 3. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
 4. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
 5. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-6. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
+6. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking to its threat row, Count). Place it after Threats so a reader moves from "what threatens us" to "which controls answer it."
+7. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
 #### Threats section format
 

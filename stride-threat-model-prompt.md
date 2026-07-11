@@ -347,6 +347,9 @@ Structure:
 ```markdown
 # Architectural Inventory
 
+## System Restatement
+<the user-confirmed one-paragraph restatement written at the end of Phase 1: what the system is, what it talks to, who its users are, its single most sensitive asset>
+
 ## 1. Documentation Artifacts
 | ID | Path | Type | Key Assertions |
 |----|------|------|----------------|
@@ -409,7 +412,7 @@ Any architectural claim not backed by evidence. Each assumption gets `A-<NNN>` a
 
 After writing 01-inventory.md, update STATE.md: mark `phase-1: complete` with timestamp, set Last Completed Step to `phase-1 -- inventory written to 01-inventory.md`, set Resume Instruction to `Begin at Phase 2A (Assets, Trust Boundaries, Data Flows). Required rehydration: 00-scope.md, 01-inventory.md.`
 
-Before printing the banner, print a System Restatement: one paragraph stating what you believe this system is, what it talks to, who its users are, and what its single most sensitive asset is -- then ask the user to confirm or correct it. The user knows the real architecture; a wrong inventory produces confident, well-cited, wrong threats, and this is the cheapest place to catch that. Record any corrections in 01-inventory.md before proceeding.
+Before printing the banner, print a System Restatement: one paragraph stating what you believe this system is, what it talks to, who its users are, and what its single most sensitive asset is -- then ask the user to confirm or correct it. The user knows the real architecture; a wrong inventory produces confident, well-cited, wrong threats, and this is the cheapest place to catch that. After the user confirms or corrects it, write the FINAL restatement into 01-inventory.md as the `## System Restatement` section (and record any corrections in the affected inventory sections) before proceeding. The restatement must survive on disk, not only in chat: Phase 2C copies it into the 02-threats.md header, and the Phase 3 HTML report renders it as the opening section.
 
 **Phase 1 Completion Banner:**
 ```
@@ -783,13 +786,13 @@ Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `
 
 **Output 2: `02-threats.md`** -- the canonical, consolidated Phase 2 output that Phase 3 reads. The consolidation is intentionally done with PowerShell rather than by reading each sub-file into the agent's context and writing the union with `create_new_file` -- the latter forces all sub-files' content through the working window for no reasoning benefit, just file gluing. PowerShell streams the content through the OS and keeps Phase 2C's context cost low.
 
-The `02-threats.md` file should consist of, in order: a header section (title, project name, current date, one-paragraph summary of threat counts by priority, components reviewed, deployment exposure), then the verbatim contents of `02a-context.md`, `02b-threats.md`, `02c-assumptions.md`.
+The `02-threats.md` file should consist of, in order: a header section (title, project name, current date, the System Restatement copied verbatim from 01-inventory.md, one-paragraph summary of threat counts by priority, components reviewed, deployment exposure), then the verbatim contents of `02a-context.md`, `02b-threats.md`, `02c-assumptions.md`.
 
 Steps:
 
 1. Write `02c-assumptions.md` with `create_new_file` per the schema above.
 
-2. Write the header section to `02-header.md` using `create_new_file` (title, project name, date, summary paragraph).
+2. Write the header section to `02-header.md` using `create_new_file` (title, project name, date, the System Restatement copied verbatim from 01-inventory.md, summary paragraph).
 
 3. Concatenate header + three sub-files into `02-threats.md` using PowerShell:
    ```powershell
@@ -960,6 +963,8 @@ Reviewer metadata block:
 - Position between the title heading and the summary table.
 - Two fields: `Reviewed By:` and `Reviewer Notes:`.
 - Both fields render as visibly empty placeholders for post-generation manual completion. Use a light-gray underlined blank or `&nbsp;` styled cell. Do NOT populate or guess values during generation. Do NOT guess at a reviewer name.
+
+System Restatement (opening section): immediately after the reviewer metadata block and before the Summary section, render the System Restatement from the `02-threats.md` header as a short prose paragraph under an `<h2>` with a TOC entry -- it orients every reader (developer, manager, assessor) on what the system IS before they see what threatens it. Render it as emphasized lead prose, not a table.
 
 Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
 

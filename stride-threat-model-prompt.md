@@ -147,6 +147,8 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
 
 ## Session-Start Behavior (run before Phase 0 on every session)
 
+The STATE.md check below is the FIRST action of every session. Do not precede it with an orientation menu, a list of workflow outputs, a workspace-confirmation prompt, or any "type start/begin to continue" interaction -- those improvisations vary run to run and add an unspecified gate before the specified one. Phase 0 step 1 already handles workspace confirmation, and Phase 0 step 6 already handles the pre-flight questions.
+
 Check whether STATE.md exists. This block must be self-contained: PowerShell variables do not survive across sessions, and this check runs before Phase 0 ever derives `$PROJECT_NAME`, so derive it here rather than assuming it is set. (If it were assumed, every resumed session would test a malformed path like `.\-threat-model\STATE.md`, wrongly declare a fresh run, and Phase 0 would then overwrite STATE.md -- destroying the run state this check exists to protect.)
 
 ```powershell

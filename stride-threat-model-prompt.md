@@ -358,7 +358,7 @@ Structure:
 | DOC-001 | docs/architecture.md | design-doc | ... |
 
 ## 2. Components
-Each component gets a stable ID: `C-<NNN>` assigned in the order components are discovered.
+Each component gets a stable ID: `C-<NNN>`. Assign IDs by a FIXED sort, not discovery order (Operating Rule 5): discover all components first, sort them alphabetically by canonical name, then number C-001, C-002, ... in that sorted order. Discovery order is not reproducible across runs; a fixed sort is. (Cross-run identity still relies on semantic matching, since names can change -- but a stable sort removes the gratuitous reshuffling that discovery order causes.)
 
 ### C-001: <Component Name>
 - Type: (web-app | api-service | worker | database | cache | queue | external-saas | cli | job | lambda | frontend-spa | ...)
@@ -371,7 +371,7 @@ Each component gets a stable ID: `C-<NNN>` assigned in the order components are 
 - Runs as: (user/service account, container, lambda, ...)
 
 ## 3. Data Stores
-Each data store gets a stable ID: `DS-<NNN>` assigned in the order data stores are discovered.
+Each data store gets a stable ID: `DS-<NNN>`, assigned by the same fixed-sort rule as components (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### DS-001: <Data Store Name>
 - Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
@@ -382,7 +382,7 @@ Each data store gets a stable ID: `DS-<NNN>` assigned in the order data stores a
 - Evidence: [evidence: terraform/rds.tf:1-30]
 
 ## 4. External Integrations
-Each external integration gets a stable ID: `EXT-<NNN>` assigned in the order integrations are discovered.
+Each external integration gets a stable ID: `EXT-<NNN>`, assigned by the same fixed-sort rule (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### EXT-001: <Integration Name>
 - Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)
@@ -466,6 +466,8 @@ Produce three sections, all grounded in the inventory:
 2. TRUST BOUNDARIES -- restate every TB from the inventory using the same `TB-NNN` IDs. For each, name the principals on either side and the controls (or lack thereof) that establish the boundary. This is a re-statement, not a re-derivation; do not invent new boundaries that aren't in the inventory.
 
 3. DATA FLOWS -- enumerate every data flow between components. Each flow gets a stable ID `DF-NNN`. For each flow record: source component ID, destination component ID, data classification, protocol, authentication, encryption status, and whether it crosses a trust boundary (and which one). Mark trust-boundary-crossing flows clearly because they are the focus of Phase 2B.
+
+The Encryption and AuthN columns use FIXED vocabularies -- no free-text synonyms -- because the Phase 2B data-flow obligation check keys off the exact words `plaintext`, `none`, and `unknown`, and a synonym like "N/A" or "not encrypted" would silently disarm it. Encryption is exactly one of: `TLS1.3`, `TLS1.2`, `mTLS`, `plaintext`, `unknown`. AuthN is exactly one of: `mTLS`, `OIDC`, `token`, `API-key`, `basic`, `none`, `unknown`. Use `unknown` (not a guess) when the flow exists but its protection could not be determined from evidence or attestation.
 
 #### Phase 2A Output: `.\{PROJECT_NAME}-threat-model\02a-context.md`
 

@@ -342,6 +342,8 @@ Walk the application source and identify:
 - Output boundaries: where data leaves (responses, logs, outbound HTTP, emails, metrics).
 - Configuration surface: env vars, config files, feature flags, remote config.
 
+When you record these as inventory Components (Section 2 below), apply the component definition there: the data stores, managed services, queues, caches, gateways, and identity providers you find here are all COMPONENTS (each a C-NNN with a Phase 2 walk), not a lower tier -- do not fold them away into detail-only sections. Undercounting components here is the largest single cause of missed threats downstream.
+
 ### Phase 1 Output: `.\{PROJECT_NAME}-threat-model\01-inventory.md`
 
 Structure:
@@ -358,10 +360,12 @@ Structure:
 | DOC-001 | docs/architecture.md | design-doc | ... |
 
 ## 2. Components
+This is the MASTER inventory of architectural elements, and it directly gates threat coverage: Phase 2B walks STRIDE per component, so any element absent here is never threat-modeled. DEFINITION -- every architectural element that PROCESSES, STORES, or MEDIATES this system's data is a component: it gets a C-NNN ID and a Phase 2 STRIDE walk. This explicitly includes data stores, cloud/AWS managed services (S3, DynamoDB, Bedrock, SQS, ...), queues, caches, gateways, and identity providers -- NOT only active-process services. Do NOT undercount by treating data stores or managed services as a lower tier: the Data Stores (Section 3) and External Integrations (Section 4) sections are supplementary attribute detail about elements that ALSO appear here as components, keyed to the same C-NNN -- every element listed in those sections MUST also appear in this section. Each architectural element appears here exactly once (one C-NNN) and is walked once in Phase 2. (This definition is load-bearing: undercounting components is the single largest cause of incomplete threat enumeration -- a narrow "active-process only" reading has produced 3-4 components where the correct reading produces ~12-13 on the same system.)
+
 Each component gets a stable ID: `C-<NNN>`. Assign IDs by a FIXED sort, not discovery order (Operating Rule 5): discover all components first, sort them alphabetically by canonical name, then number C-001, C-002, ... in that sorted order. Discovery order is not reproducible across runs; a fixed sort is. (Cross-run identity still relies on semantic matching, since names can change -- but a stable sort removes the gratuitous reshuffling that discovery order causes.)
 
 ### C-001: <Component Name>
-- Type: (web-app | api-service | worker | database | cache | queue | external-saas | cli | job | lambda | frontend-spa | ...)
+- Type: (web-app | api-service | worker | database | cache | queue | managed-service | gateway | identity-provider | external-saas | cli | job | lambda | frontend-spa | ...)
 - Language/Framework:
 - Evidence: [evidence: path/to/main.go:1-40]
 - Responsibilities:
@@ -371,7 +375,7 @@ Each component gets a stable ID: `C-<NNN>`. Assign IDs by a FIXED sort, not disc
 - Runs as: (user/service account, container, lambda, ...)
 
 ## 3. Data Stores
-Each data store gets a stable ID: `DS-<NNN>`, assigned by the same fixed-sort rule as components (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
+Supplementary attribute detail (classification, encryption, access pattern) for the Section 2 components that are data stores -- NOT a separate lower tier. Every data store here MUST also appear in Section 2 as a component with its own C-NNN and Phase 2 walk; the DS-NNN is its detail-record ID cross-referencing that component. Each data store gets a stable ID: `DS-<NNN>`, assigned by the same fixed-sort rule as components (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### DS-001: <Data Store Name>
 - Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
@@ -382,7 +386,7 @@ Each data store gets a stable ID: `DS-<NNN>`, assigned by the same fixed-sort ru
 - Evidence: [evidence: terraform/rds.tf:1-30]
 
 ## 4. External Integrations
-Each external integration gets a stable ID: `EXT-<NNN>`, assigned by the same fixed-sort rule (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
+Supplementary detail (protocol, auth method, direction) for the Section 2 components that are external or managed integrations -- NOT a separate lower tier. Every integration here MUST also appear in Section 2 as a component with its own C-NNN and Phase 2 walk; the EXT-NNN is its detail-record ID cross-referencing that component. Each external integration gets a stable ID: `EXT-<NNN>`, assigned by the same fixed-sort rule (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### EXT-001: <Integration Name>
 - Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)

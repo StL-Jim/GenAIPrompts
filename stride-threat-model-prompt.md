@@ -69,6 +69,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
    {PROJECT_NAME}-threat-model/
      STATE.md                          (run-state file, see Operating Rule 12)
      00-scope.md                       (Phase 0)
+     00-file-manifest.txt              (Phase 0: complete recursive file list Phase 1 must account for)
      01-inventory.md                   (Phase 1)
      02a-context.md                    (Phase 2A: assets, trust boundaries, data flows)
      02b-threats.md                    (Phase 2B: STRIDE threat table)
@@ -228,6 +229,17 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
    ```
    Classify the repo as one of: `single-service`, `monorepo-multi-service`, `library`, `infrastructure-only`, `mixed`.
 
+5a. **Produce a COMPLETE recursive file manifest** -- this is the ground truth Phase 1 must account for, and it is what makes a single run's coverage self-evident instead of only knowable by comparing against a prior run. Enumerate every file (paths only -- no reading, so this is cheap even on large repos), excluding the tool-state and vendored directories that never generate threats:
+   ```powershell
+   $excludeDirs = @("$PROJECT_NAME-threat-model", 'audit_state', '.git', 'node_modules', 'vendor', 'target', '.venv', 'dist', 'build', '__pycache__')
+   $manifest = Get-ChildItem -Path $WORKSPACE -Recurse -File -Force |
+     Where-Object { $rel = $_.FullName.Substring($WORKSPACE.Length).TrimStart('\'); -not ($excludeDirs | Where-Object { $rel -like "$_\*" -or $rel -eq $_ }) } |
+     ForEach-Object { $_.FullName.Substring($WORKSPACE.Length).TrimStart('\') -replace '\\','/' }
+   $manifest | Set-Content ".\$PROJECT_NAME-threat-model\00-file-manifest.txt" -Encoding UTF8
+   "Manifest file count: $($manifest.Count)"
+   ```
+   Record the total file count. Write the manifest to `00-file-manifest.txt` (one relative path per line). Phase 1 will assign EVERY file in this manifest to a component or a justified skip-bucket, and reconcile the totals -- so a file that gets silently overlooked becomes a visible rule violation, in this single run, with no prior run required to notice it. If the count is very large (thousands of files), still write the full manifest; the accounting in Phase 1 rolls low-relevance files into counted buckets rather than reading each.
+
 6. **Pre-flight questions -- STOP AND PROMPT USER**
 
    DO NOT PROCEED UNTIL THE USER ANSWERS ALL QUESTIONS BELOW.
@@ -286,6 +298,7 @@ PROJECT_NAME = <name>
 OUTPUT_ROOT  = <path>\<name>-threat-model
 Output directory excluded from source repo git tracking: [yes/no]
 Scope file written: <name>-threat-model\00-scope.md
+File manifest written: <name>-threat-model\00-file-manifest.txt (<N> files -- Phase 1 will account for every one)
 STATE.md updated: phase-0 marked complete.
 Review the scope above. Type 'proceed' to begin Phase 1 (Documentation & Source Analysis),
 or provide corrections to the scope first.
@@ -296,18 +309,22 @@ or provide corrections to the scope first.
 ## Phase 1 -- Documentation, Diagram, and Source Analysis
 
 ### Phase 1 Rehydration (MANDATORY FIRST STEP)
-Read STATE.md and 00-scope.md. STATE.md tells you whether Phase 1 is starting fresh or resuming after a crash. 00-scope.md gives you the project name, workspace, deployment exposure, languages, and in-scope/out-of-scope items. Do not re-derive scope from memory.
+Read STATE.md, 00-scope.md, and the complete file manifest 00-file-manifest.txt. STATE.md tells you whether Phase 1 is starting fresh or resuming after a crash. 00-scope.md gives you the project name, workspace, deployment exposure, languages, and in-scope/out-of-scope items. 00-file-manifest.txt is the authoritative list of EVERY file in the repo, and it is the ground truth this phase must account for. Do not re-derive scope from memory.
 
 ```
 read_file
   filepath: {PROJECT_NAME}-threat-model/STATE.md
 read_file
   filepath: {PROJECT_NAME}-threat-model/00-scope.md
+read_file
+  filepath: {PROJECT_NAME}-threat-model/00-file-manifest.txt
 ```
 
 Mark phase-1 as `in-progress` in STATE.md before continuing.
 
 **Goal:** Build a complete architectural inventory from existing artifacts and source code. This phase produces the ground truth that every later phase depends on.
+
+**FILE COVERAGE ACCOUNTING (mandatory -- this is what forces depth and makes completeness self-evident in a single run).** Discovery is an accounting exercise over 00-file-manifest.txt, not a sampled walk. EVERY file in the manifest must end this phase assigned to exactly one of: (a) a component/data-store/integration in the inventory (the file implements, configures, or defines it -- to make this assignment you must open the file, which is where the depth comes from); or (b) a named skip-bucket with a one-line reason, rolled up by category so it stays cheap: `tests`, `generated`, `vendored-third-party`, `build-config`, `docs`, `assets/static`, `non-production` (per Operating Rule 13). A file that is in neither is UNACCOUNTED -- a rule violation, not an oversight. This is imported verbatim in spirit from the CodeSecurityAudit prompt's FILE COVERAGE ACCOUNTING, which the toolchain already relies on. Operating Rule 9 (token economy) governs HOW you read a large assigned file -- ranges, not whole-file dumps -- but never WHETHER a manifest file is accounted for. The Coverage Report (section 7 below) reconciles the totals; that reconciliation is the answer to "on a brand-new repo, how would I know what was missed?" -- you would see the unaccounted count is non-zero.
 
 **Reminder:** Every file read in this phase targets the current workspace (which IS the source repo). Prefer Continue.dev's `read_file` for specific files and `ls` for directory listings per Operating Rule 6. Use PowerShell `Select-String` when you need to search across the repo for patterns, and `Get-Content ... | Select-Object -Skip -First` when you need a line range of a large file.
 
@@ -413,9 +430,13 @@ Each TB entry must cite the evidence that establishes it (e.g., the Terraform se
 Any architectural claim not backed by evidence. Each assumption gets `A-<NNN>` and must be resolved or explicitly accepted before Phase 2.
 
 ## 7. Coverage Report
-- Files read: <count>
-- Files skipped (with reason): <count>
-- Known gaps: <list>
+File coverage reconciliation against 00-file-manifest.txt (this is the single-run completeness check -- a non-zero Unaccounted line is a rule violation to fix, not accept):
+- Manifest total files: <N>
+- Files assigned to a component/data-store/integration (opened and classified): <N>
+- Files in skip-buckets (counted, rolled up): tests <N>, generated <N>, vendored-third-party <N>, build-config <N>, docs <N>, assets/static <N>, non-production <N>
+- Assigned + skip-bucket totals reconcile to manifest total: <yes | Unaccounted: <N> files -- LIST THEM; unaccounted is a rule violation>
+- Files read in depth (component-defining files opened beyond classification): <count>
+- Known gaps: <list -- e.g. very large files read only in targeted ranges; carried into the Phase 2C Coverage and Known Gaps section for the report>
 ```
 
 After writing 01-inventory.md, update STATE.md: mark `phase-1: complete` with timestamp, set Last Completed Step to `phase-1 -- inventory written to 01-inventory.md`, set Resume Instruction to `Begin at Phase 2A (Assets, Trust Boundaries, Data Flows). Required rehydration: 00-scope.md, 01-inventory.md.`
@@ -426,6 +447,7 @@ Before printing the banner, print a System Restatement: one paragraph stating wh
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
 Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+File coverage: <N> of <N> manifest files accounted for  |  Unaccounted: <N> (must be 0)
 System Restatement: recorded in 01-inventory.md (confirmed/corrected version).
 STATE.md updated: phase-1 marked complete.
 Review the inventory and confirm or correct the System Restatement above. Type 'proceed' to

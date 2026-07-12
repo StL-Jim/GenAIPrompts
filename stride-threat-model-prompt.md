@@ -86,7 +86,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
        threats.csv                     (Phase 3, single comprehensive CSV)
    ```
 
-9. **Token budget awareness.** For source files over ~2000 lines, locate relevant sections with `Select-String` first, then read only the interesting line ranges with `Get-Content ... | Select-Object -Skip N -First M`. Do not dump entire large files into context. Phase 2 is the heaviest phase by far -- it is split into sub-phases 2A, 2B, and 2C specifically so you never have to hold the full Phase 2 output in working memory at once. Write each sub-phase's output to disk before starting the next one.
+9. **Token budget awareness.** For source files over ~2000 lines, locate relevant sections with `Select-String` first, then read only the interesting line ranges with `Get-Content ... | Select-Object -Skip N -First M`. Do not dump entire large files into context. Phase 2 is the heaviest phase by far -- it is split into sub-phases 2A, 2B, and 2C specifically so you never have to hold the full Phase 2 output in working memory at once. Write each sub-phase's output to disk before starting the next one. This rule governs READING and context economy only: it is never a justification for omitting required content from any output artifact -- every output's completeness requirements stand regardless of budget.
 
 10. **Get the current date and time before writing files.** Run `Get-Date -Format "yyyy-MM-ddTHH:mm"` so artifacts can be timestamped and Finding IDs can use the date if needed.
 
@@ -270,7 +270,7 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
 
 7. **Identify primary language(s), framework(s), and build system(s)** -- only from files you have directly observed. Look for `package.json`, `pom.xml`, `*.csproj`, `go.mod`, `requirements.txt`, `Cargo.toml`, `*.tf`, `Dockerfile`, `*.yaml` (k8s/helm), etc. Use `read_file` for each detection file and cite with evidence paths relative to the workspace root.
 
-8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), the infrastructure ownership mode (Q6: SELF-MANAGED or PLATFORM-INHERITED -- and when PLATFORM-INHERITED, state explicitly that the platform's internal configuration is inherited and assessed elsewhere, reproduce the Q6a attested platform profile verbatim so later phases can cite it, and note that the app's side of every data flow plus attested exposures remain in scope), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Use `create_new_file` per Operating Rule 7(a).
+8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type, languages/frameworks with evidence, deployment exposure (from step 6), the infrastructure ownership mode (Q6: SELF-MANAGED or PLATFORM-INHERITED -- and when PLATFORM-INHERITED, state explicitly that the platform's internal configuration is inherited and assessed elsewhere, reproduce the Q6a attested platform profile verbatim so later phases can cite it, and note that the app's side of every data flow plus attested exposures remain in scope), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Every item in this list is MANDATORY: a scope note missing any of them is a rule violation, not a style choice. Achieve brevity through terseness per item, never by omitting an item -- Operating Rule 9's token budget governs reading, not this file's completeness. Use `create_new_file` per Operating Rule 7(a).
 
 9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?). This is the proposal the user reviews before Phase 1 begins.
 
@@ -342,6 +342,8 @@ Walk the application source and identify:
 - Output boundaries: where data leaves (responses, logs, outbound HTTP, emails, metrics).
 - Configuration surface: env vars, config files, feature flags, remote config.
 
+When you record these as inventory Components (Section 2 below), apply the component definition there: the data stores, managed services, queues, caches, gateways, and identity providers you find here are all COMPONENTS (each a C-NNN with a Phase 2 walk), not a lower tier -- do not fold them away into detail-only sections. Undercounting components here is the largest single cause of missed threats downstream.
+
 ### Phase 1 Output: `.\{PROJECT_NAME}-threat-model\01-inventory.md`
 
 Structure:
@@ -358,10 +360,12 @@ Structure:
 | DOC-001 | docs/architecture.md | design-doc | ... |
 
 ## 2. Components
-Each component gets a stable ID: `C-<NNN>` assigned in the order components are discovered.
+This is the MASTER inventory of architectural elements, and it directly gates threat coverage: Phase 2B walks STRIDE per component, so any element absent here is never threat-modeled. DEFINITION -- every architectural element that PROCESSES, STORES, or MEDIATES this system's data is a component: it gets a C-NNN ID and a Phase 2 STRIDE walk. This explicitly includes data stores, cloud/AWS managed services (S3, DynamoDB, Bedrock, SQS, ...), queues, caches, gateways, and identity providers -- NOT only active-process services. Do NOT undercount by treating data stores or managed services as a lower tier: the Data Stores (Section 3) and External Integrations (Section 4) sections are supplementary attribute detail about elements that ALSO appear here as components, keyed to the same C-NNN -- every element listed in those sections MUST also appear in this section. Each architectural element appears here exactly once (one C-NNN) and is walked once in Phase 2. (This definition is load-bearing: undercounting components is the single largest cause of incomplete threat enumeration -- a narrow "active-process only" reading has produced 3-4 components where the correct reading produces ~12-13 on the same system.)
+
+Each component gets a stable ID: `C-<NNN>`. Assign IDs by a FIXED sort, not discovery order (Operating Rule 5): discover all components first, sort them alphabetically by canonical name, then number C-001, C-002, ... in that sorted order. Discovery order is not reproducible across runs; a fixed sort is. (Cross-run identity still relies on semantic matching, since names can change -- but a stable sort removes the gratuitous reshuffling that discovery order causes.)
 
 ### C-001: <Component Name>
-- Type: (web-app | api-service | worker | database | cache | queue | external-saas | cli | job | lambda | frontend-spa | ...)
+- Type: (web-app | api-service | worker | database | cache | queue | managed-service | gateway | identity-provider | external-saas | cli | job | lambda | frontend-spa | ...)
 - Language/Framework:
 - Evidence: [evidence: path/to/main.go:1-40]
 - Responsibilities:
@@ -371,7 +375,7 @@ Each component gets a stable ID: `C-<NNN>` assigned in the order components are 
 - Runs as: (user/service account, container, lambda, ...)
 
 ## 3. Data Stores
-Each data store gets a stable ID: `DS-<NNN>` assigned in the order data stores are discovered.
+Supplementary attribute detail (classification, encryption, access pattern) for the Section 2 components that are data stores -- NOT a separate lower tier. Every data store here MUST also appear in Section 2 as a component with its own C-NNN and Phase 2 walk; the DS-NNN is its detail-record ID cross-referencing that component. Each data store gets a stable ID: `DS-<NNN>`, assigned by the same fixed-sort rule as components (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### DS-001: <Data Store Name>
 - Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
@@ -382,7 +386,7 @@ Each data store gets a stable ID: `DS-<NNN>` assigned in the order data stores a
 - Evidence: [evidence: terraform/rds.tf:1-30]
 
 ## 4. External Integrations
-Each external integration gets a stable ID: `EXT-<NNN>` assigned in the order integrations are discovered.
+Supplementary detail (protocol, auth method, direction) for the Section 2 components that are external or managed integrations -- NOT a separate lower tier. Every integration here MUST also appear in Section 2 as a component with its own C-NNN and Phase 2 walk; the EXT-NNN is its detail-record ID cross-referencing that component. Each external integration gets a stable ID: `EXT-<NNN>`, assigned by the same fixed-sort rule (discover all first, sort alphabetically by canonical name, then number) -- not discovery order.
 
 ### EXT-001: <Integration Name>
 - Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)
@@ -420,6 +424,7 @@ Before printing the banner, print a System Restatement: one paragraph stating wh
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
 Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+System Restatement: recorded in 01-inventory.md (confirmed/corrected version).
 STATE.md updated: phase-1 marked complete.
 Review the inventory and confirm or correct the System Restatement above. Type 'proceed' to
 begin Phase 2A (Assets, Trust Boundaries, Data Flows), or provide corrections first.
@@ -462,9 +467,13 @@ Produce three sections, all grounded in the inventory:
 
 1. ASSETS -- what data, secrets, and resources need protection. Group by asset type (data, secrets, authentication, infrastructure, service availability, code/IP). Each asset references the inventory IDs (`C-NNN`, `DS-NNN`, `EXT-NNN`) that handle it.
 
+   Assets are DERIVED from the inventory, not sampled -- these floors are MANDATORY (a missing one is a rule violation, not a judgment call), so a single run is complete without needing a prior run to compare against: (a) every distinct data classification appearing on any component's `Data handled` field or any data store's `Data classification` field MUST appear as at least one Data Asset -- a data store being enumerated as a component does NOT remove its stored data as an asset (the component is the container, the data is the asset; enumerate both); (b) every secret, credential, key, or token surface in the inventory MUST appear under Secrets; (c) the source code repository / IP MUST appear under Code / IP when source is in scope; (d) every Critical- or High-criticality component MUST have a Service Availability asset. Grouping ABOVE the floor is judgment (whether "customer PII" is one asset or several); the floor itself is mechanical.
+
 2. TRUST BOUNDARIES -- restate every TB from the inventory using the same `TB-NNN` IDs. For each, name the principals on either side and the controls (or lack thereof) that establish the boundary. This is a re-statement, not a re-derivation; do not invent new boundaries that aren't in the inventory.
 
 3. DATA FLOWS -- enumerate every data flow between components. Each flow gets a stable ID `DF-NNN`. For each flow record: source component ID, destination component ID, data classification, protocol, authentication, encryption status, and whether it crosses a trust boundary (and which one). Mark trust-boundary-crossing flows clearly because they are the focus of Phase 2B.
+
+The Encryption and AuthN columns use FIXED vocabularies -- no free-text synonyms -- because the Phase 2B data-flow obligation check keys off the exact words `plaintext`, `none`, and `unknown`, and a synonym like "N/A" or "not encrypted" would silently disarm it. Encryption is exactly one of: `TLS1.3`, `TLS1.2`, `mTLS`, `plaintext`, `unknown`. AuthN is exactly one of: `mTLS`, `OIDC`, `token`, `API-key`, `basic`, `none`, `unknown`. Use `unknown` (not a guess) when the flow exists but its protection could not be determined from evidence or attestation.
 
 #### Phase 2A Output: `.\{PROJECT_NAME}-threat-model\02a-context.md`
 
@@ -486,6 +495,12 @@ Structure:
 - AS-NNN: ...
 ### Code / IP
 - AS-NNN: ...
+
+### Asset Coverage Check
+- Data classifications in 01-inventory (components + data stores): <list>
+- Each represented by a Data Asset above: <yes | list of unmapped classifications -- an unmapped classification is a rule violation>
+- Secret/credential surfaces in 01-inventory: <N>; each under Secrets: <yes | gaps>
+- Source repository in scope: <yes/no>; if yes, present under Code / IP: <yes/no>
 
 ## Trust Boundaries
 | TB ID | Boundary | Principals | Establishing Control | Evidence |
@@ -601,6 +616,8 @@ De-prioritize unless specific evidence justifies inclusion: APT requiring nation
 
 Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above, including the architecture-level test; the 20-25 range is a ceiling, not a quota to fill.
 
+Data-flow obligation: the System Map compels findings, not just context. Every data flow in 02a-context.md whose Encryption or AuthN column records none, plaintext, or unknown MUST end the phase accounted for -- either cited by a threat in the main table or recorded as an Excluded Threats Ledger row stating why it does not rise to one (fully mitigated by an attested or evidenced control, out of scope, or Unverified with its confirming question). There is no silent third option: an observed unprotected flow that appears in no output is a rule violation, reported in the Filtering Notes check below.
+
 While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full mitigation, scope rules, or the architecture-level test). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. Phase 2C writes this list to the Excluded Threats Ledger so a downstream code audit can distinguish "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
 
 For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed or Likely) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. A candidate that cannot reach Likely -- asset or path not confirmable from the System Map -- is recorded as an `Unverified` row in the Excluded Threats Ledger (Phase 2C), not emitted as a threat.
@@ -608,6 +625,8 @@ For each selected threat, verify its architectural conditions against the system
 Self-check before finalizing: for each Confirmed or Likely threat you must be able to write the architecture-vs-code explanation required by the Stakeholder Explainer below. If the honest explanation reduces to a specific implementation defect, the threat fails the architecture-level test -- move it to the Excluded Threats Ledger (`Code-level`) before writing 02b-threats.md.
 
 Citation audit (Confirmed threats only): before writing 02b-threats.md, re-open the cited line range of each Confirmed threat and verify the exact lines support the control-state claim. If the cited code does not actually show the flaw or the absence of the control, fix the citation or demote the threat to Likely. This is bounded work -- only Confirmed rows, only the already-cited ranges -- and it is what makes the Evidence column trustworthy rather than merely plausible-looking.
+
+Speculation audit (every row): also before writing 02b-threats.md, scan every threat's Description and Evidence cells for the anti-speculation tell-phrases from Operating Rule 2 ("assuming", "there may be", "if there exists", "presumably", "other users/roles/services likely") and for any precondition naming a principal, role, permission, or policy that no repo file and no Phase 0 attestation establishes. A failing row has exactly two exits: re-ground it (fix the Evidence cell to cite the repo file or user-attested fact that establishes the precondition) or remove it to the Excluded Threats Ledger as `Unverified` with its confirming question. No third option; a row may not stay in the table on the strength of plausibility. This audit is bounded, mechanical work -- a scan of cells just written -- and it exists because stated rules degrade as the context window fills; the audit at the end catches what the rule missed in the middle. Typical catch: an over-privileged-IAM-role threat whose role is defined in no file in this repo.
 
 For each Confirmed or Likely threat, fill in every column of the main threat table schema below.
 
@@ -630,12 +649,12 @@ Only Confirmed and Likely threats go in this table -- and they are the only thre
 | Attack | The specific attack technique. Reference MITRE ATT&CK techniques (e.g., `T1190 Exploit Public-Facing Application`) where applicable. |
 | AttackSurface | Pick from: External Interfaces, Internal Network, Development & Deployment, Infrastructure & Orchestration, Configuration & Secrets, Observability & Operations, Supply Chain, Authentication & Identity, Data Storage, Client-Side. |
 | Impact | Confidentiality, Integrity, and/or Availability. |
-| Description | Why this threat matters for this component, how it would be exploited, and what the attacker gets. Combines what earlier versions called Why Applicable and Attack Path. Multi-sentence prose, but kept tight. For a Likely threat, state explicitly what would need to be checked to reach Confirmed. |
+| Description | Why this threat matters for this component, how it would be exploited, and what the attacker gets. Combines what earlier versions called Why Applicable and Attack Path. Multi-sentence prose, but kept tight. For a Likely threat, state explicitly what would need to be checked to reach Confirmed. Every Description ends with the risk-calculation note in brackets: `[Risk calc: <Likelihood> likelihood x <Impact severity> impact]`, e.g. `[Risk calc: High likelihood x Critical impact]` -- this records the Impact severity value that produced the Priority (it appears nowhere else; the Impact column records CIA categories, not the severity scale), so a reviewer can audit the Priority rating from the row itself. |
 | Evidence | The ARCHITECTURAL claim that makes this threat real, with code/IaC citations in support. Lead with the architectural conditions -- the asset (AS-NNN), the path (DF-NNN and the TB-NNN it crosses), and the control-state (absent or partial) -- then cite the code or IaC that supports the control-state claim. Example: `AS-004 (customer PII) reachable via DF-007 crossing TB-003; no query-logging or DLP control on this path [evidence: infra/db/reporting_role.tf:12-30 grants broad SELECT; no audit config in infra/db/]`. The citation supports the architectural claim; it is not the claim by itself. Mandatory per Operating Rule 2; multiple citations separated by `;`. Never cite `audit_state/` or `{PROJECT_NAME}-threat-model/` paths (Operating Rule 13a). |
 | Likelihood | One of: Medium, High. The likelihood of exploitation given the architecture and real-world risk. (Low likelihood threats are excluded by prioritization rules.) |
 | SecurityControl | EXISTING controls already in place that affect this threat. Use `None` if no controls exist. Use `Partial -- <what's missing>` if controls are incomplete. |
 | ResidualRisk | The residual risk remaining after existing SecurityControl is applied but before recommended Mitigation. One of: Severe, Elevated. Re-run the risk severity calculation crediting the existing SecurityControl as it actually operates, then map the outcome: CRITICAL -> Severe, HIGH -> Elevated. Because existing controls can lower the outcome, ResidualRisk may map lower than the Priority column, which reflects the calculation before existing controls are credited (the schema example row is Priority 1 with ResidualRisk Elevated for exactly this reason). The words Critical and High never appear as ratings in stakeholder-facing artifacts. |
-| Mitigation | Specific, actionable controls to add or strengthen. Default governance framework is NIST 800-53 Rev 5 unless the user specified a different compliance requirement in Phase 0. Always cite the specific control ID (e.g. `AC-3 Access Enforcement`, `SI-10 Information Input Validation`, `SC-8 Transmission Confidentiality and Integrity`), not just the framework name. Reference OWASP and CIS Benchmarks where they add specificity. |
+| Mitigation | Specific, actionable controls to add or strengthen. Each recommended action ends with its governance-framework control identifier in parentheses, e.g. `Enforce row-level authorization on the export path (AC-3); add query audit logging (AU-2); enforce TLS on the internal hop (SC-8(1))`. The framework is GOVERNANCE_FRAMEWORK from Phase 0 Q5 (default NIST 800-53 Rev 5); always use its specific control identifiers, never just the framework name. A Mitigation cell containing no parenthesized control identifier is a rule violation, not an oversight -- the same standard the Evidence column carries. These parenthesized identifiers are machine-extractable and are what the Phase 2C Control Coverage Summary aggregates. Reference OWASP and CIS Benchmarks where they add specificity. |
 | Disposition | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in after the threat model is reviewed (e.g., `Active`, `False Positive`, `Risk Accepted`, `Mitigated by Compensating Control`, `Duplicate of 09`). |
 | DispositionRationale | Post-review tracking field. EMIT AS EMPTY STRING during generation. Reviewers fill this in with the reason for the disposition above. |
 
@@ -652,6 +671,7 @@ Structure:
 
 ## Threat Filtering Notes
 - Matrix cells evaluated ((components + boundary-crossing flows) x 6 STRIDE categories): <N>
+- Data-flow obligation check: DFs in 02a-context.md with Encryption or AuthN = none/plaintext/unknown: <N>; every one accounted for as a threat or an Excluded Threats Ledger row: <yes | list of unaccounted DF-NNN -- an unaccounted flow is a rule violation>
 - Component coverage: every C-NNN from the inventory MUST appear at least once in the Threat Table or the Excluded Threats Ledger. Components appearing in neither, each with a one-line justification: <list, or 'none'>
 - Total candidate threats identified during STRIDE matrix walk: <N>
 - Confirmed threats (main table): <N>
@@ -754,6 +774,14 @@ One row per candidate threat that was considered during the Phase 2B matrix walk
 | EX-03 | C-005 | Elevation of Privilege | Reporting export may lack row-level authorization | Unverified -- confirm whether the export query in the reporting service applies a tenant or row-level authorization filter |
 
 Exclusion Reason must begin with one of: `Fully mitigated`, `Medium severity`, `Low likelihood`, `Out of scope`, `Generic-to-all-systems`, `Code-level`, `Unverified`. For `Fully mitigated` rows, cite the evidence for the mitigating control. For `Code-level` rows, add one clause naming the suspected defect and its location so the partner code audit can use the row as a seeded lead. For `Unverified` rows, add the specific question a reviewer or the code audit would answer to confirm the threat (the content earlier prompt versions recorded in an Inferred table's WhatWouldConfirm column), e.g. `Unverified -- confirm whether the reporting export applies a row-level authorization filter`.
+
+## Control Coverage Summary
+The reverse index from governance-framework controls to the threats whose Mitigation cites them. Build it by extracting every parenthesized control identifier from the main threat table's Mitigation column (for NIST 800-53 the `AC-3` / `SC-8(1)` form; other Q5 frameworks use their own identifier form). One row per distinct control; sort by Count descending, then control ID. This is the "which controls keep recurring" view -- heavily-cited controls and families indicate where the system's protection gaps concentrate.
+
+| Control | Name | Family | Cited By | Count |
+|---------|------|--------|----------|-------|
+| AC-3 | Access Enforcement | AC | 01, 04, 09 | 3 |
+| SC-8 | Transmission Confidentiality and Integrity | SC | 02, 07 | 2 |
 
 ## Questions for Stakeholders
 - <Specific question about unclear architecture or security controls>
@@ -944,16 +972,16 @@ Reviewer metadata block:
 - Two fields: `Reviewed By:` and `Reviewer Notes:`.
 - Both fields render as visibly empty placeholders for post-generation manual completion. Use a light-gray underlined blank or `&nbsp;` styled cell. Do NOT populate or guess values during generation. Do NOT guess at a reviewer name.
 
-System Restatement (opening section): immediately after the reviewer metadata block and before the Summary section, render the System Restatement from the `02-threats.md` header as a short prose paragraph under an `<h2>` with a TOC entry -- it orients every reader (developer, manager, assessor) on what the system IS before they see what threatens it. Render it as emphasized lead prose, not a table.
+Sections in order (each gets an `<h2>` and an `id` matching its TOC link; every numbered section below is MANDATORY -- a report missing one is incomplete):
 
-Sections in order (each gets an `<h2>` and an `id` matching its TOC link):
-
-1. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
-2. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
-3. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
-4. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
-5. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-6. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
+1. System Restatement -- the confirmed restatement from the `02-threats.md` header, rendered as a short emphasized prose paragraph (not a table): what the system is, what it talks to, who its users are, its most sensitive asset. It opens the report because it orients every reader (developer, manager, assessor) on what the system IS before they see what threatens it.
+2. Summary -- a small table showing total threat count and counts by priority (Priority 1, Priority 2) and by STRIDE category (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of Privilege).
+3. Control Coverage Summary -- the control-to-threats reverse index from the `02c-assumptions.md` portion of `02-threats.md`, rendered as a table (Control, Name, Family, Cited By with each ThreatID linking down to its threat row, Count). It sits here, with the Summary, because together they are the report's dashboard: what threatens the system and which governance controls answer it, visible before any detail.
+4. Assets -- definition lists or sub-tables per asset class (Data Assets, Secrets, Authentication, Infrastructure, Service Availability, Code/IP), pulled from the Assets section of `02-threats.md`.
+5. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
+6. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
+7. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
+8. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
 
 #### Threats section format
 

@@ -467,6 +467,8 @@ Produce three sections, all grounded in the inventory:
 
 1. ASSETS -- what data, secrets, and resources need protection. Group by asset type (data, secrets, authentication, infrastructure, service availability, code/IP). Each asset references the inventory IDs (`C-NNN`, `DS-NNN`, `EXT-NNN`) that handle it.
 
+   Assets are DERIVED from the inventory, not sampled -- these floors are MANDATORY (a missing one is a rule violation, not a judgment call), so a single run is complete without needing a prior run to compare against: (a) every distinct data classification appearing on any component's `Data handled` field or any data store's `Data classification` field MUST appear as at least one Data Asset -- a data store being enumerated as a component does NOT remove its stored data as an asset (the component is the container, the data is the asset; enumerate both); (b) every secret, credential, key, or token surface in the inventory MUST appear under Secrets; (c) the source code repository / IP MUST appear under Code / IP when source is in scope; (d) every Critical- or High-criticality component MUST have a Service Availability asset. Grouping ABOVE the floor is judgment (whether "customer PII" is one asset or several); the floor itself is mechanical.
+
 2. TRUST BOUNDARIES -- restate every TB from the inventory using the same `TB-NNN` IDs. For each, name the principals on either side and the controls (or lack thereof) that establish the boundary. This is a re-statement, not a re-derivation; do not invent new boundaries that aren't in the inventory.
 
 3. DATA FLOWS -- enumerate every data flow between components. Each flow gets a stable ID `DF-NNN`. For each flow record: source component ID, destination component ID, data classification, protocol, authentication, encryption status, and whether it crosses a trust boundary (and which one). Mark trust-boundary-crossing flows clearly because they are the focus of Phase 2B.
@@ -493,6 +495,12 @@ Structure:
 - AS-NNN: ...
 ### Code / IP
 - AS-NNN: ...
+
+### Asset Coverage Check
+- Data classifications in 01-inventory (components + data stores): <list>
+- Each represented by a Data Asset above: <yes | list of unmapped classifications -- an unmapped classification is a rule violation>
+- Secret/credential surfaces in 01-inventory: <N>; each under Secrets: <yes | gaps>
+- Source repository in scope: <yes/no>; if yes, present under Code / IP: <yes/no>
 
 ## Trust Boundaries
 | TB ID | Boundary | Principals | Establishing Control | Evidence |

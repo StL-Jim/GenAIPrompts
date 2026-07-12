@@ -232,7 +232,9 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
 
    DO NOT PROCEED UNTIL THE USER ANSWERS ALL QUESTIONS BELOW.
 
-   Ask the following questions in order. Wait for all answers before continuing.
+   First offer the fast path: "If you have a prepared INPUT PROFILE (answers to Q1-Q6a below), paste it now and I will only ask for anything it does not cover. Otherwise I will ask each question in turn." If the user pastes a profile, parse it, echo back the parsed answers for confirmation, and ask individually ONLY the questions the profile left unanswered. Profile answers are user-attested facts exactly as if given interactively, and are recorded identically (STATE.md User Inputs + 00-scope.md).
+
+   Otherwise, ask the following questions in order. Wait for all answers before continuing.
 
    Q1: "How is this application exposed?"
    - Internet-facing (public internet access)
@@ -473,6 +475,8 @@ Produce three sections, all grounded in the inventory:
 
 3. DATA FLOWS -- enumerate every data flow between components. Each flow gets a stable ID `DF-NNN`. For each flow record: source component ID, destination component ID, data classification, protocol, authentication, encryption status, and whether it crosses a trust boundary (and which one). Mark trust-boundary-crossing flows clearly because they are the focus of Phase 2B.
 
+Flow completeness (derive, don't sample): the flow graph is already implicit in 01-inventory.md -- every component dependency edge, every data store access-pattern entry, and every external integration direction MUST yield at least one DF, enumerated systematically from those inventory fields, not recalled from memory. Set each flow's Encryption and AuthN from real evidence (code, IaC, or the Q6a attested platform profile); never assume TLS. An inventory edge that yields no flow needs a one-line justification in the coverage check below.
+
 The Encryption and AuthN columns use FIXED vocabularies -- no free-text synonyms -- because the Phase 2B data-flow obligation check keys off the exact words `plaintext`, `none`, and `unknown`, and a synonym like "N/A" or "not encrypted" would silently disarm it. Encryption is exactly one of: `TLS1.3`, `TLS1.2`, `mTLS`, `plaintext`, `unknown`. AuthN is exactly one of: `mTLS`, `OIDC`, `token`, `API-key`, `basic`, `none`, `unknown`. Use `unknown` (not a guess) when the flow exists but its protection could not be determined from evidence or attestation.
 
 #### Phase 2A Output: `.\{PROJECT_NAME}-threat-model\02a-context.md`
@@ -510,7 +514,12 @@ Structure:
 ## Data Flows
 | DF ID | Source | Destination | Data | Protocol | AuthN | Encryption | Crosses TB? | Evidence |
 |-------|--------|-------------|------|----------|-------|------------|-------------|----------|
-| DF-001 | C-001 (Edge) | C-003 (API) | Auth tokens, request bodies | HTTPS | mTLS | TLS 1.3 | TB-002 | [evidence: src/edge/router.go:88-104]; [evidence: terraform/alb.tf:1-30] |
+| DF-001 | C-001 (Edge) | C-003 (API) | Auth tokens, request bodies | HTTPS | mTLS | TLS1.3 | TB-002 | [evidence: src/edge/router.go:88-104]; [evidence: terraform/alb.tf:1-30] |
+
+### Data Flow Coverage Check
+- Inventory edges (component dependencies + data store access entries + external integration directions): <N>
+- Data flows derived: <N>
+- Inventory edges that yielded no flow, each with a one-line justification: <list, or 'none' -- an unjustified missing edge is a rule violation>
 ```
 
 Write the file with `create_new_file`. After writing, update STATE.md: mark `phase-2a: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2B (STRIDE threat enumeration). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md.`
@@ -794,6 +803,12 @@ The reverse index from governance-framework controls to the threats whose Mitiga
 ## Assumptions Made
 - <Assumption about security controls, architecture, or deployment, with the gap that drove the assumption>
 - ...
+
+## Coverage and Known Gaps
+Copied from 01-inventory.md's Coverage Report (2C rehydration already reads that file): files read <N>, files skipped <N> with reasons, and every known gap with a one-line explanation of what could not be fully analyzed and why (e.g., very large files read only in targeted ranges). Honest gaps belong in front of stakeholders -- a threat model that hides what it could not see overstates its own coverage.
+- Files read: <N> | Files skipped: <N> (<reasons>)
+- Gap 1: <what and why>
+- ...
 ```
 
 **Output 2: `02-threats.md`** -- the canonical, consolidated Phase 2 output that Phase 3 reads. The consolidation is intentionally done with PowerShell rather than by reading each sub-file into the agent's context and writing the union with `create_new_file` -- the latter forces all sub-files' content through the working window for no reasoning benefit, just file gluing. PowerShell streams the content through the OS and keeps Phase 2C's context cost low.
@@ -986,6 +1001,7 @@ Sections in order (each gets an `<h2>` and an `id` matching its TOC link; every 
 6. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
 7. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
 8. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
+9. Coverage and Known Gaps -- the Coverage and Known Gaps section from the `02c-assumptions.md` portion of `02-threats.md`: files read/skipped and every known analysis gap with its explanation. This section is mandatory even when there are no gaps (state "No known gaps") -- stakeholders must see what the analysis could and could not cover.
 
 #### Threats section format
 

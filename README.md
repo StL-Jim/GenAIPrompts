@@ -53,8 +53,7 @@ A full run typically takes 60-90 minutes. Phases:
 Outputs land in `{PROJECT_NAME}-threat-model/` inside the workspace, where `{PROJECT_NAME}` is the workspace's leaf directory name.
 
 Key outputs:
-- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs
-- `outputs/threat-model.md` -- same content in Markdown
+- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs (the canonical Markdown lives at `02-threats.md`; Phase 3 no longer emits a redundant copy)
 - `outputs/threats.csv` -- comprehensive CSV for Excel import or scripted analysis
 - `outputs/architecture-threat-explanation.html` -- per-threat architecture-vs-code explainer, a leave-behind for answering stakeholder pushback on findings
 - `diagrams/*.drawio` -- the four architectural diagrams

@@ -325,6 +325,10 @@ Edit shape:
 - Line 336 init list gains EXECUTOR_MODEL (line 233 has it; 336 omits it).
 - Phase 6 Step 3 copy (line 985-991) names its mechanism: Copy-Item, with the
   existing do-not-modify-other-files caveat retained.
+- Environment assumptions (line 5) add Claude Code CLI alongside Continue.dev
+  as a supported agent harness (Continue.dev is being retired from the work
+  environment; Claude Code CLI is now available there, though initial field
+  testing of this design still runs on Continue.dev).
 
 ## Section 9 -- Deliberately not doing (and why)
 
@@ -347,6 +351,55 @@ Edit shape:
   mode (the actual usage) now gets independence via 4.4; a STRIDE-grade
   discovery pipeline for standalone audits is a future piece if standalone
   usage materializes.
+
+## Section 9.5 -- Skill-era forward compatibility (Claude Code CLI)
+
+Context (2026-07-17, from the operator): Continue.dev is no longer developed
+and will be retired from the work environment; Claude Code CLI is now
+available there. Initial field testing of THIS design still runs on
+Continue.dev. Future versions of the audit prompt will become a Claude Code
+skill (per-phase reference files, progressive disclosure), the same strategic
+direction already recorded for STRIDE. docs/executor-limitations.md remains
+the requirements document for that conversion.
+
+Design rule adopted because of this: every mechanism this design ADDS is an
+artifact contract plus a harness-neutral PowerShell computation. No new edit
+may reference Continue.dev-specific tool names (create_new_file,
+single_find_and_replace); those already in the prompt are inherited text, out
+of scope here, and become a conversion-time substitution (Claude Code
+Write/Edit tools).
+
+Fate map for the conversion (methodology carries over; enforcement upgrades):
+
+- Section 1 stamp/echo: KEEP through transition -- the air gap means the
+  skill still travels by hand until installed and versioned on the work
+  machine; drift protection stays live. Skill-era: version lives in skill
+  metadata, echo becomes trivial.
+- Section 2 coordination contract + consent question: pure methodology, KEEP.
+- Section 3 computed-never-recalled + Sections 6/7 reconciliations:
+  methodology (the artifact contracts and which numbers matter) KEEPS; the
+  computation moves from model-executed-and-pasted to skill scripts/ or hooks
+  that compute and verify. The pasted-count discipline is the interim
+  enforcement, not the end state.
+- Section 4 manifest/partition arithmetic/tier accounting/delta: artifacts
+  KEEP; manifest and size computations become a script. Partition thresholds
+  were calibrated to full-prompt-paste overhead (~21K tokens); under
+  progressive disclosure they become conservative, which is safe.
+- Section 5 resume + completion anchor: the Files-examined artifact and PAUSED
+  protocol KEEP as the resume spine (STATE.md architecture carries over
+  unchanged). The prose completion anchor is explicitly the INTERIM mechanism:
+  Claude Code hooks can count actual Read tool calls per manifest file and
+  block the phase gate -- the structural enforcement executor-limitations.md
+  says prose cannot achieve. When hooks exist, the anchor's pasted-count text
+  is superseded, not the artifacts.
+- Section 8 disclosure: methodology, KEEP.
+- Section 9 exclusions STRENGTHENED: prompt slicing is natively superseded by
+  progressive disclosure; clerical enforcement bolt-ons have hooks as their
+  correct home, so none should be added to prompt text now.
+
+Constant across the transition: Sonnet 4.5 and the 200K window are
+model-bound, not harness-bound. The partition arithmetic and resume design
+keep their value under Claude Code until the ~Sep 2026 model unlock.
 
 ## Section 10 -- Build order and commit discipline
 

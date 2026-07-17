@@ -329,6 +329,17 @@ Edit shape:
   as a supported agent harness (Continue.dev is being retired from the work
   environment; Claude Code CLI is now available there, though initial field
   testing of this design still runs on Continue.dev).
+- CROSS-PROMPT FIX (stride-threat-model-prompt.md, found 2026-07-17 while
+  reviewing directory naming): the Phase 0 manifest exclusion lists
+  `audit_state` in $topLevelExcludeExact (line 266) -- EXACT match only. The
+  audit's archive model renames the directory to audit_state-YYYYMMDD, which
+  escapes an exact match, so an archived audit directory gets swept into a
+  later STRIDE run's file manifest and treated as source (findings and secret
+  locations included). Same bug class as 4cdaac8, opposite direction. Fix:
+  match audit_state by prefix (move it to prefix handling alongside
+  $topLevelExcludePrefix), and note archived dirs in Rule 13a's wording.
+  This is a live defect and ships in this cycle; it is one line and does not
+  conflate the field-test variables.
 
 ## Section 9 -- Deliberately not doing (and why)
 
@@ -351,6 +362,18 @@ Edit shape:
   mode (the actual usage) now gets independence via 4.4; a STRIDE-grade
   discovery pipeline for standalone audits is a future piece if standalone
   usage materializes.
+- NO output-directory rename this cycle -- but the direction is DECIDED for
+  the skill conversion: audit_state/ becomes {PROJECT_NAME}-security-audit/.
+  Rationale: the current name labels the mechanism while holding the
+  stakeholder deliverables, and it breaks symmetry with
+  {PROJECT_NAME}-threat-model/ (project-prefixed, product-named, prefix-
+  matched archives). Not done now because the name is hardcoded across every
+  audit phase AND three load-bearing STRIDE sites (Rule 13a, manifest
+  excludes, Phase 1 exclusions), and bundling a rename into this cycle's
+  field runs conflates variables. The cross-run log stays at workspace root
+  either way (placement is load-bearing: it must survive run-dir archiving).
+  The skill conversion re-plumbs paths anyway; adopt the new name there,
+  updating both prompts in the same commit per the cross-prompt guard.
 
 ## Section 9.5 -- Skill-era forward compatibility (Claude Code CLI)
 

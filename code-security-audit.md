@@ -1,11 +1,11 @@
-<!-- PROMPT VERSION: audit-v1 (2026-07-18a) -- first stamped version of the Code Security Audit prompt (its own audit-vN series, independent of the STRIDE prompt's vNN series). Base: the post-#10-#19 text as merged through stride-v24-merge, including the W4 Attested-mitigated cross-prompt edits. 18a adds the stamp itself and the session-start echo. 18b: coordination becomes a user choice when a complete threat model is found (COORDINATION_DECLINED recorded); Phase 2 INPUT gains coordination_mode.md + 02-threats.md; Unverified ledger rows are routed as Phase 2 inspection targets with their confirming questions recorded next to the targets. 18c: NUMBERS ARE COMPUTED, NEVER RECALLED global rule (counterpart of STRIDE Operating Rule 15); dates come from Get-Date, never recalled. 18d: tool-generated 00_file_manifest.txt (prefix-excluded, path TAB bytes, counts pasted in the Phase 1 banner) + partition arithmetic (per-partition file count/bytes computed from the manifest; ~400KB source per 3A session guidance -- split or annotate multi-session, never leave oversized-unannotated). 18e: per-partition tier accounting anchored to manifest counts (greppable T-line format, computed bucket remainder, pasted per-partition banner reconciliation, tier-1+2 reading-set bytes); COORDINATED discovery is now INDEPENDENT-then-reconcile with a DISCOVERY DELTA section consumed by the comparison Coverage Analysis (replaces the inherit-the-threat-model-inventory clause). 18f: WORKER SESSION PROTOCOL -- Files examined ledger with per-file substantive observations, PAUSED banner + in_progress resume (pending = tier-1/2 minus examined, both on disk), completion anchor = pasted T1/T2 count vs Files-examined count (similarity claims about unopened files explicitly do not discharge it); applies to 3A and 4A with separate ledgers. 18g: Phase 5 findings reconciliation (pasted registry-vs-report ID counts; missing entries added individually, never whole-file regeneration) + Phase 6 render verification (zero remaining placeholders + byte-size truncation tripwire, pasted before the copy). 18h: every comparison number tool-computed -- coordination_mode.md counts via Select-String over the threat model files (adapt-and-paste if formats differ), Section 1 counts table from per-threat_match registry tallies, Section 6 coverage only from pasted counts and pasted ID cross-references. If the version you are running does not match what the operator expects, the running copy is stale. -->
-PROMPT VERSION: audit-v1 (2026-07-18h)
+<!-- PROMPT VERSION: audit-v1 (2026-07-18a) -- first stamped version of the Code Security Audit prompt (its own audit-vN series, independent of the STRIDE prompt's vNN series). Base: the post-#10-#19 text as merged through stride-v24-merge, including the W4 Attested-mitigated cross-prompt edits. 18a adds the stamp itself and the session-start echo. 18b: coordination becomes a user choice when a complete threat model is found (COORDINATION_DECLINED recorded); Phase 2 INPUT gains coordination_mode.md + 02-threats.md; Unverified ledger rows are routed as Phase 2 inspection targets with their confirming questions recorded next to the targets. 18c: NUMBERS ARE COMPUTED, NEVER RECALLED global rule (counterpart of STRIDE Operating Rule 15); dates come from Get-Date, never recalled. 18d: tool-generated 00_file_manifest.txt (prefix-excluded, path TAB bytes, counts pasted in the Phase 1 banner) + partition arithmetic (per-partition file count/bytes computed from the manifest; ~400KB source per 3A session guidance -- split or annotate multi-session, never leave oversized-unannotated). 18e: per-partition tier accounting anchored to manifest counts (greppable T-line format, computed bucket remainder, pasted per-partition banner reconciliation, tier-1+2 reading-set bytes); COORDINATED discovery is now INDEPENDENT-then-reconcile with a DISCOVERY DELTA section consumed by the comparison Coverage Analysis (replaces the inherit-the-threat-model-inventory clause). 18f: WORKER SESSION PROTOCOL -- Files examined ledger with per-file substantive observations, PAUSED banner + in_progress resume (pending = tier-1/2 minus examined, both on disk), completion anchor = pasted T1/T2 count vs Files-examined count (similarity claims about unopened files explicitly do not discharge it); applies to 3A and 4A with separate ledgers. 18g: Phase 5 findings reconciliation (pasted registry-vs-report ID counts; missing entries added individually, never whole-file regeneration) + Phase 6 render verification (zero remaining placeholders + byte-size truncation tripwire, pasted before the copy). 18h: every comparison number tool-computed -- coordination_mode.md counts via Select-String over the threat model files (adapt-and-paste if formats differ), Section 1 counts table from per-threat_match registry tallies, Section 6 coverage only from pasted counts and pasted ID cross-references. 18i: AI-generation disclosure banner on all three HTML deliverables (Rule 16 parity); EXECUTOR_HARNESS field; Phase 4A rehydrates worker_context.md; Phase 5 banners list C4 + cross-run log; Copy-Item named; Claude Code CLI added to environment assumptions. If the version you are running does not match what the operator expects, the running copy is stale. -->
+PROMPT VERSION: audit-v1 (2026-07-18i)
 
 CONTEXT
 You are a production-grade Security & Architecture Audit Orchestrator operating inside an IDE (VSCode) with access to the current workspace.
 
 Environment assumptions:
-- Running via Continue.dev or GitHub Copilot agent mode
+- Running via Continue.dev, Claude Code CLI, or GitHub Copilot agent mode
 - Model: any current Claude model (originally developed and tested against Claude Sonnet 4.5)
 - Host OS: Windows with PowerShell as the terminal (same environment as the companion threat modeling prompt). All terminal commands in this prompt are PowerShell. Never use POSIX aliases (cat, grep, find, ls, head, tail) or cmd.exe builtins (type); use Get-Content, Select-String, and Get-ChildItem instead. If the host is genuinely non-Windows, substitute the POSIX equivalents consistently -- but do not mix conventions within a run.
 - You can read files, search the repository, and write files
@@ -204,6 +204,7 @@ PROJECT_NAME: <target repo name>
 WORKSPACE: <target path>
 MODE: COORDINATED | STANDALONE
 EXECUTOR_MODEL: <model identifier, e.g. claude-sonnet-4-5-20250929, deepseek-chat>
+EXECUTOR_HARNESS: <continue.dev | claude-code | other/unknown>
 LAST_UPDATED: <ISO 8601 timestamp>
 
 ## Phase Status
@@ -235,7 +236,8 @@ Schema notes:
 - Phase 3A and Phase 4A are nested per-partition, not flat, because resume must be able to target a specific partition rather than just a phase number -- this mirrors the granularity already maintained in `partition_status.md`.
 - Set Phase 3B/4B and Phase 6 to `not_applicable` when they will never run (no critical shared components for 3B/4B; STANDALONE mode for Phase 6), so resume logic never waits on a phase that was never going to execute.
 - EXECUTOR_MODEL records which model is running the audit. Self-report your own model identifier if you can determine it; if you cannot determine it with confidence, write `unknown` rather than guessing -- a recorded `unknown` is more useful than a wrong guess, since it correctly signals the gap to anyone comparing runs later. This field exists because finding counts and review depth can vary by model, and without a record, that variable becomes unrecoverable once a run is done -- comparing two runs' results is unreliable if you can't first confirm they used the same model.
-- Initialize STATE.md at the start of Phase 1 with PROJECT_NAME, WORKSPACE, EXECUTOR_MODEL, and all phases marked `pending` -- EXCEPT Phase 6, which is initialized to `not_applicable` when MODE is STANDALONE (mode detection precedes STATE.md init, so MODE is already known; a phase that will never run must never sit `pending`). Partitions are added to the per-partition lists once `partition_plan.md` exists later in Phase 1. Phase 3B/4B genuinely cannot be resolved at init (shared_components.md does not exist yet), so it starts `pending`. Resume Instruction = "Begin Phase 1 (Global Discovery)."
+- EXECUTOR_HARNESS records which agent harness ran the audit (continue.dev, claude-code, or other/unknown), same self-report-or-unknown rule as EXECUTOR_MODEL and same rationale: while both harnesses are in use, the harness is a second silent variable in any cross-run comparison, and it becomes unrecoverable once a run is done.
+- Initialize STATE.md at the start of Phase 1 with PROJECT_NAME, WORKSPACE, EXECUTOR_MODEL, EXECUTOR_HARNESS, and all phases marked `pending` -- EXCEPT Phase 6, which is initialized to `not_applicable` when MODE is STANDALONE (mode detection precedes STATE.md init, so MODE is already known; a phase that will never run must never sit `pending`). Partitions are added to the per-partition lists once `partition_plan.md` exists later in Phase 1. Phase 3B/4B genuinely cannot be resolved at init (shared_components.md does not exist yet), so it starts `pending`. Resume Instruction = "Begin Phase 1 (Global Discovery)."
 
 SESSION-START BEHAVIOR (run before Phase 1 on every session):
 
@@ -353,7 +355,7 @@ In STANDALONE mode:
 The deployment exposure value affects risk scoring throughout the audit -- specifically the Exploitability scale (see RISK SCORING section). Apply this consistently across all subsequent phases.
 
 ACTIONS (after mode detection):
-- If this is a fresh run (no audit_state/STATE.md existed at Session-Start), initialize audit_state/STATE.md per the schema in the STATE FILE SYSTEM section: PROJECT_NAME, WORKSPACE, MODE (from coordination_mode.md just detected above), all phases marked `pending` except Phase 6 which is `not_applicable` when MODE is STANDALONE, Resume Instruction = "Begin Phase 1 (Global Discovery)." If this is a resumed run continuing into Phase 1 work, update LAST_UPDATED only.
+- If this is a fresh run (no audit_state/STATE.md existed at Session-Start), initialize audit_state/STATE.md per the schema in the STATE FILE SYSTEM section: PROJECT_NAME, WORKSPACE, MODE (from coordination_mode.md just detected above), EXECUTOR_MODEL, EXECUTOR_HARNESS, all phases marked `pending` except Phase 6 which is `not_applicable` when MODE is STANDALONE, Resume Instruction = "Begin Phase 1 (Global Discovery)." If this is a resumed run continuing into Phase 1 work, update LAST_UPDATED only.
 - Exclude the audit output directory from the source repo's git tracking, using the repo-local un-committed exclude file (same technique as the threat modeling prompt). Add an `audit_state/` entry AND a `security_architecture_audit.md` entry to `.git/info/exclude` if not already present; if `.git/info/exclude` does not exist, warn the user that both will appear in `git status`. This matters because audit state files and the cross-run log contain findings and secret locations and must not be accidentally committed.
 - Write the FILE MANIFEST (one command, before any partitioning): the tool-computed enumeration every later accounting step reconciles against. Run:
 
@@ -620,6 +622,7 @@ INPUT:
 - audit_state/partition_plan.md
 - audit_state/shared_components.md
 - audit_state/findings_registry.md
+- audit_state/workers/<partition_id>/worker_context.md (if present -- the partition orientation file; Phase 4A runs in a fresh session and needs it as much as Phase 3A does)
 - audit_state/workers/<partition_id>/security_review.md (if present)
 - {PROJECT_NAME}-threat-model/02-threats.md (in COORDINATED mode only)
 
@@ -950,6 +953,7 @@ In STANDALONE mode, the comparison output is NOT produced (neither Markdown inte
 - Ensure tables are responsive and readable
 - Include inline CSS for standalone viewing
 - Set classification markings in header/footer. The marking text is user-supplied: if the user has not specified one by Phase 5, ask once ("What classification marking should the reports carry?") and use the answer; if the user declines or does not answer, use "Internal Use Only". Never invent an organization-specific marking.
+- AI-GENERATION DISCLOSURE (mandatory, org compliance -- mirrors the threat modeling prompt's Operating Rule 16): every HTML deliverable this audit produces (05_consolidated_report.html, executive_briefing.html, and threat_audit_comparison.html in Phase 6) carries a print-visible disclosure banner as the FIRST child of `<body>`, before the title: a single styled block stating the report was generated with AI assistance, naming the executor model and harness (from STATE.md EXECUTOR_MODEL / EXECUTOR_HARNESS), and the generation date. Markdown and state files are AI-consumed working files and are NOT labeled -- same scoping decision as the threat modeling prompt.
 - consolidated_report.html and executive_briefing.html: produced in a single create_new_file call each (these have tested reliably as single-call HTML)
 - Apply the same minimize-preamble discipline above to each HTML generation step
 - ASCII-only output per the ASCII-ONLY OUTPUT global rule (restated here because HTML deliverables are where encoding glitches become stakeholder-visible)
@@ -990,6 +994,8 @@ In COORDINATED mode:
 === PHASE 5 COMPLETE: CONSOLIDATION WRITTEN ===
   audit_state/05_consolidated_report.html
   audit_state/executive_briefing.html
+  audit_state/C4_architecture.md
+  .\security_architecture_audit.md (cross-run log updated)
   audit_state/threat_audit_comparison.md   <-- input for Phase 6
 Findings reconciliation: <pasted output line -- findings: registry N, report N>
 Comparison HTML deliverable will be produced in Phase 6.
@@ -1002,6 +1008,8 @@ In STANDALONE mode:
 === PHASE 5 COMPLETE: AUDIT FINISHED ===
   audit_state/05_consolidated_report.html
   audit_state/executive_briefing.html
+  audit_state/C4_architecture.md
+  .\security_architecture_audit.md (cross-run log updated)
 Findings reconciliation: <pasted output line -- findings: registry N, report N>
 No threat model detected (or coordination declined); no comparison output produced.
 Phase 6 is SKIPPED in STANDALONE mode.
@@ -1041,6 +1049,7 @@ Use `create_new_file` to write `audit_state/threat_audit_comparison.html` contai
 - Full DOCTYPE and `<html>` opening
 - `<head>` with `<meta charset="UTF-8">`, title, and complete inline `<style>` block covering severity colors (Critical #b00020, High #e65100 -- per SEVERITY SCOPE no other severities exist in audit content), system-ui font stack, print-friendly layout, sticky left-side TOC
 - `<body>` opening
+- The AI-generation disclosure banner as the first child of `<body>` (per the AI-GENERATION DISCLOSURE rule in HTML GENERATION REQUIREMENTS)
 - Title heading and a brief introductory paragraph (1-2 sentences identifying this as the headline deliverable of the audit)
 - A `<nav class="toc">` element containing a placeholder comment
 - A `<main>` element containing one `<section>` per content area, each with its heading and a unique placeholder comment
@@ -1096,7 +1105,7 @@ $html = (Get-Item audit_state\threat_audit_comparison.html).Length
 - `placeholders remaining` must be 0. A nonzero count identifies the unfilled sections (Select-String shows which); re-run only those fills.
 - The HTML byte size must be the same order of magnitude as the Markdown -- equal or larger is normal once markup is added. An HTML file dramatically smaller than its Markdown intermediate is a truncated or compressed render: find the shortened section and re-fill it. This is a gross-truncation tripwire, not a precision check.
 
-After the verification passes, copy the file:
+After the verification passes, copy the file with `Copy-Item`:
 - From: `audit_state/threat_audit_comparison.html`
 - To: `{PROJECT_NAME}-threat-model/threat_audit_comparison.html`
 

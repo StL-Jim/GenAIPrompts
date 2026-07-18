@@ -1,5 +1,5 @@
-<!-- PROMPT VERSION: audit-v1 (2026-07-18a) -- first stamped version of the Code Security Audit prompt (its own audit-vN series, independent of the STRIDE prompt's vNN series). Base: the post-#10-#19 text as merged through stride-v24-merge, including the W4 Attested-mitigated cross-prompt edits. 18a adds the stamp itself and the session-start echo. 18b: coordination becomes a user choice when a complete threat model is found (COORDINATION_DECLINED recorded); Phase 2 INPUT gains coordination_mode.md + 02-threats.md; Unverified ledger rows are routed as Phase 2 inspection targets with their confirming questions recorded next to the targets. 18c: NUMBERS ARE COMPUTED, NEVER RECALLED global rule (counterpart of STRIDE Operating Rule 15); dates come from Get-Date, never recalled. If the version you are running does not match what the operator expects, the running copy is stale. -->
-PROMPT VERSION: audit-v1 (2026-07-18c)
+<!-- PROMPT VERSION: audit-v1 (2026-07-18a) -- first stamped version of the Code Security Audit prompt (its own audit-vN series, independent of the STRIDE prompt's vNN series). Base: the post-#10-#19 text as merged through stride-v24-merge, including the W4 Attested-mitigated cross-prompt edits. 18a adds the stamp itself and the session-start echo. 18b: coordination becomes a user choice when a complete threat model is found (COORDINATION_DECLINED recorded); Phase 2 INPUT gains coordination_mode.md + 02-threats.md; Unverified ledger rows are routed as Phase 2 inspection targets with their confirming questions recorded next to the targets. 18c: NUMBERS ARE COMPUTED, NEVER RECALLED global rule (counterpart of STRIDE Operating Rule 15); dates come from Get-Date, never recalled. 18d: tool-generated 00_file_manifest.txt (prefix-excluded, path TAB bytes, counts pasted in the Phase 1 banner) + partition arithmetic (per-partition file count/bytes computed from the manifest; ~400KB source per 3A session guidance -- split or annotate multi-session, never leave oversized-unannotated). If the version you are running does not match what the operator expects, the running copy is stale. -->
+PROMPT VERSION: audit-v1 (2026-07-18d)
 
 CONTEXT
 You are a production-grade Security & Architecture Audit Orchestrator operating inside an IDE (VSCode) with access to the current workspace.
@@ -158,6 +158,7 @@ Maintain ALL of the following global state files:
 audit_state/
 - STATE.md (the resume signal -- see schema below; checked at the start of every session)
 - coordination_mode.md (NEW: records COORDINATED vs STANDALONE and binding info)
+- 00_file_manifest.txt (tool-generated file enumeration; written once in Phase 1, read by every accounting step)
 - 00_workspace_context.md
 - 01_discovery.md
 - 02_risk_prioritization.md
@@ -342,6 +343,21 @@ The deployment exposure value affects risk scoring throughout the audit -- speci
 ACTIONS (after mode detection):
 - If this is a fresh run (no audit_state/STATE.md existed at Session-Start), initialize audit_state/STATE.md per the schema in the STATE FILE SYSTEM section: PROJECT_NAME, WORKSPACE, MODE (from coordination_mode.md just detected above), all phases marked `pending` except Phase 6 which is `not_applicable` when MODE is STANDALONE, Resume Instruction = "Begin Phase 1 (Global Discovery)." If this is a resumed run continuing into Phase 1 work, update LAST_UPDATED only.
 - Exclude the audit output directory from the source repo's git tracking, using the repo-local un-committed exclude file (same technique as the threat modeling prompt). Add an `audit_state/` entry AND a `security_architecture_audit.md` entry to `.git/info/exclude` if not already present; if `.git/info/exclude` does not exist, warn the user that both will appear in `git status`. This matters because audit state files and the cross-run log contain findings and secret locations and must not be accidentally committed.
+- Write the FILE MANIFEST (one command, before any partitioning): the tool-computed enumeration every later accounting step reconciles against. Run:
+
+```powershell
+$MANIFEST = 'audit_state\00_file_manifest.txt'
+$anyDepth = '\\(\.git|node_modules|vendor|target|\.venv|dist|build|__pycache__)(\\|$)'
+$auditDirs = '\\audit_state|\\' + [regex]::Escape("$PROJECT_NAME-threat-model")   # prefix match: also excludes archived audit_state-YYYYMMDD and renamed threat-model dirs
+Get-ChildItem -Recurse -File |
+  Where-Object { $_.FullName -notmatch $anyDepth -and $_.FullName -notmatch $auditDirs -and $_.Name -ne 'security_architecture_audit.md' } |
+  ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) + "`t" + $_.Length } |
+  Set-Content -Encoding Ascii $MANIFEST
+$lines = Get-Content $MANIFEST
+'manifest: ' + $lines.Count + ' files, ' + (($lines | ForEach-Object { [int64]($_ -split "`t")[1] } | Measure-Object -Sum).Sum) + ' bytes'
+```
+
+  One line per file: workspace-relative path, TAB, size in bytes. The final output line (file count and total bytes) is pasted into the Phase 1 banner -- per the NUMBERS ARE COMPUTED global rule, never restated from memory. Do not cap, truncate, or sample this command's output.
 - Perform full repo scan
 - Build:
   - repository map
@@ -356,12 +372,21 @@ ACTIONS (after mode detection):
     - Repository has >10,000 SLOC (source lines of code)
     - Multiple deployable services detected (e.g., microservices)
     - Distinct security boundaries between modules
+  - PARTITION ARITHMETIC (mandatory when partitioning): every partition's size is computed from the manifest, not judged. For each partition, filter the manifest by the partition's root path and record file count + total bytes in partition_plan.md, pasted:
+
+```powershell
+$p = Get-Content audit_state\00_file_manifest.txt | Where-Object { $_ -like '<partition_root>\*' }
+'partition <partition_id>: ' + $p.Count + ' files, ' + (($p | ForEach-Object { [int64]($_ -split "`t")[1] } | Measure-Object -Sum).Sum) + ' bytes'
+```
+
+    Size guidance: a Phase 3A session has roughly 100-130K tokens of real code-reading capacity after prompt and rehydration overhead (~400KB of source as a rough proxy). A partition whose total source exceeds ~400KB either gets SPLIT here (preferred when a natural boundary exists -- record the split in partition_plan.md) or is explicitly annotated in partition_plan.md as multi-session ("expect N sessions"), to be handled by the Phase 3A pause/resume protocol. What is NOT acceptable is an oversized partition with no annotation: that is how a worker session silently goes shallow to make the partition fit.
   - For each partition, WRITE audit_state/workers/<partition_id>/worker_context.md now, as a Phase 1 output: partition name, root path, entrypoints, key dependencies, data ownership, trust-boundary relevance, and the highest-risk files to start from. This is the file Phase 3A rehydrates from -- it is created here, not by the worker phases.
   - Each partition's worker context summary (worker_context.md plus the evidence index) should fit in ~5,000-10,000 tokens; the worker then reads targeted files within the partition as needed during review. The partition's full source can be larger -- the budget applies to what must be rehydrated, not to the code itself.
 - Identify shared components requiring separate review
 
 OUTPUT FILES:
 - audit_state/coordination_mode.md (new in Stage 2)
+- audit_state/00_file_manifest.txt (tool-generated; the enumeration all later accounting reconciles against)
 - audit_state/00_workspace_context.md
 - audit_state/01_discovery.md
 - audit_state/resource_inventory.md
@@ -377,9 +402,11 @@ Before printing the banner, update audit_state/STATE.md: mark Phase 1 done; Resu
 ```
 === PHASE 1 COMPLETE: GLOBAL DISCOVERY DONE ===
   audit_state/coordination_mode.md
+  audit_state/00_file_manifest.txt
   audit_state/01_discovery.md
   audit_state/resource_inventory.md
   audit_state/partition_plan.md
+Manifest: <pasted output line of the manifest command -- N files, M bytes>
 STATE.md updated: Phase 1 marked done.
 Type 'proceed' to begin Phase 2 (Risk Prioritization).
 ```

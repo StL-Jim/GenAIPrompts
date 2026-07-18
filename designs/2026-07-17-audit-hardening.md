@@ -487,6 +487,57 @@ Cross-prompt contract guard: nothing in this design changes ledger reason
 strings, dispositions.csv schema, or ID schemes. Any future edit that touches
 those must be applied to both prompts in the same commit.
 
+## Section 11 -- Code/architecture rebalance (field-driven, added 2026-07-18)
+
+Field observation (operator, first COORDINATED run of the hardened prompt):
+the final HTML titled itself "Architecture Security Audit" and the content
+weight skewed architecture over code. Operator judgment, endorsed after
+analysis: too much free-form architecture, not enough code -- in COORDINATED
+mode the audit was re-deriving, weaker, the top-down architecture reasoning
+STRIDE already did with a full inventory, while the audit's differentiated
+value (implementation defects, seeded-lead verification, contradicted
+attestations) is all code-level. STRIDE's own identity line assigns the
+division: the audit partner "finds implementation defects."
+
+Diagnosis: a TEXTURE problem (the model mirrors the prompt's emphasis). The
+identity line led with "Security & Architecture Audit Orchestrator";
+architecture artifacts get prominent billing; Phase 4A's analyze list is
+mostly design-review vocabulary (coupling/cohesion, dependency direction,
+operational fragility); the finding schema's ARCH examples teach quality
+categories (every example is a template); and no deliverable title is pinned,
+so the model synthesizes one from the texture each run.
+
+What stays (pushback recorded): code-observable security-relevant
+architecture (authz boundaries, shared-state races, trust-boundary violations
+in code) is implementation-defect territory STRIDE cannot see -- keep.
+STANDALONE mode keeps the broader design-review lens: with no STRIDE behind
+it, 4A is the only architecture look the codebase gets. C4 diagrams and
+c4_input.md stay (comparison context, cheap).
+
+Edit shape (commits 18k, 18l):
+- 18k texture + titles: identity becomes "Code Security Audit Orchestrator";
+  PRIMARY OBJECTIVE rewords to code-security-first, architecture only as it
+  bears on security; PINNED TITLES bullet in HTML GENERATION REQUIREMENTS --
+  "Code Security Audit -- {PROJECT_NAME}" (final report), "Executive Briefing
+  -- Code Security Audit -- {PROJECT_NAME}", "Threat Model vs Code Audit --
+  {PROJECT_NAME}" (comparison). Titles are output contract, not style.
+- 18l Phase 4A narrowing + schema: 4A analyze list restricted to
+  security-relevant, code-observable architecture; COORDINATED mode 4A is
+  TARGETED (verify the threat model's architecture-level threats/attack paths
+  against this partition's code; free-form findings only from the restricted
+  list); STANDALONE-only paragraph retains the broader lens. Severity floor
+  explicitly UNRELAXED for ARCH findings (must clear Critical/High as a
+  SECURITY exposure; quality observations are not written up regardless of
+  engineering merit -- this is the anti-dilution rule the title symptom
+  exposed). Finding schema ARCH examples reshaped to security-flavored
+  categories (Missing AuthZ Boundary, Shared-State Race, Security-Control
+  SPOF) per the every-example-is-a-template lesson.
+
+Validation stance: built on operator field judgment from one coordinated run;
+untested until the next field run. Watch item: does 4A still produce enough
+architecture findings in STANDALONE mode (the narrowing must not leak into
+the standalone path).
+
 Validation stance: every item above is built-untested until a work-machine
 field run exercises it. The likeliest regression risks, for the field run to
 watch: (a) Section 4.4's independent discovery costs Phase 1 context -- if

@@ -424,6 +424,18 @@ Fate map for the conversion (methodology carries over; enforcement upgrades):
 - Section 9 exclusions STRENGTHENED: prompt slicing is natively superseded by
   progressive disclosure; clerical enforcement bolt-ons have hooks as their
   correct home, so none should be added to prompt text now.
+- Phase 6 (comparison HTML render): becomes a SCRIPT in the skill's scripts/
+  dir. Markdown-to-HTML is deterministic ("never ask an LLM to be a layout
+  engine"); today the comparison content is emitted twice (Phase 5 writes the
+  .md, Phase 6 re-emits it as HTML -- roughly double output tokens for the
+  headline deliverable, an operator-raised cost 2026-07-18). Script-rendering
+  drops the second emission to zero model tokens and promotes
+  threat_audit_comparison.md from intermediate to the ONLY comparison
+  artifact the model writes. Until then the .md stays load-bearing three
+  ways: Phase 6's fill source (freezes content so rendering is clerical, not
+  seven chances to re-synthesize), the per-section re-fill recovery path,
+  and the 18g byte-size truncation baseline. Do NOT delete it from the
+  prompt-era pipeline.
 
 Constant across the transition: Sonnet 4.5 and the 200K window are
 model-bound, not harness-bound. The partition arithmetic and resume design

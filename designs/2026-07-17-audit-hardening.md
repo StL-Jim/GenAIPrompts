@@ -323,6 +323,11 @@ Edit shape:
   security_architecture_audit.md update, so a session that skipped them cannot
   print a complete-looking banner.
 - Line 336 init list gains EXECUTOR_MODEL (line 233 has it; 336 omits it).
+- STATE.md schema gains EXECUTOR_HARNESS (continue.dev | claude-code |
+  other/unknown) alongside EXECUTOR_MODEL, same self-report-or-unknown rule
+  and same rationale: during the dual-harness transition (Section 9.5) the
+  harness is a second silent variable in any cross-run comparison, and it
+  becomes unrecoverable once a run is done.
 - Phase 6 Step 3 copy (line 985-991) names its mechanism: Copy-Item, with the
   existing do-not-modify-other-files caveat retained.
 - Environment assumptions (line 5) add Claude Code CLI alongside Continue.dev
@@ -423,6 +428,39 @@ Fate map for the conversion (methodology carries over; enforcement upgrades):
 Constant across the transition: Sonnet 4.5 and the 200K window are
 model-bound, not harness-bound. The partition arithmetic and resume design
 keep their value under Claude Code until the ~Sep 2026 model unlock.
+
+### Transition sync model (dual-harness period, expected 1-2 months)
+
+Operator constraint: Continue.dev and Claude Code will BOTH be in use during
+the conversion window, with prompt changes still landing; there is no clean
+cutover date. The sync rule that survives this: AT ANY MOMENT, EACH PROMPT HAS
+EXACTLY ONE EDITABLE SOURCE; every other form is generated. Never two
+hand-edited copies.
+
+- Phase 1 (now, through field validation of this design): no conversion. The
+  monolith is the single source; Continue.dev is the test bed. Do not convert
+  a prompt while it is mid-hardening.
+- Phase 2 (per prompt, at conversion): restructure the SOURCE into per-phase
+  skill files and DEMOTE the monolith to a build artifact -- a PowerShell
+  script concatenates phase files plus a Continue.dev preamble adapter (tool
+  tables, session-start scaffolding) into the monolith, injecting the same
+  version stamp into every output. Editing happens in phase files only.
+  Claude Code consumes the skill; Continue.dev consumes the generated
+  monolith, hand-copied as today. Cross-harness sync = re-running the build,
+  and the existing session-start stamp echo detects a stale copy exactly as
+  it does now.
+- Concatenation (skill files -> monolith) is deliberately the build
+  direction, not splitting: it is the trivially robust operation, and it
+  makes cutover a non-event -- cutover is the day the build stops being run.
+- Conversion order: STRIDE first (largest progressive-disclosure win, stable
+  post-v24 methodology; converting it teaches the build pattern). The audit
+  prompt converts only AFTER this design's changes field-validate on
+  Continue.dev -- a first skill release must not bundle unvalidated prompt
+  changes, or harness effects and prompt effects become inseparable.
+- The Section 9.5 no-new-harness-specific-tool-names rule is what keeps phase
+  text harness-neutral enough for the preamble-adapter split; the inherited
+  create_new_file / single_find_and_replace references inside phase text are
+  the main conversion-time chore (move to adapter or rephrase neutrally).
 
 ## Section 10 -- Build order and commit discipline
 

@@ -22,7 +22,11 @@ Read common.md, phase-1-shared.md, STATE.md, 00-scope.md, 00-discovery.md, 00-fi
 7. Return in your summary: the draft System Restatement (verbatim), component/TB/
    assumption counts, the coverage reconciliation line, and scope-relevant deltas.
    The orchestrator relays the restatement to the user (GATE 2) and edits the final
-   confirmed text into 01-inventory.md.
+   confirmed text into 01-inventory.md. If the user's GATE 2 correction affects other
+   inventory sections (Components, Trust Boundaries, Data Stores, Data Flows -- e.g. a
+   correction to the user population or the most-sensitive-asset can invalidate entries
+   in those sections), the orchestrator must update the affected inventory sections
+   in 01-inventory.md to match the confirmed restatement before Phase 2 begins.
 
 ### Phase 1 Output: `.\{PROJECT_NAME}-threat-model\01-inventory.md`
 

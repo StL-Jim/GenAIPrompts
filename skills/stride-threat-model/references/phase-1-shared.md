@@ -6,7 +6,7 @@
 - (a) IN SCOPE -- assigned to a component/data-store/integration. An in-scope file MUST be OPENED AND READ, not labeled from its path or filename. READING IT IS THE POINT: it is how you extract the resource references, integrations, data stores, and secrets defined inside. Classifying a file into a component WITHOUT opening it is not accounting for it -- it is guessing from the filename, and it is the exact failure that lets a data store or integration referenced inside that file vanish silently (assigning 71 files to components but reading only 16 is NOT coverage). Rule: if you assigned a file to a component, you have opened and read it. No exceptions.
 - (b) SKIP-BUCKET -- a named, one-line-reasoned bucket rolled up by category so it stays cheap: `tests`, `generated`, `vendored-third-party`, `build-config`, `docs`, `assets/static`, `non-production` (per Operating Rule 13). Only skip-bucket files may be labeled without a full read. Skip-buckets are CONSERVATIVE: when unsure whether a file is relevant, READ it -- do not skip it. And before finalizing, DEPENDENCY-CHECK the skip-buckets: if any skip-bucketed file references an external integration, data store, or secret, that referenced resource is still IN SCOPE for the inventory even though the file itself is not threat-walked -- capture it (this is how skipped files silently drop real integrations).
 
-A file in neither state is UNACCOUNTED -- a rule violation. Operating Rule 9 governs HOW you read a large in-scope file (targeted ranges, not whole-file dumps) but NEVER whether you read it. The Coverage Report (section 7) reconciles BOTH accounting and READING -- and the reading line (in-scope files opened vs. in-scope files that exist) is the one that actually forces depth; a large gap there is the signal that you classified instead of read.
+A file in neither state is UNACCOUNTED -- a rule violation. Operating Rule 9 governs HOW you read a large in-scope file (targeted ranges, not whole-file dumps) but NEVER whether you read it. The Coverage Report (the Coverage Report, reconciled by the reconciliation agent) reconciles BOTH accounting and READING -- and the reading line (in-scope files opened vs. in-scope files that exist) is the one that actually forces depth; a large gap there is the signal that you classified instead of read.
 
 **ENUMERATE BY IDENTITY (semantic completeness -- the complement to file coverage above).** Opening every file is necessary but not sufficient: one file can contain many elements, and file-accounting does not by itself force you to list them all. So the inventory MUST enumerate every instance of every element type -- every component, data store, external integration, trust boundary, and secret location -- by its concrete identity, never by a count or a generic quantifier. "Several agents" / "various services" / "multiple queues" / "etc." in place of a full list is a rule violation, not shorthand: enumerate them (`Select-String` the pattern, read the ranges, list each). This phase OWNS the complete enumeration -- do not assume Phase 0 captured every instance; Phase 0 named what is in bounds, this inventory names and evidences every one.
 
@@ -18,6 +18,62 @@ This is defense-in-depth, NOT permission for Phase 0 to be incomplete (scope sti
 **Reminder:** Every file read in this phase targets the current workspace (which IS the source repo). Use the Read tool for specific files and Glob for directory listings per common.md rule R. Use PowerShell `Select-String` when you need to search across the repo for patterns, and `Get-Content ... | Select-Object -Skip -First` when you need a line range of a large file.
 
 EXCLUDED from all Phase 1 passes, regardless of how plausible the filenames look: `audit_state/` (the CodeSecurityAudit prompt's own run-state directory -- contains findings and secret locations from a separate workflow, not source documentation), `security_architecture_audit.md` at the workspace root (that prompt's cross-run findings log -- it matches the `SECURITY*` glob below but is a workflow artifact), and `{PROJECT_NAME}-threat-model/` (this prompt's own output directory from prior runs). Do not read, cite as evidence, or treat content from either directory as part of the system under review.
+
+## Element Classification (binding on all Phase 1 passes)
+
+The definitions below are copied verbatim from the Section 2/3/4/5 schema in
+phase-1-reconcile.md -- the reconciliation agent still owns the full inventory schema
+and ID assignment, but every partial pass classifies elements against this same
+definition, so it is reproduced here rather than left as a pointer to a file partials
+never read.
+
+### Component definition
+
+This is the MASTER inventory of architectural elements, and it directly gates threat coverage: Phase 2B walks STRIDE per component, so any element absent here is never threat-modeled. DEFINITION -- every architectural element that PROCESSES, STORES, or MEDIATES this system's data is a component: it gets a C-NNN ID and a Phase 2 STRIDE walk. This explicitly includes data stores, cloud/AWS managed services (S3, DynamoDB, Bedrock, SQS, ...), queues, caches, gateways, and identity providers -- NOT only active-process services. Do NOT undercount by treating data stores or managed services as a lower tier: the Data Stores and External Integrations sections are supplementary attribute detail about elements that ALSO appear as components, keyed to the same C-NNN -- every data store or integration MUST also be recorded as a component. Each architectural element appears exactly once (one C-NNN) and is walked once in Phase 2. (This definition is load-bearing: undercounting components is the single largest cause of incomplete threat enumeration -- a narrow "active-process only" reading has produced 3-4 components where the correct reading produces ~12-13 on the same system.)
+
+### DS-vs-EXT test (including the fetch trap)
+
+DS-vs-EXT TEST (apply it -- do not bin by feel; misclassification is a field-observed failure). Ask ONE question: WHO OPERATES IT? If this system operates the store and its CONTENT belongs to this system, it is a DATA STORE -- even on managed infrastructure (an S3 bucket or DynamoDB table this app owns on AWS is DS). If ANOTHER PARTY operates it and this system is a CLIENT reaching across the network to it, it is an EXTERNAL INTEGRATION -- even if what you do with it is purely read data. THE FETCH TRAP (the exact field failure): a website or API this system SCRAPES or FETCHES FROM (sec.gov, a partner feed, any remote source ingested into a KB or cache) is an EXTERNAL INTEGRATION, never a data store, no matter how one-way or read-only it feels. "We just pull data from it" describes the DIRECTION of a data flow (outbound fetch), not the CATEGORY of the element -- direction is an EXT attribute, not a reason to call it a store. Binning a fetched-from source as a data store is a security error, not a labeling nit: it erases the ingestion CHANNEL from the threat walk, and that channel is where TLS-verification, source-spoofing, and content-poisoning threats live -- for a RAG/KB system, remote-content-into-the-knowledge-base is the marquee threat surface. The fetched data landing somewhere (the KB, a staging bucket) IS a data store -- a SEPARATE element this system owns; record BOTH the external source (EXT) and the landing store (DS), joined by a data flow. When a single element genuinely seems both (a partner-operated store this system writes into), classify as External Integration.
+
+### Attribute fields per element class
+
+Populate these fields for each element you record (omit the ID line -- reconciliation assigns IDs).
+
+Component:
+- Type: (web-app | api-service | worker | database | cache | queue | managed-service | gateway | identity-provider | external-saas | cli | job | lambda | frontend-spa | ...)
+- Language/Framework:
+- Evidence: [evidence: path/to/main.go:1-40]
+- Responsibilities:
+- Entry points:
+- Dependencies (other components): [C-002, C-005]
+- Data handled: (PII | credentials | financial | health | telemetry | public | ...)
+- Runs as: (user/service account, container, lambda, ...)
+
+Data store:
+- Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
+- Data classification: (PII | credentials | financial | health | telemetry | public | ...)
+- Encryption at rest: (yes | no | unknown) -- cite IaC evidence
+- Encryption in transit: (yes | no | unknown) -- cite evidence
+- Access pattern: which components read/write, e.g. `read-write from C-003, read-only from C-005`
+- Evidence: [evidence: terraform/rds.tf:1-30]
+
+External integration:
+- Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)
+- Authentication method: (API key | OAuth client credentials | mTLS | bearer token | basic auth | none | ...)
+- Direction: (inbound | outbound | both)
+- Data exchanged: (brief description and classification)
+- Evidence: [evidence: src/clients/payment_gateway.go:12-44]
+
+Trust boundary: a trust boundary exists wherever data crosses between principals with
+different trust levels. At minimum consider:
+- Internet -> edge (WAF/LB/CDN)
+- Edge -> application tier
+- Application tier -> data tier
+- Application -> external SaaS
+- Privileged admin plane vs. user plane
+- Tenant boundaries (if multi-tenant)
+- Build/deploy plane vs. runtime plane
+Each TB entry must cite the evidence that establishes it (e.g., the Terraform security group, the k8s NetworkPolicy, or the absence thereof).
 
 ## Partition Contract (parallel passes)
 Phase 1 runs as three parallel agents, one per manifest partition (docs / iac / rest,
@@ -34,8 +90,8 @@ elements by canonical name.
 ## Elements Found
 ### <canonical name>
 - Element class: component | data-store | external-integration | trust-boundary-evidence
-- <then the attribute fields for that class, copied from the 01-inventory.md schema
-  sections 2/3/4/5 in phase-1-reconcile.md -- same field names, no ID line>
+- <then the attribute fields for that class, from the Element Classification section
+  above -- same field names, no ID line>
 ## Partition File Accounting
 - Partition file count: <N> (tool-computed: (Get-Content <partition file>).Count)
 - Read and assigned: <N> | Skip-bucketed: tests <N>, generated <N>, vendored-third-party <N>, build-config <N>, docs <N>, assets/static <N>, non-production <N> | Unaccounted: <N>

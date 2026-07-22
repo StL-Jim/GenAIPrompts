@@ -13,6 +13,6 @@ Depth matters here more than anywhere: Operating Rule 9 governs HOW to read a la
 - Output boundaries: where data leaves (responses, logs, outbound HTTP, emails, metrics).
 - Configuration surface: env vars, config files, feature flags, remote config.
 
-When you record these as inventory Components (Section 2 below), apply the component definition there: the data stores, managed services, queues, caches, gateways, and identity providers you find here are all COMPONENTS (each a C-NNN with a Phase 2 walk), not a lower tier -- do not fold them away into detail-only sections. Undercounting components here is the largest single cause of missed threats downstream.
+When you record these as inventory Components, apply the component definition in phase-1-shared.md's Element Classification section: the data stores, managed services, queues, caches, gateways, and identity providers you find here are all COMPONENTS (each a C-NNN with a Phase 2 walk), not a lower tier -- do not fold them away into detail-only sections. Undercounting components here is the largest single cause of missed threats downstream.
 
 Write 01c-partial.md per the shared schema. Unaccounted must be 0; if you run out of room, write what you have and return the remaining file list (the orchestrator re-dispatches a continuation).

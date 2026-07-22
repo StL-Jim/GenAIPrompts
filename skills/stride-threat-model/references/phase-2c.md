@@ -107,6 +107,6 @@ Return your completion banner to the orchestrator (it owns STATE.md).
   .\{PROJECT_NAME}-threat-model\02c-assumptions.md
   .\{PROJECT_NAME}-threat-model\02-threats.md   <-- canonical Phase 2 output, used by Phase 3
 Sub-files retained for recovery: 02a-context.md, 02b-threats.md
-STATE.md updated: phase-2c (and Phase 2 overall) marked complete.
+Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

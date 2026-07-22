@@ -22,10 +22,25 @@
    "OUTPUT_ROOT  = $OUTPUT_ROOT"
    "CURRENT_DATE = $CURRENT_DATE"
    ```
+
+   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so the four variables above must be re-declared at the top of EVERY later PowerShell block in this phase. The re-declaration prelude is:
+   ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   ```
+   Substitute the literal SKILL_DIR path; it is the directory containing SKILL.md.
+
    If `PROJECT_NAME` does not match what the user expects (e.g., they opened a parent folder by accident), STOP and ask them to re-open the correct workspace before continuing.
 
 2. **Create the output directory tree** inside the workspace:
    ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+
    New-Item -ItemType Directory -Path $OUTPUT_ROOT -Force | Out-Null
    New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'diagrams') -Force | Out-Null
    New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'outputs')  -Force | Out-Null
@@ -34,6 +49,11 @@
 
 3. **Exclude the output directory from the source repo's git tracking** using the repo-local, un-committed exclude file. This keeps the threat model artifacts from accidentally appearing in a commit, diff, or PR against the source repo, without modifying any file that would itself need to be committed (important at a regulated org where modifying `.gitignore` may require code review). The pattern is a WILDCARD, not an exact name, because the Archiving instructions (end of Phase 4) rename this directory with a date suffix (`{PROJECT_NAME}-threat-model-yyyyMMdd`) for reuse across runs -- an exact-name entry would stop covering the directory the moment it is archived, silently exposing it to `git status` and a future accidental `git add`:
    ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+
    $excludeFile = Join-Path $WORKSPACE '.git\info\exclude'
    if (Test-Path $excludeFile) {
        $entry = "$PROJECT_NAME-threat-model*/"
@@ -55,6 +75,11 @@
 
 5. **Produce a top-level repo map** using PowerShell for a full listing:
    ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+
    Get-ChildItem -Path $WORKSPACE -Force |
      Where-Object { $_.Name -ne "$PROJECT_NAME-threat-model" -and $_.Name -ne '.git' } |
      Select-Object Mode, Name
@@ -70,6 +95,11 @@
 5a. **Produce a COMPLETE recursive file manifest** -- this is the ground truth Phase 1 must account for, and it is what makes a single run's coverage self-evident instead of only knowable by comparing against a prior run. Enumerate every file (paths only -- no reading, so this is cheap even on large repos), excluding the tool-state and vendored directories that never generate threats:
    Run the extracted script and paste its output:
    ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+
    & $SKILL_DIR\scripts\manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
    ```
    Record the total file count. Write the manifest to `00-file-manifest.txt` (one relative path per line). Phase 1 will assign EVERY file in this manifest to a component or a justified skip-bucket, and reconcile the totals -- so a file that gets silently overlooked becomes a visible rule violation, in this single run, with no prior run required to notice it. If the count is very large (thousands of files), still write the full manifest; the accounting in Phase 1 rolls low-relevance files into counted buckets rather than reading each.
@@ -136,6 +166,11 @@
 
    Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, common.md rule R (cap litmus)), no per-line narration; this whole pass is one code block:
    ```powershell
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+
    & $SKILL_DIR\scripts\sweep.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
    ```
    Paste its per-pattern counts and candidates line.
@@ -180,4 +215,4 @@ Present this Scope Proposal to the user and wait for approval or corrections (GA
 
 ---
 
-After the user approves the Scope Proposal, run `scripts/partition-manifest.ps1` and paste its reconciliation line. The three partition files drive the parallel Phase 1 passes.
+After the user approves the Scope Proposal, run `& $SKILL_DIR\scripts\partition-manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME` and paste its reconciliation line. The three partition files drive the parallel Phase 1 passes.

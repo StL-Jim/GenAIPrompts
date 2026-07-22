@@ -241,3 +241,92 @@ were fixed before this commit; no content was silently dropped.
 phase-1-reconcile.md, phase-3-html.md, phase-3-csv.md) and one documentation correction
 (common.md legitimately contains non-ASCII bytes in Rule 14's own substitution-table
 examples; the "only phase-4.md" framing in this task's brief was incomplete, not the skill).
+
+## Known-carried defects (pre-existing in frozen v24, deliberately NOT fixed)
+
+Reason for both: the conversion freezes methodology at v24; these are pre-existing source
+defects to fix in a later methodology change, not during the port.
+
+1. **phase-2c.md**: prose says write the Excluded Threats Ledger as the LAST section of
+   02c-assumptions.md ("write it as the LAST section of 02c-assumptions.md"), but the
+   blueprint schema places it third of seven sections (Threat Filtering Summary, Excluded
+   Threat Categories, Excluded Threats Ledger, then Control Coverage Summary, Questions
+   for Stakeholders, Assumptions Made, and Coverage and Known Gaps follow it). This is a
+   prose-vs-blueprint contradiction; the blueprint wins in generation because the schema
+   fence is what an agent actually follows when writing the file. Frozen source L933
+   (`git show 192f852:stride-threat-model-prompt.md`, same line in the carved
+   phase-2c.md).
+2. **phase-3-html.md**: several mandatory HTML requirements -- the Reviewer metadata
+   block, the sticky left-sidebar TOC, the Disposition `<select>`/`<textarea>` form
+   controls, the RevisedPriority control, and the `Export dispositions.csv` button -- are
+   specified in prose OUTSIDE the numbered mandatory-sections list (the "Sections in
+   order... every numbered section below is MANDATORY" list). An agent that treats only
+   the numbered list as the completeness contract can miss these because they are
+   structurally outside it, even though the surrounding prose also uses MANDATORY-style
+   language.
+
+## Nuance-loss watchlist pass
+
+The reachability/Class A-G audit against the nuance-loss watchlist WAS performed for this
+pass -- by review, ahead of a field run -- and it produced Fixes 1-8 recorded in this task's
+commit, plus the two known-carried items above. Recorded here honestly: the original Task
+10 verification (Parts A-E above) did NOT perform this reachability audit; it verified
+carve fidelity (Operating Rule references, STATE.md wording, ASCII, word-diff, coverage)
+but did not check whether subagents that read only common.md + their own phase file(s) can
+actually reach every definition their schema requires them to apply, nor whether shell
+state assumptions hold across separate tool-call boundaries. This pass closes that gap.
+
+Class key (from the project's nuance-loss-watchlist taxonomy, issues #3-#27): (A) captured
+but never consumed; (B) instruction/display confusion; (C) rule over-applied cutting the
+legitimate case; (D) written where nobody looks; (E) defined but unreachable; (F) economy
+pressure eroding required content; (G) prose adjacent to a blueprint loses to the
+blueprint.
+
+Findings fixed in this pass, by class:
+
+- Fix 1 (SKILL_DIR / shell-state non-persistence across phase-0.md and phase-4.md
+  PowerShell blocks) -- Class E: $WORKSPACE/$PROJECT_NAME/$OUTPUT_ROOT/$SKILL_DIR are
+  defined in one PowerShell block but consumed in later, separate tool-call blocks that
+  do not inherit shell state -- the definition exists but is unreachable from where it
+  is used.
+- Fix 2 (partition-manifest.ps1 called with no SKILL_DIR prefix, resolving against the
+  assessed repo instead of the skill) -- Class B: the call is written inconsistently
+  with every sibling script call (which all use the `& $SKILL_DIR\scripts\...` form),
+  so an agent following it literally resolves the path against the wrong directory.
+- Fix 3 (Phase 1 partial agents' Partial Inventory Schema requires classifying every
+  element against definitions -- the component definition, the DS-vs-EXT test/fetch
+  trap, and the attribute field lists -- that lived only in phase-1-reconcile.md, a file
+  the partials never read) -- Class E: the governing definitions are defined, just not
+  in any file the 1A/1B/1C partial agents' declared reading list includes.
+- Fix 4 (five completion banners claim "STATE.md updated..." when the agent is
+  contractually forbidden from writing STATE.md) -- Class B: the banner display asserts
+  an action that contradicts the agent's own STATE.md-is-orchestrator-owned rule.
+- Fix 5 (SKILL.md's Phase 3 Disposition Discovery bullet compressed 63 frozen lines and
+  dropped the mandated exact-wording acknowledgments, the per-directory verbose
+  reporting requirement, and the Case C path-validation step) -- Class F: summarizing
+  the orchestrator-owned steps during the carve eroded mandated verbatim content that
+  has no completeness floor forcing it back in.
+- Fix 6 (common.md rule W lost the frozen Rule 7(c) prohibition on shell redirection/
+  heredoc writes, now a live risk given the harness's Bash tool) -- Class F: the
+  prohibition thinned out when Rule 7 was generalized into rule W during the carve.
+- Fix 7 (rule X's 15-line completion-summary cap collides with mandatory verbatim
+  payloads Phase 1 reconcile and Phase 4 must also return) -- Class C: the general
+  15-line cap, applied literally, cuts the legitimate case of a phase file that
+  mandates a verbatim banner plus payload.
+- Fix 8 (phase-3-dispositions.md's "per the table above" pointed at a table that is
+  physically below it, and gave the output path with no directory prefix) -- Class B
+  primarily (the self-reference points the wrong direction after the file was
+  reordered during the carve), with a secondary Class D flavor on the bare path (an
+  agent following it literally could write the file into the wrong location, i.e.
+  "where nobody looks" for it).
+
+Known-carried items above (both pre-existing in frozen v24, not introduced by the carve):
+
+- phase-2c.md Excluded Threats Ledger placement (prose says LAST, blueprint says third
+  of seven) -- Class G: this is the textbook case the taxonomy names -- required
+  content specified in free-floating prose next to a structural blueprint loses to the
+  blueprint at generation time.
+- phase-3-html.md mandatory requirements specified outside the numbered mandatory-
+  sections list -- Class G: same disease, same file family as the taxonomy's own
+  worked example (issue #30, the System Restatement render spec that sat outside the
+  HTML sections list).

@@ -114,6 +114,6 @@ File coverage reconciliation against 00-file-manifest.txt (this is the single-ru
 Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
 File coverage: <N> of <N> manifest files accounted for  |  Unaccounted: <N> (must be 0)
 System Restatement: draft recorded in 01-inventory.md (PENDING USER CONFIRMATION).
-STATE.md updated: phase-1 marked complete.
+Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

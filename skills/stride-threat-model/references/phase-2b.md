@@ -178,6 +178,6 @@ Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority
 Unverified candidates routed to ledger: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Stakeholder explainer: outputs/architecture-threat-explanation.html written
-STATE.md updated: phase-2b marked complete.
+Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

@@ -42,14 +42,18 @@ W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use
    changes to existing output. Create directories with New-Item -ItemType Directory
    -Force. (W-d) After every write, verify: Get-Item <file> | Select-Object Length,
    LastWriteTime and Get-Content <file> -TotalCount 3. Missing, zero bytes, or
-   unexpected first lines -> rewrite.
+   unexpected first lines -> rewrite. Never use >, >>, echo, cat, tee, bash heredocs,
+   or mkdir -p to write output files -- they bypass the ASCII and verification
+   contracts above.
 
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and
    return the question in your completion summary -- the orchestrator relays it.
    STATE.md is orchestrator-owned. Do not read-modify-write it. Your completion summary is <= 15
-   lines: the phase completion banner, files written with byte sizes (tool-computed),
-   any question or warning for the user, and -- if incomplete -- exactly what remains.
+   lines of your own prose, EXCLUDING the completion banner and any text your phase
+   file instructs you to return verbatim (those are never truncated): the banner,
+   files written with byte sizes (tool-computed), any question or warning for the
+   user, and -- if incomplete -- exactly what remains.
 
 8. **Output directory layout:**
    ```

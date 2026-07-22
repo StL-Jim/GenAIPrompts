@@ -13,7 +13,9 @@ rules bind everything you write too (ASCII, evidence, computed numbers).
 
 Definitions used below: SKILL_DIR = this skill's directory. WORKSPACE = current
 working directory (the repo under assessment). PROJECT_NAME = leaf directory name.
-OUTPUT_ROOT = {WORKSPACE}\{PROJECT_NAME}-threat-model.
+OUTPUT_ROOT = {WORKSPACE}\{PROJECT_NAME}-threat-model. Shell state does not persist
+between tool calls -- re-declare these as PowerShell variables inside each block that
+uses them, or substitute literal paths.
 
 ## Session Start (every session, first action)
 1. Print exactly one line: `Running stride-threat-model SKILL VERSION: <stamp above>`.
@@ -92,8 +94,9 @@ Launch a parallel group's agents in ONE message (multiple Agent calls). Wait for
 member before the next step. Groups write disjoint files; only you write STATE.md.
 
 ## Per-phase orchestrator duties
-- Phase 1 (group A): after Phase 0's GATE 1, run scripts/partition-manifest.ps1 if
-  phase-0 did not, then dispatch 1a/1b/1c together. If any returns incomplete
+- Phase 1 (group A): after Phase 0's GATE 1, run
+  `& $SKILL_DIR\scripts\partition-manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME`
+  if phase-0 did not, then dispatch 1a/1b/1c together. If any returns incomplete
   (remaining files listed), re-dispatch a continuation agent for that partition with
   the remaining list appended to its briefing. When all three verify, dispatch
   reconcile. On its return: relay the draft System Restatement to the user (GATE 2);
@@ -102,13 +105,29 @@ member before the next step. Groups write disjoint files; only you write STATE.m
 - Phase 2: dispatch 2a -> 2b -> 2c sequentially, auto-proceed (three-gates policy),
   verifying each output file (W-d) before the next. After 2c verify 02-threats.md
   exists and is at least the size of its three inputs combined.
-- Phase 3 Disposition Discovery (YOU, before group B): run
-  Get-ChildItem -Directory -Filter "$PROJECT_NAME-threat-model-*", check each for
-  dispositions.csv, then branch: Case A (none) print the acknowledgment and skip the
-  dispositions agent; Case B (found) dispatch phase-3-dispositions with the newest
-  file's path; Case C (dirs but no csv) ASK THE USER for a path or explicit skip --
-  never skip silently. GATE 3 has already passed at this point; after discovery (and
-  the dispositions agent, if any), dispatch group B.
+- Phase 3 Disposition Discovery (YOU, before group B). This step is mandatory, verbose,
+  and verifiable -- silent skip is not acceptable; the user needs visibility into what
+  discovery did, especially where it might have missed an existing dispositions file.
+  Step 1: run `Get-ChildItem -Directory -Filter "$PROJECT_NAME-threat-model-*"`. Step 2
+  (mandatory, verbose, and verifiable): for each matched directory, check whether it
+  contains dispositions.csv and report BOTH presence and last-modified timestamp per
+  directory. Then branch:
+  - Case A (Step 1 returned nothing): print exactly this acknowledgment --
+    "Phase 3 Disposition Discovery: searched workspace for archived threat model
+    directories matching '{PROJECT_NAME}-threat-model-*', none found. Proceeding
+    without disposition data." -- and skip the dispositions agent.
+  - Case B (at least one matched directory has a dispositions.csv): pick the most
+    recently modified one and report -- "Phase 3 Disposition Discovery: found
+    dispositions.csv at <relative path> (last modified <timestamp>, <N> disposition
+    entries). Applying matched dispositions to exports." -- then dispatch
+    phase-3-dispositions with that file's path.
+  - Case C (matched directories exist but none has a dispositions.csv): ASK THE USER
+    for a path or an explicit skip -- never skip silently. If the user supplies a
+    path, VALIDATE it (expected header row, at least one data row) before dispatching
+    phase-3-dispositions; if invalid, re-prompt with the specific error. Only an
+    explicit user instruction to proceed without disposition data skips validation.
+  GATE 3 has already passed at this point; after discovery (and the dispositions
+  agent, if any), dispatch group B.
 - Phase 4 return: paste the validation output from the agent's banner verbatim. If any
   file reports PARSE FAIL or nonzero bad refs, re-dispatch phase-4 for the failing
   file(s) -- a failing diagram is not done.

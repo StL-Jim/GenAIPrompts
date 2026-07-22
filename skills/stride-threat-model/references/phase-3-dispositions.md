@@ -28,6 +28,6 @@ This reporting is critical for the user to understand what dispositions transfer
 
 If a matched disposition entry has different OriginalPriority and RevisedPriority values, the team revised the rating during a prior stakeholder review. Both values carry forward: the threat's effective Priority becomes the RevisedPriority, and the OriginalPriority is preserved for display alongside it. If the values are equal, no revision was made and the current Priority is used as-is.
 
-Write every high-confidence match to 03-dispositions-matched.md per the table above; low/medium-confidence candidates are listed below the table under '## Not Transferred' with one-line reasons. Return the match report line.
+Write every high-confidence match to {PROJECT_NAME}-threat-model/03-dispositions-matched.md per the table below; low/medium-confidence candidates are listed below the table under '## Not Transferred' with one-line reasons. Return the match report line.
 
 | ThreatID | OriginalPriority | RevisedPriority | Disposition | DispositionRationale |

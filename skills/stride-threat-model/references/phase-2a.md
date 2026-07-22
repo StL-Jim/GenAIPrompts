@@ -81,6 +81,6 @@ Write the file with the Write tool. Return your completion banner to the orchest
 ```
 === PHASE 2A COMPLETE: 02a-context.md WRITTEN ===
 Assets: <N>  |  Trust boundaries: <N>  |  Data flows: <N>  |  Boundary-crossing flows: <N>
-STATE.md updated: phase-2a marked complete.
+Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

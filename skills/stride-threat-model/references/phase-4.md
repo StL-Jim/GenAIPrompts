@@ -86,7 +86,13 @@ Content selection is MECHANICAL for diagrams 1, 2, and 4 -- what appears is a fu
 
 Run this after all four files exist; paste its OUTPUT into the completion banner verbatim (Operating Rule 15). A PARSE FAIL is the unescaped-character failure that makes a file unloadable on the desktop -- fix the file and re-run until every line is clean; never leave a failing file for the user to discover:
 
+Set $SKILL_DIR, $WORKSPACE, and $PROJECT_NAME from the values your briefing names, in the same block as the call (shell state does not persist between tool calls):
+
 ```powershell
+$SKILL_DIR    = '<SKILL_DIR from your briefing>'
+$WORKSPACE    = '<WORKSPACE from your briefing>'
+$PROJECT_NAME = '<PROJECT_NAME from your briefing>'
+
 & $SKILL_DIR\scripts\validate-drawio.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
 ```
 
@@ -103,7 +109,7 @@ Return your completion banner to the orchestrator (it owns STATE.md).
   .\{PROJECT_NAME}-threat-model\diagrams\dfd.drawio
 Validation output (pasted verbatim from the Validation step):
 <paste the per-file validation lines here -- every file parsed OK, bad refs 0, counts reconciled>
-STATE.md updated: phase-4 marked complete. Threat model run is finished.
+Phase status reported to orchestrator (it owns STATE.md). Threat model run is finished.
 ```
 
 ## Archiving Reminder (returned to the orchestrator)

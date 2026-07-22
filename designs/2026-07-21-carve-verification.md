@@ -295,6 +295,31 @@ and left unfixed rather than corrected during this conversion.
    only in prose (00-discovery.md / 00-scope.md) rather than as 00-resources.txt rows,
    since none of the 11 controlled types fit.
 
+The two items below surfaced from the Task 11 Stage 2 smoke test (real execution of
+Phase 1B against a fixture repo -- see `.superpowers/sdd/task-11-stage2-log.md`). Each
+is verbatim from frozen v24 / inherent to the source methodology, not something the
+conversion introduced, so per the same reasoning as items 1-5 they are documented here
+and left unfixed as out of scope for this port.
+
+6. **Component "Type" enum is open-ended**: the enum (`web-app | api-service | worker
+   | database | cache | queue | managed-service | gateway | identity-provider |
+   external-saas | cli | job | lambda | frontend-spa | ...`) ends in an open "...", with
+   no guidance on how to extend it. This is in tension with Operating Rule 5's
+   determinism requirement ("Deterministic IDs... stable across re-runs"): two
+   independent runs can label the same element with two different extension values
+   (e.g. one run choosing "ci-cd-pipeline" and another choosing something else for the
+   same CI/CD workflow file), which shows up as a spurious diff on re-run even though
+   nothing about the element itself changed.
+7. **Whether a CI/CD pipeline is a Component is not decidable from the component
+   definition alone**: the Component definition's test is "processes, stores, or
+   mediates this system's data," and a deploy pipeline (e.g. a GitHub Actions workflow)
+   handles deployment credentials and build artifacts, not application data -- so the
+   definition's literal wording would exclude it. In the Stage 2 smoke test the agent
+   classified the workflow as a component only because Phase 0's 00-scope.md had
+   already listed it under "In-scope components"; without that prior Phase 0 artifact,
+   phase-1-shared.md's own definition text would not have told the agent whether a
+   secrets-handling CI/CD pipeline counts as a Component.
+
 ## Nuance-loss watchlist pass
 
 The reachability/Class A-G audit against the nuance-loss watchlist WAS performed for this

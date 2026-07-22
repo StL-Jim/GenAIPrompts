@@ -21,11 +21,11 @@ EXCLUDED from all Phase 1 passes, regardless of how plausible the filenames look
 
 ## Element Classification (binding on all Phase 1 passes)
 
-The definitions below are adapted from the Section 2/3/4/5 schema in
-phase-1-reconcile.md -- the reconciliation agent still owns the full inventory schema
-and ID assignment, but every partial pass classifies elements against this same
-definition, so it is reproduced here rather than left as a pointer to a file partials
-never read.
+These definitions are reproduced here in full, not left as a pointer, because a
+partial-pass agent never reads phase-1-reconcile.md. The reconciliation agent later
+expands these same fields into that file's Section 2/3/4/5 inventory schema and
+assigns IDs -- classifying against this copy is what keeps partial records merging
+cleanly at reconciliation.
 
 ### Component definition
 
@@ -64,23 +64,29 @@ External integration:
 - Data exchanged: (brief description and classification)
 - Evidence: [evidence: src/clients/payment_gateway.go:12-44]
 
-Trust boundary: a trust boundary exists wherever data crosses between principals with
-different trust levels. At minimum consider:
-- Internet -> edge (WAF/LB/CDN)
-- Edge -> application tier
-- Application tier -> data tier
-- Application -> external SaaS
-- Privileged admin plane vs. user plane
-- Tenant boundaries (if multi-tenant)
-- Build/deploy plane vs. runtime plane
-Each TB entry must cite the evidence that establishes it (e.g., the Terraform security group, the k8s NetworkPolicy, or the absence thereof).
+Trust boundary evidence:
+- Type: (Internet -> edge (WAF/LB/CDN) | edge -> application tier | application
+  tier -> data tier | application -> external SaaS | privileged admin plane vs.
+  user plane | tenant boundary (if multi-tenant) | build/deploy plane vs.
+  runtime plane | ...) -- a trust boundary exists wherever data crosses between
+  principals with different trust levels; at minimum consider these crossings,
+  and add others found
+- Boundary: (what is on each side of the crossing -- the principals, tiers, or
+  systems involved)
+- Establishing control: (the control that establishes the boundary, e.g. the
+  Terraform security group, the k8s NetworkPolicy) -- or, if none exists, state
+  the absence explicitly
+- Evidence: [evidence: path/to/terraform/security_group.tf:1-20]
 
 ## Partition Contract (parallel passes)
 Phase 1 runs as three parallel agents, one per manifest partition (docs / iac / rest,
 written by scripts/partition-manifest.ps1). Your accounting universe is YOUR partition
 file: every file in it ends as read-and-assigned or skip-bucketed, per the coverage
 rules above. You may READ any file in the repo for context (a doc references code, IaC
-references an app dir), but you ACCOUNT only for your partition. Do not assign final
+references an app dir), but you ACCOUNT only for your partition. Files read for context
+that belong to another partition are listed separately under this partial's "Files
+read" accounting, marked as context-only, and are NOT counted in this partition's
+accounting totals. Do not assign final
 IDs -- the reconciliation agent discovers all elements first, sorts alphabetically by
 canonical name, then numbers (the fixed-sort rule requires the full set). Refer to
 elements by canonical name.
@@ -97,6 +103,8 @@ elements by canonical name.
 - Read and assigned: <N> | Skip-bucketed: tests <N>, generated <N>, vendored-third-party <N>, build-config <N>, docs <N>, assets/static <N>, non-production <N> | Unaccounted: <N>
 - Skip-bucket dependency check: <none | list>
 - Files read: <list>
+- Context-only reads (outside partition, NOT counted above): <none | list, each
+  marked context-only>
 ## Comprehension Delta Candidates (referenced but NOT in 00-discovery.md)
 - <name> -- [evidence: ...]
 ## Notes for Reconciliation

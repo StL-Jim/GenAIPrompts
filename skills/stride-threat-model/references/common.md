@@ -46,6 +46,17 @@ W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use
    or mkdir -p to write output files -- they bypass the ASCII and verification
    contracts above.
 
+   Shell state does not persist. Every PowerShell block runs in a FRESH shell --
+   variables set in one block are gone in the next. Any block that uses $WORKSPACE,
+   $PROJECT_NAME, $OUTPUT_ROOT, or $SKILL_DIR must declare them at the top of that
+   same block, from the values your briefing names:
+   ```powershell
+   $WORKSPACE    = '<workspace path from your briefing>'
+   $PROJECT_NAME = '<project name from your briefing>'
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<skill dir from your briefing>'
+   ```
+
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and
    return the question in your completion summary -- the orchestrator relays it.

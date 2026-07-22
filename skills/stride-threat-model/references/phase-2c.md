@@ -87,6 +87,8 @@ Steps:
 
 3. Concatenate header + three sub-files into `02-threats.md` using PowerShell:
    ```powershell
+   $WORKSPACE    = '<workspace path from your briefing>'
+   $PROJECT_NAME = '<project name from your briefing>'
    $outDir = ".\$PROJECT_NAME-threat-model"
    Get-Content `
      "$outDir\02-header.md",

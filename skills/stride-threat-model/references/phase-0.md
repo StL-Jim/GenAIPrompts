@@ -23,7 +23,7 @@
    "CURRENT_DATE = $CURRENT_DATE"
    ```
 
-   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so the four variables above must be re-declared at the top of EVERY later PowerShell block in this phase. The re-declaration prelude is:
+   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so WORKSPACE, PROJECT_NAME, and OUTPUT_ROOT must be re-declared at the top of EVERY later PowerShell block in this phase, alongside SKILL_DIR (CURRENT_DATE is not part of this prelude -- re-run Get-Date where needed instead). The re-declaration prelude is:
    ```powershell
    $WORKSPACE    = (Get-Location).Path
    $PROJECT_NAME = Split-Path -Leaf $WORKSPACE

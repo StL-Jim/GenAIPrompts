@@ -6,13 +6,13 @@
 - (a) IN SCOPE -- assigned to a component/data-store/integration. An in-scope file MUST be OPENED AND READ, not labeled from its path or filename. READING IT IS THE POINT: it is how you extract the resource references, integrations, data stores, and secrets defined inside. Classifying a file into a component WITHOUT opening it is not accounting for it -- it is guessing from the filename, and it is the exact failure that lets a data store or integration referenced inside that file vanish silently (assigning 71 files to components but reading only 16 is NOT coverage). Rule: if you assigned a file to a component, you have opened and read it. No exceptions.
 - (b) SKIP-BUCKET -- a named, one-line-reasoned bucket rolled up by category so it stays cheap: `tests`, `generated`, `vendored-third-party`, `build-config`, `docs`, `assets/static`, `non-production` (per Operating Rule 13). Only skip-bucket files may be labeled without a full read. Skip-buckets are CONSERVATIVE: when unsure whether a file is relevant, READ it -- do not skip it. And before finalizing, DEPENDENCY-CHECK the skip-buckets: if any skip-bucketed file references an external integration, data store, or secret, that referenced resource is still IN SCOPE for the inventory even though the file itself is not threat-walked -- capture it (this is how skipped files silently drop real integrations).
 
-A file in neither state is UNACCOUNTED -- a rule violation. Operating Rule 9 governs HOW you read a large in-scope file (targeted ranges, not whole-file dumps) but NEVER whether you read it. The Coverage Report (the Coverage Report, reconciled by the reconciliation agent) reconciles BOTH accounting and READING -- and the reading line (in-scope files opened vs. in-scope files that exist) is the one that actually forces depth; a large gap there is the signal that you classified instead of read.
+A file in neither state is UNACCOUNTED -- a rule violation. Operating Rule 9 governs HOW you read a large in-scope file (targeted ranges, not whole-file dumps) but NEVER whether you read it. The Coverage Report (reconciled by the reconciliation agent) reconciles BOTH accounting and READING -- and the reading line (in-scope files opened vs. in-scope files that exist) is the one that actually forces depth; a large gap there is the signal that you classified instead of read.
 
 **ENUMERATE BY IDENTITY (semantic completeness -- the complement to file coverage above).** Opening every file is necessary but not sufficient: one file can contain many elements, and file-accounting does not by itself force you to list them all. So the inventory MUST enumerate every instance of every element type -- every component, data store, external integration, trust boundary, and secret location -- by its concrete identity, never by a count or a generic quantifier. "Several agents" / "various services" / "multiple queues" / "etc." in place of a full list is a rule violation, not shorthand: enumerate them (`Select-String` the pattern, read the ranges, list each). This phase OWNS the complete enumeration -- do not assume Phase 0 captured every instance; Phase 0 named what is in bounds, this inventory names and evidences every one.
 
 **COMPREHENSION CROSS-CHECK (Phase 1's own discovery -- a second pass by a DIFFERENT mechanism than Phase 0's grep).** Do not merely inherit 00-discovery.md. Phase 0's sweep is PATTERN-based: exhaustive for literal matches, but blind to references no pattern can catch -- a resource name built dynamically (`f"{prefix}-{env}-data"`), a dependency mentioned only in prose or a comment, a reference split across lines. You are already READING every in-scope file deeply (above), which is a DIFFERENT discovery mechanism: comprehension. Use it deliberately. As you read, extract every external service / data store / integration / endpoint you UNDERSTAND to be referenced -- whether or not it would match a pattern -- and cross-check each against 00-discovery.md:
 - Already in 00-discovery.md: it is confirmed.
-- NOT in 00-discovery.md: a real find the sweep missed. Add it to the inventory AND record it in the Phase 1 Discovery Delta (Coverage Report, section 7), flagged as found-by-comprehension. If it is scope-relevant (a component/integration the approved scope did not include), surface it to the user before finalizing -- do not silently expand the scope they signed off on.
+- NOT in 00-discovery.md: a real find the sweep missed. Add it to the inventory AND record it under this partial agent's own "## Comprehension Delta Candidates" section, flagged as found-by-comprehension -- the reconciliation agent consolidates these into the Coverage Report's Discovery Delta. If it is scope-relevant (a component/integration the approved scope did not include), surface it to the user before finalizing -- do not silently expand the scope they signed off on.
 This is defense-in-depth, NOT permission for Phase 0 to be incomplete (scope still depends on Phase 0's sweep being complete). And every delta item is a signal about which Phase 0 pattern or mechanism to strengthen -- the grep pass and the comprehension pass have different blind spots, so running both catches more than either alone, and each delta makes the other better.
 
 **Reminder:** Every file read in this phase targets the current workspace (which IS the source repo). Use the Read tool for specific files and Glob for directory listings per common.md rule R. Use PowerShell `Select-String` when you need to search across the repo for patterns, and `Get-Content ... | Select-Object -Skip -First` when you need a line range of a large file.
@@ -21,7 +21,7 @@ EXCLUDED from all Phase 1 passes, regardless of how plausible the filenames look
 
 ## Element Classification (binding on all Phase 1 passes)
 
-The definitions below are copied verbatim from the Section 2/3/4/5 schema in
+The definitions below are adapted from the Section 2/3/4/5 schema in
 phase-1-reconcile.md -- the reconciliation agent still owns the full inventory schema
 and ID assignment, but every partial pass classifies elements against this same
 definition, so it is reproduced here rather than left as a pointer to a file partials
@@ -45,7 +45,7 @@ Component:
 - Evidence: [evidence: path/to/main.go:1-40]
 - Responsibilities:
 - Entry points:
-- Dependencies (other components): [C-002, C-005]
+- Dependencies (other components): [canonical names -- reconciliation converts these to C-NNN IDs]
 - Data handled: (PII | credentials | financial | health | telemetry | public | ...)
 - Runs as: (user/service account, container, lambda, ...)
 

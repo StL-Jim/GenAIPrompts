@@ -48,9 +48,9 @@ foreach ($rel in $manifest) {
     }
 }
 
-$docs | Set-Content "$out\00-manifest-docs.txt" -Encoding UTF8
-$iac  | Set-Content "$out\00-manifest-iac.txt" -Encoding UTF8
-$rest | Set-Content "$out\00-manifest-rest.txt" -Encoding UTF8
+$docs | Set-Content "$out\00-manifest-docs.txt" -Encoding ASCII
+$iac  | Set-Content "$out\00-manifest-iac.txt" -Encoding ASCII
+$rest | Set-Content "$out\00-manifest-rest.txt" -Encoding ASCII
 
 $total = $docs.Count + $iac.Count + $rest.Count
 $manifestTotal = $manifest.Count

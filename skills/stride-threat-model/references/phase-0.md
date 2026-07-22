@@ -23,23 +23,29 @@
    "CURRENT_DATE = $CURRENT_DATE"
    ```
 
-   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so WORKSPACE, PROJECT_NAME, and OUTPUT_ROOT must be re-declared at the top of EVERY later PowerShell block in this phase, alongside SKILL_DIR (CURRENT_DATE is not part of this prelude -- re-run Get-Date where needed instead). The re-declaration prelude is:
+   This is the ONLY block in this phase that derives WORKSPACE from `(Get-Location).Path`. Note the printed WORKSPACE and PROJECT_NAME values (and the SKILL_DIR path given in SKILL.md) as literal strings now -- every later block in this phase substitutes them as literals instead of re-deriving them.
+
+   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so WORKSPACE, PROJECT_NAME, OUTPUT_ROOT, and SKILL_DIR must be re-declared at the top of EVERY later PowerShell block in this phase, using the literal values just printed (CURRENT_DATE is not part of this prelude -- re-run Get-Date where needed instead). Never re-derive WORKSPACE from `(Get-Location)` in a later block -- the working directory does not reliably persist between tool calls, and a wrong value silently writes this run's artifacts into a different repository. The re-declaration prelude is:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
    ```
-   Substitute the literal SKILL_DIR path; it is the directory containing SKILL.md.
+   Substitute all three literal paths -- WORKSPACE and PROJECT_NAME from step 1's printed output, SKILL_DIR from SKILL.md (the directory containing it).
 
    If `PROJECT_NAME` does not match what the user expects (e.g., they opened a parent folder by accident), STOP and ask them to re-open the correct workspace before continuing.
 
 2. **Create the output directory tree** inside the workspace:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
+
+   if (-not (Test-Path (Join-Path $WORKSPACE '.git'))) {
+       throw "WORKSPACE '$WORKSPACE' has no .git -- this looks like a mistargeted path (wrong repo), not the intentional non-git-repo case step 1 already warned about. Re-check the literal WORKSPACE value from step 1 before continuing."
+   }
 
    New-Item -ItemType Directory -Path $OUTPUT_ROOT -Force | Out-Null
    New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'diagrams') -Force | Out-Null
@@ -49,10 +55,10 @@
 
 3. **Exclude the output directory from the source repo's git tracking** using the repo-local, un-committed exclude file. This keeps the threat model artifacts from accidentally appearing in a commit, diff, or PR against the source repo, without modifying any file that would itself need to be committed (important at a regulated org where modifying `.gitignore` may require code review). The pattern is a WILDCARD, not an exact name, because the Archiving instructions (end of Phase 4) rename this directory with a date suffix (`{PROJECT_NAME}-threat-model-yyyyMMdd`) for reuse across runs -- an exact-name entry would stop covering the directory the moment it is archived, silently exposing it to `git status` and a future accidental `git add`:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
 
    $excludeFile = Join-Path $WORKSPACE '.git\info\exclude'
    if (Test-Path $excludeFile) {
@@ -75,10 +81,10 @@
 
 5. **Produce a top-level repo map** using PowerShell for a full listing:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
 
    Get-ChildItem -Path $WORKSPACE -Force |
      Where-Object { $_.Name -ne "$PROJECT_NAME-threat-model" -and $_.Name -ne '.git' } |
@@ -95,10 +101,10 @@
 5a. **Produce a COMPLETE recursive file manifest** -- this is the ground truth Phase 1 must account for, and it is what makes a single run's coverage self-evident instead of only knowable by comparing against a prior run. Enumerate every file (paths only -- no reading, so this is cheap even on large repos), excluding the tool-state and vendored directories that never generate threats:
    Run the extracted script and paste its output:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
 
    & $SKILL_DIR\scripts\manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
    ```
@@ -166,10 +172,10 @@
 
    Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, common.md rule R (cap litmus)), no per-line narration; this whole pass is one code block:
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the SKILL_DIR path given in SKILL.md>'
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
 
    & $SKILL_DIR\scripts\sweep.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
    ```

@@ -28,5 +28,5 @@ $manifest = Get-ChildItem -Path $WORKSPACE -Recurse -File -Force |
            ($rel -match "(^|\\)($anyDepthExclude)(\\|$)") )
   } |
   ForEach-Object { $_.FullName.Substring($WORKSPACE.Length).TrimStart('\') -replace '\\','/' }
-$manifest | Set-Content "$outDir\00-file-manifest.txt" -Encoding UTF8
+$manifest | Set-Content "$outDir\00-file-manifest.txt" -Encoding ASCII
 "Manifest file count: $($manifest.Count)"

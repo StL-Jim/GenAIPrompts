@@ -40,9 +40,9 @@ foreach ($p in $patterns) {
     $all += $m
 }
 $all | ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" } |
-  Sort-Object -Unique | Set-Content "$out\00-discovery-raw.txt"
+  Sort-Object -Unique | Set-Content "$out\00-discovery-raw.txt" -Encoding ASCII
 $all | Group-Object Path | Sort-Object Count -Descending |
-  ForEach-Object { "$($_.Count)`t$($_.Name)" } | Set-Content "$out\00-density.txt"
+  ForEach-Object { "$($_.Count)`t$($_.Name)" } | Set-Content "$out\00-density.txt" -Encoding ASCII
 $cand = @()
 $cand += $all.Matches.Value
 $cand += $all | ForEach-Object { [regex]::Matches($_.Line, '"([^"\s]{3,80})"|''([^''\s]{3,80})''') |
@@ -50,5 +50,5 @@ $cand += $all | ForEach-Object { [regex]::Matches($_.Line, '"([^"\s]{3,80})"|''(
 $cand += $all | ForEach-Object { [regex]::Matches($_.Line, '[=:]\s*["'']?([A-Za-z0-9][A-Za-z0-9._/-]{2,79})') |
     ForEach-Object { $_.Groups[1].Value } }
 $cand = $cand | Where-Object { $_ } | Sort-Object -Unique
-$cand | Set-Content "$out\00-candidates.txt"
+$cand | Set-Content "$out\00-candidates.txt" -Encoding ASCII
 "Candidates (tool-computed): $($cand.Count)"

@@ -244,7 +244,7 @@ examples; the "only phase-4.md" framing in this task's brief was incomplete, not
 
 ## Known-carried defects (pre-existing in frozen v24, deliberately NOT fixed)
 
-Reason for both: the conversion freezes methodology at v24; these are pre-existing source
+Reason for all: the conversion freezes methodology at v24; these are pre-existing source
 defects to fix in a later methodology change, not during the port.
 
 1. **phase-2c.md**: prose says write the Excluded Threats Ledger as the LAST section of
@@ -264,6 +264,36 @@ defects to fix in a later methodology change, not during the port.
    the numbered list as the completeness contract can miss these because they are
    structurally outside it, even though the surrounding prose also uses MANDATORY-style
    language.
+
+The three items below surfaced from the Task 11 Stage 1 smoke test (real execution of
+Phase 0 against a fixture repo -- see `.superpowers/sdd/task-11-stage1-report.md`). Each
+is a source pattern or template carved verbatim from frozen v24, not something the
+conversion introduced, so per the same reasoning as items 1-2 they are documented here
+and left unfixed rather than corrected during this conversion.
+
+3. **sweep.ps1 / phase-0.md Pass 2, bare-hostname pattern**: the TLD alternation
+   `([a-z0-9-]+\.)+(com|net|org|io|cloud|internal|corp|local|gov|mil|edu|us)` has no
+   trailing word boundary, so `.us` (the United States ccTLD) false-matches ordinary
+   identifiers shaped like `<word>.us...` -- e.g. `request.user_id` in Python produces
+   the spurious candidate `request.us`. This adds junk candidates the refinement step
+   must triage one at a time (rule: never dismiss a name unread), which on a larger repo
+   with many `.user`/`.usage`/`.used`-style identifiers scales into a proportionally
+   large amount of noise. Frozen source pattern, Phase 0 Pass 2.
+4. **phase-0.md Phase 0 Completion Banner, hardcoded "10/10"**: the banner template
+   line reads `top-10 density files read: <10/10>`, which is inapplicable on any repo
+   small enough that fewer than 10 files register any sweep match at all -- common for
+   small fixture or microservice repos. The true denominator should be substituted
+   (e.g. 9/9), not the literal template text.
+5. **00-resources.txt fixed type vocabulary, no type for an individual secret or an
+   IAM role/policy**: step 7's Pass 1 instruction and step 7.5's self-audit both require
+   enumerating secrets/credentials and services by concrete identity, but the
+   00-resources.txt controlled type vocabulary
+   (`bucket|table|database|queue|topic|cache|agent|external-api|identity-provider|
+   secret-store|service|other`) has no `secret`/`credential` type for an individually
+   discovered secret value (only `secret-store`, a secret-management service like
+   Vault), and no clean type for an IAM role or policy either. Both end up documented
+   only in prose (00-discovery.md / 00-scope.md) rather than as 00-resources.txt rows,
+   since none of the 11 controlled types fit.
 
 ## Nuance-loss watchlist pass
 

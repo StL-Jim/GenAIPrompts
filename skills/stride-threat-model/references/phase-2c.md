@@ -97,7 +97,7 @@ Steps:
    Remove-Item "$outDir\02-header.md"
    ```
 
-4. Verify per Operating Rule 7(d). If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all sub-files and write the concatenation manually -- that defeats the purpose.
+4. Verify per common.md rule W-d. If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all sub-files and write the concatenation manually -- that defeats the purpose.
 
 Return your completion banner to the orchestrator (it owns STATE.md).
 

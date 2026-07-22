@@ -47,14 +47,14 @@ W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and
    return the question in your completion summary -- the orchestrator relays it.
-   STATE.md is orchestrator-owned: never write it. Your completion summary is <= 15
+   STATE.md is orchestrator-owned. Do not read-modify-write it. Your completion summary is <= 15
    lines: the phase completion banner, files written with byte sizes (tool-computed),
    any question or warning for the user, and -- if incomplete -- exactly what remains.
 
 8. **Output directory layout:**
    ```
    {PROJECT_NAME}-threat-model/
-     STATE.md                          (run-state file, see Operating Rule 12)
+     STATE.md                          (run-state file, see the STATE.md schema in SKILL.md)
      00-scope.md                       (Phase 0)
      00-file-manifest.txt              (Phase 0: complete recursive file list Phase 1 must account for)
      00-discovery.md                   (Phase 0: exhaustive external-reference sweep -- the authoritative "what exists" list)

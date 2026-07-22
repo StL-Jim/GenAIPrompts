@@ -106,4 +106,14 @@ File coverage reconciliation against 00-file-manifest.txt (this is the single-ru
 - Known gaps: <list -- e.g. very large files read only in targeted ranges; carried into the Phase 2C Coverage and Known Gaps section for the report>
 ```
 
-**Phase 1 completion gate (resume until complete).** Before marking phase-1 complete, check the Coverage Report reconciliation. If Unaccounted > 0 because you ran out of room -- not because those files legitimately belong in a skip-bucket -- Phase 1 is INCOMPLETE. Do NOT rationalize the remaining files into skip-buckets to force the count to zero, and do NOT proceed to Phase 2 on a partial inventory. Instead, write what you have to 01-inventory.md so far, and RETURN the still-unaccounted manifest files (<list or count>) to the orchestrator in your completion summary so it can re-dispatch a continuation covering exactly those files. STATE.md is orchestrator-owned. Do not read-modify-write it; the orchestrator marks phase status. Phase 1 is a resumable, multi-session phase whenever the repo is large -- running out of room is normal and is handled by continuing, never by skimming or by mislabeling unread files as skipped. Mark phase-1 `complete` ONLY when Unaccounted = 0: every manifest file is genuinely assigned to a component/store/integration or to a legitimately-reasoned skip-bucket.
+**Phase 1 completion gate (resume until complete).** Before marking phase-1 complete, check the Coverage Report reconciliation. If Unaccounted > 0 because you ran out of room -- not because those files legitimately belong in a skip-bucket -- Phase 1 is INCOMPLETE. Do NOT rationalize the remaining files into skip-buckets to force the count to zero, and do NOT proceed to Phase 2 on a partial inventory. Instead, write what you have to 01-inventory.md so far, and RETURN the still-unaccounted manifest files (<list or count>) to the orchestrator in your completion summary so it can re-dispatch a continuation covering exactly those files. STATE.md is orchestrator-owned. Do not read-modify-write it. The orchestrator marks phase status. Phase 1 is a resumable, multi-session phase whenever the repo is large -- running out of room is normal and is handled by continuing, never by skimming or by mislabeling unread files as skipped. Mark phase-1 `complete` ONLY when Unaccounted = 0: every manifest file is genuinely assigned to a component/store/integration or to a legitimately-reasoned skip-bucket.
+
+**Phase 1 Completion Banner:**
+```
+=== PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
+Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+File coverage: <N> of <N> manifest files accounted for  |  Unaccounted: <N> (must be 0)
+System Restatement: draft recorded in 01-inventory.md (PENDING USER CONFIRMATION).
+STATE.md updated: phase-1 marked complete.
+Return this banner verbatim as the end of your completion summary.
+```

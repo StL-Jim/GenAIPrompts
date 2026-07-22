@@ -134,7 +134,7 @@
 
    These nine patterns are implemented in scripts/sweep.ps1; to extend them per-stack, note the additions in 00-discovery.md and run the extra patterns with Select-String, appending to the artifacts.
 
-   Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, Operating Rule 6c), no per-line narration; this whole pass is one code block:
+   Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, common.md rule R (cap litmus)), no per-line narration; this whole pass is one code block:
    ```powershell
    & $SKILL_DIR\scripts\sweep.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
    ```

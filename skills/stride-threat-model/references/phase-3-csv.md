@@ -43,6 +43,13 @@ Header row must include both columns; data rows have either populated values or 
 - Use RFC 4180 escaping. Fields containing commas, quotes, or newlines must be wrapped in double-quotes; embedded double-quotes become `""`.
 - Replace internal newlines in multi-line fields with ` | ` (space-pipe-space) so Excel cells stay single-line -- important for the Description and Mitigation columns where cells can get long.
 - ASCII-only content per Operating Rule 14. With pure ASCII there is no BOM concern; Excel and other consumers will render correctly without encoding fallback issues.
-- Write with the Write tool per the decision table in Operating Rule 7. PowerShell + `Out-File` is the fallback only if the Write tool fails (e.g., on very long content).
+- Write with the Write tool per the decision table in common.md rule W. PowerShell + `Out-File` is the fallback only if the Write tool fails (e.g., on very long content).
 
 After writing, validate by reading the first 3 lines with `Get-Content -TotalCount 3` and print them so the user can confirm the header row and the first data row look right.
+
+**Phase 3B Completion Banner:**
+```
+=== PHASE 3B COMPLETE: outputs/threats.csv WRITTEN ===
+Threat count: <N>  |  Priority 1: <N>  |  Priority 2: <N>
+Return this banner verbatim as the end of your completion summary.
+```

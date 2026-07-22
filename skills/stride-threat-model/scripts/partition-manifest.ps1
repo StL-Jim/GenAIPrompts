@@ -1,5 +1,5 @@
-# skills/stride-threat-model/scripts/partition-manifest.ps1
 # SKILL VERSION: v25-skill (2026-07-21a)
+# skills/stride-threat-model/scripts/partition-manifest.ps1
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
   [Parameter(Mandatory=$true)][string]$ProjectName

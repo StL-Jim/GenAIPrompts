@@ -169,7 +169,7 @@ For each threat in the table above, explain why it is an architecture-level find
 
 Write as a single self-contained HTML file (inline `<style>`, no external CSS/JS), ASCII-only per Operating Rule 14. Plain and simple -- this is a leave-behind for conversations, not the main report. It carries the AI-generation disclosure banner as the first child of `<body>` per Operating Rule 16 (it is a stakeholder deliverable).
 
-Write with the Write tool. Verify per Operating Rule 7(d).
+Write with the Write tool. Verify per common.md rule W-d.
 
 **Phase 2B Completion Banner:**
 ```

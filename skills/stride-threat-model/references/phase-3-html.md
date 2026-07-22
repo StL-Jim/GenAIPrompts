@@ -20,7 +20,7 @@ If 03-dispositions-matched.md exists, read it; its rows are the matched disposit
 
 ### 3A -- HTML
 
-Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using the Write tool with the complete HTML content in a single call (per the decision table in Operating Rule 7).
+Produce `.\{PROJECT_NAME}-threat-model\outputs\threat-model.html` using the Write tool with the complete HTML content in a single call (per the decision table in common.md rule W).
 
 CRITICAL: produce the Write tool call with minimal preamble. Acknowledge the threat count in one line, then go directly to the tool call. Do not write planning notes or section descriptions before generating the HTML -- every line of preamble consumes output budget that should go into the file content.
 
@@ -98,4 +98,11 @@ At the top of the Threats section, render an `Export dispositions.csv` button wi
 
 Add `@media print` CSS so dropdowns render without the arrow chrome and textareas expand to show full content without scrollbars -- the printed PDF should look like a completed form, not a screenshot of input controls.
 
-Verify per Operating Rule 7(d) after writing. If the file is missing or truncated, retry the Write tool call.
+Verify per common.md rule W-d after writing. If the file is missing or truncated, retry the Write tool call.
+
+**Phase 3A Completion Banner:**
+```
+=== PHASE 3A COMPLETE: outputs/threat-model.html WRITTEN ===
+Threat count: <N>  |  Priority 1: <N>  |  Priority 2: <N>
+Return this banner verbatim as the end of your completion summary.
+```

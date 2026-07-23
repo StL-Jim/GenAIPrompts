@@ -3,13 +3,19 @@
 Read common.md, phase-1-shared.md, STATE.md, 00-scope.md, 00-discovery.md, 00-file-manifest.txt, 01a-partial.md, 01b-partial.md, and 01c-partial.md.
 
 ## Reconciliation Procedure (in order)
-1. Merge: union the Elements Found sections of the three partials. Dedupe by canonical
-   name and evidence overlap; consult each partial's Notes for Reconciliation. A store
-   found in IaC (1B) and referenced in code (1C) is ONE element with both citations.
+1. Merge: union the Elements Found sections of the three partials, including
+   documentation-artifact records. Dedupe by canonical name and evidence overlap;
+   consult each partial's Notes for Reconciliation. A store found in IaC (1B) and
+   referenced in code (1C) is ONE element with both citations. When partials disagree
+   on component granularity (one partition split what another merged -- e.g. the docs
+   partition recorded three components where the source partition recorded one),
+   apply the Component granularity rule from phase-1-shared.md to settle it: collapse
+   to one component when the modules share a deployable and entry-point, keeping
+   every partition's evidence citations and dependencies on the merged element.
 2. Apply the Section 2 component definition to the merged set: every data store,
    managed service, queue, cache, gateway, and identity provider is ALSO a component.
 3. Assign IDs by the fixed-sort rule: sort each class alphabetically by canonical
-   name, then number C-001..., DS-001..., EXT-001..., TB-001...
+   name, then number C-001..., DS-001..., EXT-001..., TB-001..., DOC-001...
 4. Coverage: sum the three Partition File Accounting blocks; the three partition
    counts must sum to the manifest total (paste the partition-manifest.ps1
    reconciliation line, or recompute with (Get-Content ...).Count). Total Unaccounted
@@ -17,16 +23,20 @@ Read common.md, phase-1-shared.md, STATE.md, 00-scope.md, 00-discovery.md, 00-fi
 5. Discovery Delta: union the three Comprehension Delta Candidates lists, dedupe,
    cross-check against 00-discovery.md, and record per the Coverage Report schema.
    Scope-relevant deltas are flagged in your summary for the user.
-6. Write 01-inventory.md per the schema below. The System Restatement section is
+6. Write 01-inventory.md per the schema below. Section 1 (Documentation Artifacts) is
+   built from the documentation-artifact records merged in step 1 -- assign DOC-NNN by
+   the same fixed-sort rule as the other classes -- not re-derived from evidence
+   citations scattered across other elements. The System Restatement section is
    written as: "PENDING USER CONFIRMATION: <your draft restatement paragraph>".
-7. Return in your summary: the draft System Restatement (verbatim), component/TB/
-   assumption counts, the coverage reconciliation line, and scope-relevant deltas.
-   The orchestrator relays the restatement to the user (GATE 2) and edits the final
-   confirmed text into 01-inventory.md. If the user's GATE 2 correction affects other
-   inventory sections (Components, Trust Boundaries, Data Stores, Data Flows -- e.g. a
-   correction to the user population or the most-sensitive-asset can invalidate entries
-   in those sections), the orchestrator must update the affected inventory sections
-   in 01-inventory.md to match the confirmed restatement before Phase 2 begins.
+7. Return in your summary: the draft System Restatement (verbatim), component/data
+   store/external integration/TB/assumption counts, the coverage reconciliation line,
+   and scope-relevant deltas. The orchestrator relays the restatement to the user
+   (GATE 2) and edits the final confirmed text into 01-inventory.md. If the user's
+   GATE 2 correction affects other inventory sections (Components, Trust Boundaries,
+   Data Stores, Data Flows -- e.g. a correction to the user population or the
+   most-sensitive-asset can invalidate entries in those sections), the orchestrator
+   must update the affected inventory sections in 01-inventory.md to match the
+   confirmed restatement before Phase 2 begins.
 
 ### Phase 1 Output: `.\{PROJECT_NAME}-threat-model\01-inventory.md`
 

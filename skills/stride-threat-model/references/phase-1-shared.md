@@ -23,13 +23,31 @@ EXCLUDED from all Phase 1 passes, regardless of how plausible the filenames look
 
 These definitions are reproduced here in full, not left as a pointer, because a
 partial-pass agent never reads phase-1-reconcile.md. The reconciliation agent later
-expands these same fields into that file's Section 2/3/4/5 inventory schema and
+expands these same fields into that file's Section 1/2/3/4/5 inventory schema and
 assigns IDs -- classifying against this copy is what keeps partial records merging
 cleanly at reconciliation.
 
 ### Component definition
 
 This is the MASTER inventory of architectural elements, and it directly gates threat coverage: Phase 2B walks STRIDE per component, so any element absent here is never threat-modeled. DEFINITION -- every architectural element that PROCESSES, STORES, or MEDIATES this system's data is a component: it gets a C-NNN ID and a Phase 2 STRIDE walk. This explicitly includes data stores, cloud/AWS managed services (S3, DynamoDB, Bedrock, SQS, ...), queues, caches, gateways, and identity providers -- NOT only active-process services. Do NOT undercount by treating data stores or managed services as a lower tier: the Data Stores and External Integrations sections are supplementary attribute detail about elements that ALSO appear as components, keyed to the same C-NNN -- every data store or integration MUST also be recorded as a component. Each architectural element appears exactly once (one C-NNN) and is walked once in Phase 2. (This definition is load-bearing: undercounting components is the single largest cause of incomplete threat enumeration -- a narrow "active-process only" reading has produced 3-4 components where the correct reading produces ~12-13 on the same system.)
+
+### Component granularity rule (parallel-partition convergence)
+
+Because Phase 1 runs as three PARALLEL partition agents, two partitions can classify
+the same code at different granularity -- e.g., the docs partition inferring one
+component per source file, while the source partition groups those same files as one
+component. Apply this rule so partitions converge without needing an adjudicator:
+multiple source modules/files that run inside the SAME deployable unit (one process /
+one container / one Lambda) and share one entry-point boundary are ONE component, not
+several. Split into separate components only when a module is independently
+deployable or has its own distinct entry point (its own HTTP listener, its own
+scheduled trigger, its own service manifest). In-process middleware and helpers (auth
+filters, storage clients, validators) are part of the component they run in --
+recorded via that component's Dependencies and Responsibilities fields, not as their
+own component. (This is consistent with the Component definition above, which keys on
+deployable/entry-pointed architectural elements; it makes explicit what the
+sequential single-agent design left implicit, since one agent deciding alone never
+hit this disagreement.)
 
 ### DS-vs-EXT test (including the fetch trap)
 
@@ -78,6 +96,14 @@ Trust boundary evidence:
   the absence explicitly
 - Evidence: [evidence: path/to/terraform/security_group.tf:1-20]
 
+Documentation artifact:
+- Path:
+- Type: (design-doc | readme | adr | openapi | api-contract | diagram | other)
+- Key architectural assertions: (components, protocols, data stores, and
+  integrations named in the artifact)
+- Date: (if available)
+- Evidence: [evidence: docs/architecture.md]
+
 ## Partition Contract (parallel passes)
 Phase 1 runs as three parallel agents, one per manifest partition (docs / iac / rest,
 written by scripts/partition-manifest.ps1). Your accounting universe is YOUR partition
@@ -95,9 +121,12 @@ elements by canonical name.
 # Phase 1<A|B|C> Partial Inventory -- partition: <docs|iac|rest>
 ## Elements Found
 ### <canonical name>
-- Element class: component | data-store | external-integration | trust-boundary-evidence
+- Element class: component | data-store | external-integration | trust-boundary-evidence | documentation-artifact
 - <then the attribute fields for that class, from the Element Classification section
   above -- same field names, no ID line>
+Documentation artifacts found during the docs pass (Phase 1A) are recorded here with
+Element class: documentation-artifact, using the Documentation artifact fields from
+the Element Classification section above -- not folded into another element's fields.
 ## Partition File Accounting
 - Partition file count: <N> (tool-computed: (Get-Content <partition file>).Count)
 - Read and assigned: <N> | Skip-bucketed: tests <N>, generated <N>, vendored-third-party <N>, build-config <N>, docs <N>, assets/static <N>, non-production <N> | Unaccounted: <N>

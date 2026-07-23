@@ -399,34 +399,58 @@ The carve froze methodology at v24; this section records the FEW deliberate meth
 changes made in v25 (skill line) that go beyond a verbatim port, each authorized by a
 specific field signal rather than the port itself. Kept short and append-only.
 
-1. **Phase 4 diagram layout redesign (draw.io) -- zone/crossing trust-boundary typing,
-   compact bounded deterministic layout, larger uniform nodes.** Authorized by the skill
-   owner's field feedback (diagrams have been a persistent weak spot; make them roomier
-   and better composed -- target canvas ~2400x1600, node ~200x100, more spacing) plus the
-   Task 13 Phase 4 smoke test, which found the v24 formula produced (a) TOO-SPARSE
-   diagrams up to 4640px wide with huge empty gaps, (b) three of six trust boundaries
-   rendering as EMPTY containers because the inventory/02a trust-boundary model is often
-   CROSSING-based (a boundary between two named endpoints) not ZONE-based (a region
-   containing components) yet the formula forced every TB into a container, (c) no layout
-   slot for a component assigned no trust boundary, and (d) no label format for a c4-02
-   dependency edge with no backing DF-NNN. The v25 phase-4.md:
-   - Classifies every TB-NNN as ZONE (drawn as a container, as before) or CROSSING (drawn
-     as a ` | TB-NNN` marker on the crossing edge, not a container), by a deterministic
-     test, so empty containers can no longer occur.
-   - Assigns every component to exactly one zone column with an explicit internal/
-     application FALLBACK, so no component is ever unplaceable.
+1. **Phase 4 diagram layout redesign (draw.io) -- tier-derived zone containers,
+   trust boundaries as crossing-edge annotations, compact bounded deterministic layout,
+   larger uniform nodes.** Authorized by the skill owner's field feedback (diagrams have
+   been a persistent weak spot; make them roomier and better composed -- target canvas
+   ~2400x1600, node ~200x100, more spacing) plus the Task 13 Phase 4 smoke test, which
+   found the v24 formula produced (a) TOO-SPARSE diagrams up to 4640px wide with huge empty
+   gaps, (b) three of six trust boundaries rendering as EMPTY containers because the v24
+   formula forced every TB into a container, (c) no layout slot for a component assigned no
+   trust boundary, and (d) no label format for a c4-02 dependency edge with no backing
+   DF-NNN.
+
+   This entry SUPERSEDES the first Phase 4 redesign (commit 07ac0f6, which classified each
+   TB as ZONE-container or CROSSING-edge based on how the TB was PHRASED in the inventory).
+   That first attempt fixed v24's empty containers but introduced the opposite failure: on
+   a real fixture every TB happened to be phrased as a two-endpoint crossing
+   ("app tier -> RDS", "internet/edge -> app tier"), so ALL six classified CROSSING and the
+   diagrams ended up with ZERO zone containers -- a flat graph with no trust-zone
+   containment at all, which for a threat model is a downgrade (the whole value of the
+   diagram is showing which components sit in the edge vs application vs data tier). So v24
+   made every TB a container (empty boxes) and 07ac0f6 made every TB an edge (zero zones);
+   both are wrong because both derive containment from the TB, which is the boundary
+   BETWEEN zones, not the zone itself.
+
+   The corrected v25 phase-4.md derives containers from WHERE COMPONENTS LIVE (the standard
+   threat-model DFD/C4 approach), and this fixes BOTH v24's empty containers AND 07ac0f6's
+   zero-zone flat output:
+   - Assigns every component (data stores and external integrations included) to EXACTLY
+     ONE tier by a fixed first-match decision table: human actor -> ACTORS (no container);
+     external SaaS/EXT -> EXTERNAL (no container); data store -> DATA; internet-facing
+     edge/gateway/WAF/LB -> EDGE; everything else -> APPLICATION (the catch-all default, so
+     no component is ever unplaceable and the no-slot defect cannot occur); optional
+     explicit isolated/secured -> SECURED.
+   - Draws one zone container per component-bearing tier (EDGE, APPLICATION, DATA, SECURED,
+     fixed left-to-right order), each a container cell with a fixed `zone-<TIER>` id. A tier
+     with zero members is never drawn, so an empty container cannot occur.
+   - Represents every TB-NNN as a ` | TB-NNN` annotation on the crossing edge (an edge whose
+     source and destination fall in different tiers), never as its own container or node.
+     Every TB-NNN must appear on at least one crossing flow, or be listed in the notes box
+     if it backs no flow -- so no TB is dropped.
    - Replaces the sparse `40 + c*440` / 360-wide-container formula with a compact bounded
      one: 200x100 uniform nodes, column width 260, column origin `40 + c*520`, container
-     height `80 + memberCount*160`, only PRESENT zone columns appear. The fixture
-     (8 components across ~4 zones) computes to roughly 1840px wide by under 1000px tall
-     (versus 4640px in v24); a 5-6 zone system lands near the owner's ~2400px target and
-     larger systems grow gracefully.
+     height `80 + memberCount*160`, only PRESENT tier columns appear. The fixture
+     (1 actor, ~4 application, 3 data, 2 external -> 4 present columns) computes to ~1800px
+     wide by ~1100px tall (versus 4640px in v24); a 5-6 tier system lands near the owner's
+     ~2400px target and larger systems grow gracefully.
    - Labels a Dependencies-field c4-02 edge with no backing DF-NNN as EMPTY (no invented
      "unconfirmed A-NNN" text); only real DF-NNN edges get a `DF-NNN` + glyph label.
-   - Updates the validation reconciliation prose: containers == ZONE-type TB count, with
-     CROSSING-type TBs reconciled separately as edge boundary-markers (both counted and
-     stated). validate-drawio.ps1 only COUNTS containers (no `container==TB` assertion),
-     so the script is unchanged; the reconciliation lived in prose and was fixed there.
+   - Updates the validation reconciliation prose: containers == number of component-bearing
+     tiers, with every TB-NNN reconciled separately as a crossing-edge marker or a notes-box
+     entry (both counted and stated). validate-drawio.ps1 only COUNTS containers (no
+     `container==TB` assertion), so the script is unchanged; the reconciliation lived in
+     prose and was fixed there.
    All v25 layout numbers remain fully COMPUTED (column index + ID-sorted slot), preserving
    the cross-run determinism that was the whole point of the v24 "15f" work; the style
    dictionary color/style strings are byte-identical to v24 (only width/height and the new

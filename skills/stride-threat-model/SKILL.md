@@ -23,6 +23,10 @@ uses them, or substitute literal paths.
    present: read it, tell the user the last completed step and Resume Instruction, ask
    resume-or-restart, and wait. To restart a phase, mark it and all later phases
    `pending` first. Never precede this check with an orientation menu.
+3. STATE.md is only ever read from and written to OUTPUT_ROOT, the canonical unsuffixed
+   `{PROJECT_NAME}-threat-model` directory. An archived `{PROJECT_NAME}-threat-model-
+   yyyyMMdd` directory is never a resume target, even though it may still contain its own
+   STATE.md from when it was the active run.
 
 ## STATE.md (you are its ONLY writer)
 Schema (v24-compatible; two added header lines). Subagents never touch it. A full

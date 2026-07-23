@@ -21,7 +21,16 @@
    "PROJECT_NAME = $PROJECT_NAME"
    "OUTPUT_ROOT  = $OUTPUT_ROOT"
    "CURRENT_DATE = $CURRENT_DATE"
+
+   $archivedRuns = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" -ErrorAction SilentlyContinue
+   if ($archivedRuns) {
+       "prior archived runs (read-only reference): " + ($archivedRuns.Name -join ', ')
+   } else {
+       "prior archived runs (read-only reference): none"
+   }
    ```
+
+   ASSERTION: OUTPUT_ROOT is ALWAYS the canonical, unsuffixed name `{PROJECT_NAME}-threat-model` -- computed only from $WORKSPACE and $PROJECT_NAME as shown above, never from anything printed by the archived-runs listing. Any sibling directory matching `{PROJECT_NAME}-threat-model-<suffix>` (a date suffix, e.g. `{PROJECT_NAME}-threat-model-20260601`) is a PRIOR ARCHIVED RUN, created by the end-of-Phase-4 archiving step (see the Archiving Reminder in phase-4.md), not the current run. This run must never write into an archived directory and must never treat one as the current OUTPUT_ROOT -- the block above lists any that exist purely so the orchestrator can see them (and so step 7.7 below can compare against the most recent one); it does not target them. SKILL.md's Session Start applies the same rule to resuming: an archived `-yyyyMMdd` directory is never a resume target even if it still holds its own STATE.md from when it was the active run.
 
    This is the ONLY block in this phase that derives WORKSPACE from `(Get-Location).Path`. Note the printed WORKSPACE and PROJECT_NAME values (and the SKILL_DIR path given in SKILL.md) as literal strings now -- every later block in this phase substitutes them as literals instead of re-deriving them.
 
@@ -194,11 +203,71 @@
 
 7.6. **Exposure validation (mandatory, after the sweep, before writing 00-scope.md).** Validate the user's Q1 exposure answer against what the sweep and repo map actually surfaced: ingress/edge references (public hostnames, LB/WAF/CDN references, `0.0.0.0` binds, Ingress resources or internet-facing IaC if present in this repo). This is a consistency check on attested facts, not a re-derivation. Record a one-line verdict for 00-scope.md: `Exposure validation: Q1=<answer>; discovery evidence <consistent | CONFLICT: <what the evidence shows>>`. A CONFLICT verdict MUST be surfaced in the step 9 Scope Proposal for the user to adjudicate (the user may know infrastructure this repo cannot show); record their ruling in 00-scope.md. Under PLATFORM-INHERITED infra, thin edge evidence in the repo is normal and is NOT a conflict -- flag a conflict only when found evidence positively contradicts the answer.
 
+7.7. **Archive comparison (completeness cross-check, mandatory when a prior archive exists).** First write `{PROJECT_NAME}-threat-model/00-resources.txt`: this run's own final DISTINCT resource list in machine-readable form, one per line, two tab-separated columns: `type<TAB>canonical name`, where type is one of `bucket|table|database|queue|topic|cache|agent|external-api|identity-provider|secret-store|service|other`. Its line count MUST equal the distinct-list count in 00-discovery.md (state both, per Operating Rule 15). It is written here, before the comparison below, so this step has this run's own list on disk to compare against -- step 8 below no longer writes it (see the note in step 8).
+
+   Find archived run directories using the same discovery pattern SKILL.md's Phase 3 Disposition Discovery uses:
+   ```powershell
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
+
+   $archivedRuns = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" -ErrorAction SilentlyContinue
+   if ($archivedRuns) {
+       $mostRecent = $archivedRuns | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+       "most recent archived run: $($mostRecent.Name) (LastWriteTime $($mostRecent.LastWriteTime))"
+   } else {
+       "no archived runs found"
+   }
+   ```
+
+   If `$archivedRuns` is empty: state "no prior archived threat-model found -- first assessment, no comparison" in 00-scope.md's summary (do not write 00-archive-comparison.md at all -- there is nothing to compare) and proceed to step 8.
+
+   If one or more archived directories exist, take the most recent by LastWriteTime and compare it against this run:
+   ```powershell
+   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
+   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
+
+   $mostRecent       = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+   $priorResources   = Join-Path $mostRecent.FullName '00-resources.txt'
+   $currentResources = Join-Path $OUTPUT_ROOT '00-resources.txt'
+
+   if (Test-Path $priorResources) {
+       $prior   = Get-Content $priorResources
+       $current = Get-Content $currentResources
+       $diffSet = Compare-Object -ReferenceObject $prior -DifferenceObject $current -IncludeEqual
+       $onlyInPrior   = $diffSet | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+       $onlyInCurrent = $diffSet | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
+       $unchanged     = $diffSet | Where-Object { $_.SideIndicator -eq '==' } | Select-Object -ExpandProperty InputObject
+       "comparison basis: 00-resources.txt (both runs)"
+       "in prior, not in current (" + $onlyInPrior.Count + "):"
+       $onlyInPrior
+       "in current, not in prior (" + $onlyInCurrent.Count + "):"
+       $onlyInCurrent
+       "unchanged (" + $unchanged.Count + "):"
+       $unchanged
+   } else {
+       $priorInventory = Join-Path $mostRecent.FullName '01-inventory.md'
+       if (Test-Path $priorInventory) {
+           "comparison basis: 01-inventory.md fallback (prior run predates 00-resources.txt) -- weaker basis, component/DS/EXT names only, no type column"
+       } else {
+           "prior archive has neither 00-resources.txt nor 01-inventory.md -- cannot be compared"
+       }
+   }
+   ```
+   When falling back to the 01-inventory.md basis: extract its component/DS-NNN/EXT-NNN names with `Select-String` over the component table rows, and run the same three-way `Compare-Object` against this run's 00-resources.txt name column (the text after the tab on each line) -- name-only, since the older file has no type column. When neither file exists, record in 00-archive-comparison.md that the archive could not be compared and why (no 00-resources.txt and no 01-inventory.md found in it).
+
+   Write the result to `{PROJECT_NAME}-threat-model/00-archive-comparison.md` with the Write tool (common.md rule W): which archived run was compared (name, LastWriteTime), the comparison basis (00-resources.txt, the 01-inventory.md fallback, or "could not be compared" with the reason), and the three named sets in full, not just counts -- in prior/not in current, in current/not in prior, unchanged. This is a completeness cross-check, not an auto-merge: never silently pull a prior run's resource into this run's scope on the strength of this comparison -- every "in prior, not in current" item is surfaced as a question for the user, never merged in automatically.
+
+   The "in prior, not in current" set is a possible completeness REGRESSION (something the prior run found that this run missed) or a legitimately removed/decommissioned resource -- either way it MUST be investigated or explained before scope closes, so it is REQUIRED to also appear in the step 9 Scope Proposal as an explicit question for the user to adjudicate at GATE 1: the user may know a resource was decommissioned, or may recognize a real miss that sends discovery back for another look. Record the user's ruling on each item in 00-scope.md.
+
 8. **Write a scoping note** to `{PROJECT_NAME}-threat-model/00-scope.md` capturing `PROJECT_NAME`, `WORKSPACE`, the detected repo type (and which classification rule fired), languages/frameworks with evidence, deployment exposure (from step 6) with the step 7.6 exposure-validation verdict line, the data stores and external integrations -- every distinct item from 00-discovery.md triaged as in-scope or out-of-scope-with-reason (nothing from the sweep silently absent), split into IaC-defined (schema/config in this repo's infrastructure files) and runtime-referenced (named in application code but not in this repo's IaC; cite the referencing source file) so the code-vs-IaC provenance is visible, the infrastructure ownership mode (Q6: SELF-MANAGED or PLATFORM-INHERITED -- and when PLATFORM-INHERITED, state explicitly that the platform's internal configuration is inherited and assessed elsewhere, reproduce the Q6a attested platform profile verbatim so later phases can cite it, and note that the app's side of every data flow plus attested exposures remain in scope), in-scope components, and explicit out-of-scope items (e.g., vendored third-party code under `node_modules/`, `vendor/`, `target/`, `.venv/`; tool-state directories such as `audit_state/` from the CodeSecurityAudit prompt and `{PROJECT_NAME}-threat-model/` from this prompt's own prior runs). Every item in this list is MANDATORY: a scope note missing any of them is a rule violation, not a style choice. Classify each data store vs external integration by the DS-vs-EXT ownership test (Phase 1 output schema, Section 3) -- the operator question: content this system owns = data store even on managed infrastructure; service another party operates with this system as client = external integration even if this system only fetches data from it (a scraped/fetched-from remote source is an EXT, never a data store -- the fetch trap; the place fetched data lands is a separate DS). Achieve brevity through terseness per item, never by omitting an item -- Operating Rule 9's token budget governs reading, not this file's completeness. Write the file with the Write tool (common.md rule W).
 
-   Also write `{PROJECT_NAME}-threat-model/00-resources.txt`: the final DISTINCT resource list in machine-readable form, one per line, two tab-separated columns: `type<TAB>canonical name`, where type is one of `bucket|table|database|queue|topic|cache|agent|external-api|identity-provider|secret-store|service|other`. This is the cross-run comparison artifact: a later run (or a second pass of this one) is unioned against it with `Compare-Object (Get-Content run1) (Get-Content run2)` -- so both discovery drift AND classification drift between runs become visible mechanically. Its line count MUST equal the distinct-list count in 00-discovery.md (state both, per Operating Rule 15).
+   `{PROJECT_NAME}-threat-model/00-resources.txt` was already written in step 7.7, before the archive comparison that step performs against it. This is the cross-run comparison artifact: any later run (or a second pass of this one) is unioned against it with `Compare-Object (Get-Content run1) (Get-Content run2)` -- so both discovery drift AND classification drift between runs become visible mechanically. Confirm here that its line count still equals the distinct-list count in 00-discovery.md (state both, per Operating Rule 15); do not rewrite it unless that count is wrong.
 
-9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?), and any step 7.6 exposure-validation CONFLICT stated explicitly as a question for the user to adjudicate. This is the proposal the user reviews before Phase 1 begins.
+9. **Print a Scope Proposal** containing the same information from step 8 plus any ambiguity that requires a user decision (multi-service monorepo -- which service? unclear scope boundaries?), any step 7.6 exposure-validation CONFLICT stated explicitly as a question for the user to adjudicate, and -- when step 7.7 found a prior archive -- its "in prior, not in current" set stated explicitly as a question for the user to adjudicate (regression or legitimate removal). This is the proposal the user reviews before Phase 1 begins.
 
 10. **Update STATE.md.** Mark `phase-0: complete` with the current timestamp, set Last Completed Step to `phase-0 -- scope proposal written to 00-scope.md`, set Resume Instruction to `Begin at Phase 1 (Documentation, Diagram, and Source Analysis).`
 
@@ -215,6 +284,7 @@ Pass 1 investigation: <N> source files read | <N> docs read | <N> resources foun
 Pass 2 sweep: <N> candidates (tool-computed) | refinement: <N> accounted, <N> rescued | top-10 density read: <10/10>
 Resources: <N> written to 00-resources.txt (line count matches distinct list: yes)
 Exposure validation: <consistent | CONFLICT -- see Scope Proposal>
+Archive comparison: <no prior archive | compared vs {name}: <N> new, <N> only-in-prior (see Scope Proposal)>
 STATE.md updated: phase-0 marked complete.
 Present this Scope Proposal to the user and wait for approval or corrections (GATE 1).
 ```

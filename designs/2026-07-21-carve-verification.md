@@ -457,3 +457,37 @@ specific field signal rather than the port itself. Kept short and append-only.
    data-tier zone color changed). This is the first intentional post-carve methodology
    change on the skill line and is expected to be validated by a field run before it is
    treated as settled.
+
+2. **Phase 0 archived-directory write/resume guard.** Authorized by the skill owner's field
+   feedback: a parallel build kept writing output into the WRONG threat-model directory --
+   guessing, and sometimes targeting an ARCHIVED prior-run directory (named
+   `{PROJECT_NAME}-threat-model-yyyyMMdd`, created by the end-of-Phase-4 archiving step)
+   instead of the canonical current one. phase-0.md step 1 now asserts, immediately after
+   deriving OUTPUT_ROOT, that OUTPUT_ROOT is ALWAYS the canonical unsuffixed
+   `{PROJECT_NAME}-threat-model` name, lists any sibling `-<suffix>` archived directories as
+   "prior archived runs (read-only reference)" so the orchestrator can see but never target
+   them, and keeps the existing not-a-.git mistarget guard in step 2 unchanged. SKILL.md's
+   Session Start gets a matching one-line guard: STATE.md is only ever read from or written
+   to OUTPUT_ROOT, and an archived `-yyyyMMdd` directory is never a resume target even though
+   it may hold its own STATE.md from when it was the active run. This makes the two failure
+   modes the owner reported -- writing to the wrong directory, and resuming from an archived
+   one -- structurally harder to hit rather than relying on the agent reading correctly.
+
+3. **Phase 0 archive comparison (completeness cross-check at GATE 1).** Also authorized by
+   the owner's field feedback, and builds directly on v24's `00-resources.txt` -- the
+   cross-run comparison artifact the methodology already designed but never actually used
+   for a cross-run comparison. New step 7.7 (between the exposure-validation step 7.6 and
+   the scope-note step 8) finds the most recent `{PROJECT_NAME}-threat-model-*` archived
+   directory (reusing SKILL.md's Phase 3 Disposition Discovery pattern), and when one
+   exists, `Compare-Object`s its `00-resources.txt` against this run's own (writing the
+   00-resources.txt for the file it now sits between -- moved out of step 8 into 7.7 so this
+   run's list exists on disk before the comparison runs). The three resulting sets (in
+   prior/not in current, in current/not in prior, unchanged) are written in full to a new
+   `00-archive-comparison.md`, and the "in prior, not in current" set is REQUIRED to surface
+   in the step 9 Scope Proposal as an explicit question for the user to adjudicate at GATE 1
+   -- a possible completeness regression or a legitimate decommission, never silently
+   resolved either way. Falls back to comparing `01-inventory.md` component/DS/EXT names
+   (weaker basis, no type column) when an older archive predates `00-resources.txt`, and
+   notes plainly when neither file exists to compare against. `common.md` Rule 8's output
+   layout list gains the new file. This is a completeness cross-check, not an auto-merge:
+   the prior run's resources are never silently pulled into this run's scope.

@@ -77,6 +77,7 @@ X. Subagent conduct. You are a subagent: you cannot ask the user anything. If yo
      00-candidates.txt                 (Phase 0: mechanically extracted candidate names, tool-counted, triaged in 00-discovery.md)
      00-density.txt                    (Phase 0: per-file match counts from the Pass 2 sweep)
      00-resources.txt                  (Phase 0: final distinct resource list, type TAB name -- the cross-run union/comparison artifact)
+     00-archive-comparison.md          (Phase 0: completeness cross-check vs the most recent archived run, when one exists)
      01-inventory.md                   (Phase 1)
      02a-context.md                    (Phase 2A: assets, trust boundaries, data flows)
      02b-threats.md                    (Phase 2B: STRIDE threat table)

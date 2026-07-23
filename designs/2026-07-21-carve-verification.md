@@ -247,6 +247,13 @@ examples; the "only phase-4.md" framing in this task's brief was incomplete, not
 Reason for all: the conversion freezes methodology at v24; these are pre-existing source
 defects to fix in a later methodology change, not during the port.
 
+> NOTE (v25): the Phase 4 empty-trust-boundary-container defect surfaced by the Task 13
+> Phase 4 smoke test (three of six trust boundaries rendered as EMPTY containers on the
+> fixture, plus a 4640px over-wide canvas) is **FIXED-in-v25**, not carried. It was never
+> a frozen-v24 methodology bug worth freezing around: the Phase 4 layout was intentionally
+> revised beyond v24 under the skill owner's explicit field feedback -- see
+> "## v25 enhancements beyond v24" below.
+
 1. **phase-2c.md**: prose says write the Excluded Threats Ledger as the LAST section of
    02c-assumptions.md ("write it as the LAST section of 02c-assumptions.md"), but the
    blueprint schema places it third of seven sections (Threat Filtering Summary, Excluded
@@ -385,3 +392,44 @@ Known-carried items above (both pre-existing in frozen v24, not introduced by th
   sections list -- Class G: same disease, same file family as the taxonomy's own
   worked example (issue #30, the System Restatement render spec that sat outside the
   HTML sections list).
+
+## v25 enhancements beyond v24
+
+The carve froze methodology at v24; this section records the FEW deliberate methodology
+changes made in v25 (skill line) that go beyond a verbatim port, each authorized by a
+specific field signal rather than the port itself. Kept short and append-only.
+
+1. **Phase 4 diagram layout redesign (draw.io) -- zone/crossing trust-boundary typing,
+   compact bounded deterministic layout, larger uniform nodes.** Authorized by the skill
+   owner's field feedback (diagrams have been a persistent weak spot; make them roomier
+   and better composed -- target canvas ~2400x1600, node ~200x100, more spacing) plus the
+   Task 13 Phase 4 smoke test, which found the v24 formula produced (a) TOO-SPARSE
+   diagrams up to 4640px wide with huge empty gaps, (b) three of six trust boundaries
+   rendering as EMPTY containers because the inventory/02a trust-boundary model is often
+   CROSSING-based (a boundary between two named endpoints) not ZONE-based (a region
+   containing components) yet the formula forced every TB into a container, (c) no layout
+   slot for a component assigned no trust boundary, and (d) no label format for a c4-02
+   dependency edge with no backing DF-NNN. The v25 phase-4.md:
+   - Classifies every TB-NNN as ZONE (drawn as a container, as before) or CROSSING (drawn
+     as a ` | TB-NNN` marker on the crossing edge, not a container), by a deterministic
+     test, so empty containers can no longer occur.
+   - Assigns every component to exactly one zone column with an explicit internal/
+     application FALLBACK, so no component is ever unplaceable.
+   - Replaces the sparse `40 + c*440` / 360-wide-container formula with a compact bounded
+     one: 200x100 uniform nodes, column width 260, column origin `40 + c*520`, container
+     height `80 + memberCount*160`, only PRESENT zone columns appear. The fixture
+     (8 components across ~4 zones) computes to roughly 1840px wide by under 1000px tall
+     (versus 4640px in v24); a 5-6 zone system lands near the owner's ~2400px target and
+     larger systems grow gracefully.
+   - Labels a Dependencies-field c4-02 edge with no backing DF-NNN as EMPTY (no invented
+     "unconfirmed A-NNN" text); only real DF-NNN edges get a `DF-NNN` + glyph label.
+   - Updates the validation reconciliation prose: containers == ZONE-type TB count, with
+     CROSSING-type TBs reconciled separately as edge boundary-markers (both counted and
+     stated). validate-drawio.ps1 only COUNTS containers (no `container==TB` assertion),
+     so the script is unchanged; the reconciliation lived in prose and was fixed there.
+   All v25 layout numbers remain fully COMPUTED (column index + ID-sorted slot), preserving
+   the cross-run determinism that was the whole point of the v24 "15f" work; the style
+   dictionary color/style strings are byte-identical to v24 (only width/height and the new
+   data-tier zone color changed). This is the first intentional post-carve methodology
+   change on the skill line and is expected to be validated by a field run before it is
+   treated as settled.

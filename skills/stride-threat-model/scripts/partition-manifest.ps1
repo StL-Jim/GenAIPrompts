@@ -1,4 +1,4 @@
-# SKILL VERSION: v25-skill (2026-07-21a)
+# SKILL VERSION: v25-skill (2026-07-23c)
 # skills/stride-threat-model/scripts/partition-manifest.ps1
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
@@ -11,7 +11,12 @@ $PROJECT_NAME = $ProjectName
 $out = "$WORKSPACE\$PROJECT_NAME-threat-model"
 if (-not (Test-Path $out)) { New-Item -ItemType Directory -Force $out | Out-Null }
 
-$manifest = Get-Content "$out\00-file-manifest.txt"
+$manifestFile = "$out\00-file-manifest.txt"
+if (-not (Test-Path $manifestFile)) {
+  Write-Error "00-file-manifest.txt not found at $manifestFile -- run manifest.ps1 (Phase 0 step 5a) BEFORE partitioning. Not partitioning."
+  exit 1
+}
+$manifest = @(Get-Content $manifestFile)
 
 # Partition rules -- first match wins, docs before iac. Matched against the manifest's
 # forward-slash relative paths, case-insensitive (PowerShell -match is CI by default).

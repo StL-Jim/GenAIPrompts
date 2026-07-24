@@ -93,6 +93,28 @@ $tmp = Join-Path $env:TEMP 'stm-concat-test.md'
 Check 'concat produced non-empty output' ((Test-Path $tmp) -and ((Get-Item $tmp).Length -gt 10000))
 if (Test-Path $tmp) { Remove-Item $tmp }
 
+"=== degenerate inputs (graceful failure, not silent-wrong) ==="
+$deg = Join-Path $env:TEMP 'stm-degenerate'
+if (Test-Path $deg) { Remove-Item -Recurse -Force -LiteralPath $deg }
+New-Item -ItemType Directory -Force (Join-Path $deg 'stm-degenerate-threat-model\diagrams') | Out-Null
+Set-Content (Join-Path $deg 'x.py') 'x=1' -Encoding ASCII
+# sweep/partition BEFORE manifest exists -> must fail clearly (Write-Error + exit 1), not
+# report false success. These scripts intentionally error; catch it so the suite continues.
+$swFailed = $false
+try { & (Join-Path $scripts 'sweep.ps1') -Workspace $deg -ProjectName 'stm-degenerate' 2>$null; if ($LASTEXITCODE -ne 0) { $swFailed = $true } } catch { $swFailed = $true }
+Check 'sweep fails clearly when manifest missing' $swFailed
+$ptFailed = $false
+try { & (Join-Path $scripts 'partition-manifest.ps1') -Workspace $deg -ProjectName 'stm-degenerate' 2>$null; if ($LASTEXITCODE -ne 0) { $ptFailed = $true } } catch { $ptFailed = $true }
+Check 'partition fails clearly when manifest missing' $ptFailed
+# validate-drawio with an empty diagrams dir -> clear message, no crash
+$vEmpty = & (Join-Path $scripts 'validate-drawio.ps1') -Workspace $deg -ProjectName 'stm-degenerate' 2>&1
+Check 'validate-drawio reports empty diagrams dir' (($vEmpty -join ' ') -match 'No .drawio files found')
+# empty repo -> manifest count 0, no crash
+$empty = Join-Path $deg 'sub-empty'; New-Item -ItemType Directory -Force $empty | Out-Null
+$emOut = & (Join-Path $scripts 'manifest.ps1') -Workspace $empty -ProjectName 'sub-empty' 2>&1
+Check 'manifest handles empty repo (count 0)' (($emOut -join ' ') -match 'Manifest file count: 0')
+Remove-Item -Recurse -Force -LiteralPath $deg
+
 "`n=== RESULT: $pass passed, $fail failed ==="
 Remove-Item -Recurse -Force -LiteralPath $FixturePath
 if ($fail -gt 0) { exit 1 } else { exit 0 }

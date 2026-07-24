@@ -1,4 +1,4 @@
-# SKILL VERSION: v25-skill (2026-07-23a)
+# SKILL VERSION: v25-skill (2026-07-23c)
 # skills/stride-threat-model/scripts/sweep.ps1
 #
 # Phase 0 Pass 2 mechanical sweep. Streams matches (does NOT accumulate every match
@@ -57,7 +57,12 @@ $skipExt = @(
 $skipNameRegex = '(\.min\.(js|css)$)|(-lock\.(json|ya?ml)$)|(^package-lock\.json$)|(^yarn\.lock$)|(^pnpm-lock\.ya?ml$)|(\.map$)|(\.sum$)'
 
 # Build the scan set from the manifest, applying extension / name / size exclusions.
-$manifestPaths = Get-Content "$out\00-file-manifest.txt"
+$manifestFile = "$out\00-file-manifest.txt"
+if (-not (Test-Path $manifestFile)) {
+  Write-Error "00-file-manifest.txt not found at $manifestFile -- run manifest.ps1 (Phase 0 step 5a) BEFORE the sweep. Not sweeping."
+  exit 1
+}
+$manifestPaths = @(Get-Content $manifestFile)
 $skippedExt = 0; $skippedName = 0; $skippedSize = 0
 $sweepFiles = New-Object 'System.Collections.Generic.List[string]'
 foreach ($rel in $manifestPaths) {

@@ -121,7 +121,7 @@ File coverage reconciliation against 00-file-manifest.txt (this is the single-ru
 **Phase 1 Completion Banner:**
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
-Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+Component count: <N>  |  Data stores: <N>  |  External integrations: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
 File coverage: <N> of <N> manifest files accounted for  |  Unaccounted: <N> (must be 0)
 System Restatement: draft recorded in 01-inventory.md (PENDING USER CONFIRMATION).
 Phase status reported to orchestrator (it owns STATE.md).

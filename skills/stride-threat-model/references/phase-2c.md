@@ -89,7 +89,7 @@ Steps:
    ```powershell
    $WORKSPACE    = '<workspace path from your briefing>'
    $PROJECT_NAME = '<project name from your briefing>'
-   $outDir = ".\$PROJECT_NAME-threat-model"
+   $outDir = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
    Get-Content `
      "$outDir\02-header.md",
      "$outDir\02a-context.md",

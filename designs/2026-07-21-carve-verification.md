@@ -491,3 +491,12 @@ specific field signal rather than the port itself. Kept short and append-only.
    notes plainly when neither file exists to compare against. `common.md` Rule 8's output
    layout list gains the new file. This is a completeness cross-check, not an auto-merge:
    the prior run's resources are never silently pulled into this run's scope.
+
+## Scale risks surfaced by the first large-repo field run (2026-07-23)
+
+FIXED (mechanical, safe to change without weakening quality):
+- Phase 0 sweep memory/hang -- see commit d3e40f1 (streaming, extension/size/saturation exclusions).
+- Phase 0 candidate-triage did not scale: the refinement required a triage row per candidate and "never dismiss a name unread", infeasible at the hundreds of candidates a real repo yields. Changed to a TALLY that reconciles (candidates = already-in-findings + duplicate + noise + plausible-unknown, arithmetic stated) with individual investigation only of the plausible-unknown residual. Accounting invariant preserved; only mechanical noise is bulk-bucketed.
+
+NEEDS USER DECISION (quality-vs-throughput judgment, deliberately NOT changed autonomously):
+- Phase 1 FILE COVERAGE ACCOUNTING mandates every in-scope file be OPENED AND READ (never classified from filename), with the reading-line reconciliation forcing depth. This is a load-bearing quality lever. On a repo with thousands of genuine (non-vendored) app-source files, reading every in-scope file is infeasible in one pass. Existing mitigations: skip-buckets (tests/generated/build-config/docs/assets/non-production), the resume-until-complete multi-session mechanism, and Phase 0 step 5a's "roll low-relevance into counted buckets." Whether these suffice on the user's real repo, or whether Phase 1 needs an explicit large-partition strategy (lead with 00-density.txt + entry points, bulk-bucket a reasoned long tail) that trades some read-depth for completon, is a quality call for the user -- changing it risks the exact undercount-by-classification failure the discipline exists to prevent. Flagged for the user; not changed.

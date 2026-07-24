@@ -2,7 +2,7 @@
 name: stride-threat-model
 description: Runs or resumes an orchestrated, multi-agent STRIDE threat model against the current workspace -- phased analysis producing a component inventory, STRIDE threat table, HTML/CSV deliverables, and draw.io diagrams under {project}-threat-model/. Use when asked to run, continue, or resume a threat model or STRIDE analysis, when the user mentions the threat-model STATE.md, or when asked to advance to a specific phase. Not for the Code Security Audit (separate workflow).
 ---
-<!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
+<!-- SKILL VERSION: v25-skill (2026-07-23a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a); 2026-07-23a: sweep scalability (extension/size/saturation exclusions), manifest tool-state exclusions, Phase 0 scope-after-discovery ordering -->
 
 # STRIDE Threat Model -- Orchestrator
 
@@ -67,9 +67,16 @@ wait for explicit user approval. Corrections at a gate are applied before moving
 (re-dispatch the phase, or make the edit yourself if it is small and mechanical).
 
 ## Dispatch
-Run Phase 0 YOURSELF (interactive; follow references/phase-0.md directly). Everything
-else is a subagent. Briefing template -- fill the <>, launch as a general-purpose
-agent, one per phase:
+Run Phase 0 YOURSELF, in THIS session -- do NOT delegate it to a subagent. Phase 0 is
+interactive (it asks the user Q1-Q6a and presents the scope at GATE 1) and a subagent
+cannot talk to the user; running it here also means the user sees the discovery scripts'
+progress live and can intervene. Follow references/phase-0.md directly. The mechanical
+sweep (scripts/sweep.ps1) is Phase 0's long pole on a large repo: it prints one line per
+pattern with a match count and elapsed seconds, and may print `SATURATED` on a pervasive
+pattern -- that is expected progress, not a failure. If it is slow, let it finish; it
+already excludes bulk-data/oversized files so it does not hang. Everything AFTER Phase 0
+is a subagent. Briefing template -- fill the <>, launch as a general-purpose agent, one
+per phase:
 
     You are executing phase <N> of a STRIDE threat model run.
     SKILL_DIR: <abs>  WORKSPACE: <abs>  PROJECT_NAME: <name>  OUTPUT_ROOT: <abs>

@@ -6,100 +6,37 @@
 
 **Steps:**
 
-1. **Derive inputs and validate the workspace.** Run this PowerShell block in the terminal and print the output so the user can confirm:
+1. **Initialize the workspace (one script call).** This single script derives the run's values, validates the workspace, creates the output tree, adds the git exclude, lists prior archived runs, and prints the top-level repo map -- it is steps 1, 2, 3 and 5's listing in one call. Run it and print its complete output so the user can confirm. Use the invocation form for YOUR shell (common.md rule S -- if your shell is bash, use the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form):
    ```powershell
-   $WORKSPACE    = (Get-Location).Path
-   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $CURRENT_DATE = Get-Date -Format "yyyy-MM-ddTHH:mm"
-
-   if (-not (Test-Path (Join-Path $WORKSPACE '.git'))) {
-       Write-Warning "Workspace is not a git repo (no .git directory found). Continuing anyway."
-   }
-
-   "WORKSPACE    = $WORKSPACE"
-   "PROJECT_NAME = $PROJECT_NAME"
-   "OUTPUT_ROOT  = $OUTPUT_ROOT"
-   "CURRENT_DATE = $CURRENT_DATE"
-
-   $archivedRuns = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" -ErrorAction SilentlyContinue
-   if ($archivedRuns) {
-       "prior archived runs (read-only reference): " + ($archivedRuns.Name -join ', ')
-   } else {
-       "prior archived runs (read-only reference): none"
-   }
+   & '<SKILL_DIR>\scripts\init-workspace.ps1'
+   ```
+   Run it with no arguments the first time so it derives the workspace from the current directory, OR pass them explicitly if you already know them:
+   ```powershell
+   & '<SKILL_DIR>\scripts\init-workspace.ps1' -Workspace '<workspace path>' -ProjectName '<project name>'
    ```
 
    ASSERTION: OUTPUT_ROOT is ALWAYS the canonical, unsuffixed name `{PROJECT_NAME}-threat-model` -- computed only from $WORKSPACE and $PROJECT_NAME as shown above, never from anything printed by the archived-runs listing. Any sibling directory matching `{PROJECT_NAME}-threat-model-<suffix>` (a date suffix, e.g. `{PROJECT_NAME}-threat-model-20260601`) is a PRIOR ARCHIVED RUN, created by the end-of-Phase-4 archiving step (see the Archiving Reminder in phase-4.md), not the current run. This run must never write into an archived directory and must never treat one as the current OUTPUT_ROOT -- the block above lists any that exist purely so the orchestrator can see them (and so step 7.7 below can compare against the most recent one); it does not target them. SKILL.md's Session Start applies the same rule to resuming: an archived `-yyyyMMdd` directory is never a resume target even if it still holds its own STATE.md from when it was the active run.
 
-   This is the ONLY block in this phase that derives WORKSPACE from `(Get-Location).Path`. Note the printed WORKSPACE and PROJECT_NAME values (and the SKILL_DIR path given in SKILL.md) as literal strings now -- every later block in this phase substitutes them as literals instead of re-deriving them.
+   This script is the ONLY place in this run that derives WORKSPACE from the current directory. Note its printed WORKSPACE and PROJECT_NAME values (and the SKILL_DIR path given in SKILL.md) as literal strings now -- every later step substitutes them as literals instead of re-deriving them.
 
-   Shell state does not persist between tool calls: each PowerShell block runs in a fresh shell, so WORKSPACE, PROJECT_NAME, OUTPUT_ROOT, and SKILL_DIR must be re-declared at the top of EVERY later PowerShell block in this phase, using the literal values just printed (CURRENT_DATE is not part of this prelude -- re-run Get-Date where needed instead). Never re-derive WORKSPACE from `(Get-Location)` in a later block -- the working directory does not reliably persist between tool calls, and a wrong value silently writes this run's artifacts into a different repository. The re-declaration prelude is:
+   Shell state does not persist between tool calls (common.md rules W and S): variables AND the working directory are both gone in the next call, so every later call passes these values explicitly. Never re-derive WORKSPACE from `(Get-Location)` in a later step -- a wrong value silently writes this run's artifacts into a different repository. Where a later step still shows an inline PowerShell block, it carries this prelude:
    ```powershell
    $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
    $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
    $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
    ```
-   Substitute all three literal paths -- WORKSPACE and PROJECT_NAME from step 1's printed output, SKILL_DIR from SKILL.md (the directory containing it).
+   Substitute all three literal paths -- WORKSPACE and PROJECT_NAME from step 1's printed output, SKILL_DIR from SKILL.md (the directory containing it). If your shell is bash, do not paste such a block into it: write it to a temp .ps1 and run it with the -File form (common.md rule S).
 
    If `PROJECT_NAME` does not match what the user expects (e.g., they opened a parent folder by accident), STOP and ask them to re-open the correct workspace before continuing.
 
-2. **Create the output directory tree** inside the workspace:
-   ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
+2. **Confirm the output directory tree.** Step 1's script created `{PROJECT_NAME}-threat-model/` with `diagrams/` and `outputs/` subdirectories; its output lists them. Confirm they appear. If OUTPUT_ROOT is not the canonical unsuffixed path, stop and re-check the WORKSPACE value before doing anything else.
 
-   if (-not (Test-Path (Join-Path $WORKSPACE '.git'))) {
-       throw "WORKSPACE '$WORKSPACE' has no .git -- this looks like a mistargeted path (wrong repo), not the intentional non-git-repo case step 1 already warned about. Re-check the literal WORKSPACE value from step 1 before continuing."
-   }
-
-   New-Item -ItemType Directory -Path $OUTPUT_ROOT -Force | Out-Null
-   New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'diagrams') -Force | Out-Null
-   New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'outputs')  -Force | Out-Null
-   Get-ChildItem -Path $OUTPUT_ROOT -Directory | Select-Object Name
-   ```
-
-3. **Exclude the output directory from the source repo's git tracking** using the repo-local, un-committed exclude file. This keeps the threat model artifacts from accidentally appearing in a commit, diff, or PR against the source repo, without modifying any file that would itself need to be committed (important at a regulated org where modifying `.gitignore` may require code review). The pattern is a WILDCARD, not an exact name, because the Archiving instructions (end of Phase 4) rename this directory with a date suffix (`{PROJECT_NAME}-threat-model-yyyyMMdd`) for reuse across runs -- an exact-name entry would stop covering the directory the moment it is archived, silently exposing it to `git status` and a future accidental `git add`:
-   ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   $excludeFile = Join-Path $WORKSPACE '.git\info\exclude'
-   if (Test-Path $excludeFile) {
-       $entry = "$PROJECT_NAME-threat-model*/"
-       $current = Get-Content $excludeFile -Raw -ErrorAction SilentlyContinue
-       if ($current -notmatch [regex]::Escape($entry)) {
-           Add-Content -Path $excludeFile -Value "`n# Added by STRIDE threat modeling agent`n$entry" -Encoding UTF8
-           "Added '$entry' to .git/info/exclude"
-       } else {
-           "'$entry' already present in .git/info/exclude"
-       }
-   } else {
-       Write-Warning "No .git/info/exclude found; skipping exclude setup. You may see the output directory in 'git status'."
-   }
-   git -C $WORKSPACE status --short -- "$PROJECT_NAME-threat-model*/" 2>&1
-   ```
-   If the `git status` output shows files in the output directory (current OR any archived `-yyyyMMdd` copy), the exclude did not take effect and you should warn the user before proceeding.
+3. **Confirm the git exclusion.** Step 1's script added the repo-local exclude entry `{PROJECT_NAME}-threat-model*/` to `.git/info/exclude`. This keeps threat model artifacts out of any commit, diff, or PR against the source repo without modifying a file that would itself need to be committed (important at a regulated org where modifying `.gitignore` may require code review). The pattern is a WILDCARD, not an exact name, because the Archiving instructions (end of Phase 4) rename this directory with a date suffix (`{PROJECT_NAME}-threat-model-yyyyMMdd`) for reuse across runs -- an exact-name entry would stop covering the directory the moment it is archived, silently exposing it to `git status` and a future accidental `git add`. The script prints the resulting `git status` for the output directory: if it lists files (current OR any archived `-yyyyMMdd` copy), the exclude did not take effect -- warn the user before proceeding.
 
 4. **Initialize STATE.md** with the Write tool: all phases pending per the STATE.md schema in SKILL.md, LAST_UPDATED set to the current ISO 8601 timestamp, Resume Instruction = "Begin at Phase 0."
 
-5. **Produce a top-level repo map** using PowerShell for a full listing:
-   ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   Get-ChildItem -Path $WORKSPACE -Force |
-     Where-Object { $_.Name -ne "$PROJECT_NAME-threat-model" -and $_.Name -ne '.git' } |
-     Select-Object Mode, Name
-   ```
-   Classify the repo as one of: `single-service`, `monorepo-multi-service`, `library`, `infrastructure-only`, `mixed`. Apply this decision table IN ORDER, first match wins -- do not classify by feel:
+5. **Classify the repo from the top-level map.** Step 1's script already printed the full top-level listing (dirs and files, excluding `.git` and this workflow's output directories) under `=== TOP-LEVEL REPO MAP ===` -- use that output; do not re-list. Classify the repo as one of: `single-service`, `monorepo-multi-service`, `library`, `infrastructure-only`, `mixed`. Apply this decision table IN ORDER, first match wins -- do not classify by feel:
    1. Two or more independently deployable services (separate build/deploy manifests -- e.g. sibling service dirs each with their own Dockerfile / package.json / go.mod / pom.xml) -> `monorepo-multi-service`
    2. No application entry point at all -- only IaC (`*.tf`, k8s manifests, pipelines) -> `infrastructure-only`
    3. A build file that publishes a package/artifact for other code to import, and no runnable service entry point -> `library`
@@ -110,12 +47,7 @@
 5a. **Produce a COMPLETE recursive file manifest** -- this is the ground truth Phase 1 must account for, and it is what makes a single run's coverage self-evident instead of only knowable by comparing against a prior run. Enumerate every file (paths only -- no reading, so this is cheap even on large repos), excluding the tool-state and vendored directories that never generate threats:
    Run the extracted script and paste its output:
    ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   & $SKILL_DIR\scripts\manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
+   & '<SKILL_DIR>\scripts\manifest.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
    ```
    Record the total file count. Write the manifest to `00-file-manifest.txt` (one relative path per line). Phase 1 will assign EVERY file in this manifest to a component or a justified skip-bucket, and reconcile the totals -- so a file that gets silently overlooked becomes a visible rule violation, in this single run, with no prior run required to notice it. If the count is very large (thousands of files), still write the full manifest; the accounting in Phase 1 rolls low-relevance files into counted buckets rather than reading each.
 
@@ -181,12 +113,7 @@
 
    Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, common.md rule R (cap litmus)), no per-line narration; this whole pass is one code block:
    ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   & $SKILL_DIR\scripts\sweep.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
+   & '<SKILL_DIR>\scripts\sweep.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
    ```
    Paste its per-pattern counts and candidates line.
    The artifacts: `00-discovery-raw.txt` is every unique match site WITH its path (a bare line divorced from its file turns a real resource reference into an unrecognizable code fragment -- field-proven); `00-density.txt` ranks files by match count; `00-candidates.txt` is every mechanically-extracted name -- match values, quoted no-whitespace literals, and value tokens after `=` or `:` (resource names never contain spaces, so most prose junk dies in the regex, not in your judgment).
@@ -214,67 +141,11 @@
 
    Part 2 (only when a prior archived run exists): compare this run's 00-resources.txt against the most recent archive, as follows.
 
-   Find archived run directories using the same discovery pattern SKILL.md's Phase 3 Disposition Discovery uses:
+   Run the comparison script (one call; use YOUR shell's invocation form per common.md rule S):
    ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   $archivedRuns = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" -ErrorAction SilentlyContinue
-   if ($archivedRuns) {
-       $mostRecent = $archivedRuns | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-       "most recent archived run: $($mostRecent.Name) (LastWriteTime $($mostRecent.LastWriteTime))"
-   } else {
-       "no archived runs found"
-   }
+   & '<SKILL_DIR>\scriptsrchive-compare.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
    ```
-
-   If `$archivedRuns` is empty: state "no prior archived threat-model found -- first assessment, no comparison" in 00-scope.md's summary (do not write 00-archive-comparison.md at all -- there is nothing to compare) and proceed to step 8.
-
-   If one or more archived directories exist, take the most recent by LastWriteTime and compare it against this run:
-   ```powershell
-   $WORKSPACE    = '<the literal WORKSPACE path printed in step 1>'
-   $PROJECT_NAME = '<the literal PROJECT_NAME printed in step 1>'
-   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   $SKILL_DIR    = '<the literal SKILL_DIR path given in SKILL.md>'
-
-   $mostRecent       = Get-ChildItem -Path $WORKSPACE -Directory -Filter "$PROJECT_NAME-threat-model-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-   $priorResources   = Join-Path $mostRecent.FullName '00-resources.txt'
-   $currentResources = Join-Path $OUTPUT_ROOT '00-resources.txt'
-
-   if (Test-Path $priorResources) {
-       # Compare on the NAME column so DISCOVERY drift (a resource missing) is separated
-       # from CLASSIFICATION drift (same resource name, different type word). Build
-       # name->type maps; a name only-in-prior/only-in-current is discovery drift; a name
-       # in BOTH with a different type is classification drift (not a missed resource).
-       function Parse-Res($lines) { $h=@{}; foreach($l in $lines){ if($l){ $p=$l -split "`t",2; if($p.Count -eq 2){ $h[$p[1].Trim().ToLower()] = $p[0].Trim().ToLower() } } }; $h }
-       $priorMap   = Parse-Res (Get-Content $priorResources)
-       $currentMap = Parse-Res (Get-Content $currentResources)
-       $onlyInPrior   = $priorMap.Keys   | Where-Object { -not $currentMap.ContainsKey($_) } | Sort-Object
-       $onlyInCurrent = $currentMap.Keys | Where-Object { -not $priorMap.ContainsKey($_) }   | Sort-Object
-       $bothNames     = $priorMap.Keys   | Where-Object { $currentMap.ContainsKey($_) }
-       $classDrift    = $bothNames | Where-Object { $priorMap[$_] -ne $currentMap[$_] } | ForEach-Object { "$_ : $($priorMap[$_]) -> $($currentMap[$_])" } | Sort-Object
-       $unchanged     = $bothNames | Where-Object { $priorMap[$_] -eq $currentMap[$_] } | Sort-Object
-       "comparison basis: 00-resources.txt name column (both runs)"
-       "in prior, not in current -- DISCOVERY drift / possible regression (" + @($onlyInPrior).Count + "):"
-       $onlyInPrior
-       "in current, not in prior -- new since last assessment (" + @($onlyInCurrent).Count + "):"
-       $onlyInCurrent
-       "same name, different type -- CLASSIFICATION drift (" + @($classDrift).Count + "):"
-       $classDrift
-       "unchanged (" + @($unchanged).Count + "):"
-       $unchanged
-   } else {
-       $priorInventory = Join-Path $mostRecent.FullName '01-inventory.md'
-       if (Test-Path $priorInventory) {
-           "comparison basis: 01-inventory.md fallback (prior run predates 00-resources.txt) -- weaker basis, component/DS/EXT names only, no type column"
-       } else {
-           "prior archive has neither 00-resources.txt nor 01-inventory.md -- cannot be compared"
-       }
-   }
-   ```
-   When falling back to the 01-inventory.md basis: extract its component/DS-NNN/EXT-NNN names with `Select-String` over the component table rows, and run the same three-way `Compare-Object` against this run's 00-resources.txt name column (the text after the tab on each line) -- name-only, since the older file has no type column. When neither file exists, record in 00-archive-comparison.md that the archive could not be compared and why (no 00-resources.txt and no 01-inventory.md found in it).
+   It finds the most recent archived run, picks the comparison basis (the archive's `00-resources.txt`, or its `01-inventory.md` element names as a weaker name-only fallback, or reports that it cannot be compared), and prints the FOUR sets described below plus both resource counts. If no archive exists it says so and you skip to step 8 without writing 00-archive-comparison.md. Paste its output.
 
    Write the result to `{PROJECT_NAME}-threat-model/00-archive-comparison.md` with the Write tool (common.md rule W): which archived run was compared (name, LastWriteTime), the comparison basis (00-resources.txt name column, the 01-inventory.md fallback, or "could not be compared" with the reason), and the FOUR named sets in full, not just counts -- (1) in prior/not in current (DISCOVERY drift / possible regression), (2) in current/not in prior (new), (3) same name/different type (CLASSIFICATION drift -- the same resource re-binned, e.g. a fetched-from source corrected from data-store to external-api; NOT a missed resource), and (4) unchanged. This is a completeness cross-check, not an auto-merge: never silently pull a prior run's resource into this run's scope on the strength of this comparison -- every "in prior, not in current" item is surfaced as a question for the user, never merged in automatically.
 
@@ -308,4 +179,4 @@ Present this Scope Proposal to the user and wait for approval or corrections (GA
 
 ---
 
-After the user approves the Scope Proposal, run `& $SKILL_DIR\scripts\partition-manifest.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME` and paste its reconciliation line. The three partition files drive the parallel Phase 1 passes.
+After the user approves the Scope Proposal, run `& '<SKILL_DIR>\scripts\partition-manifest.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'` (your shell's form per common.md rule S) and paste its reconciliation line. The three partition files drive the parallel Phase 1 passes.

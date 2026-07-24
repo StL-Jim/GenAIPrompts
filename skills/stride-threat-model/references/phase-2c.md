@@ -87,19 +87,11 @@ Steps:
 
 2. Write the header section to `02-header.md` using the Write tool (title, project name, date, the System Restatement copied verbatim from 01-inventory.md, summary paragraph).
 
-3. Concatenate header + three sub-files into `02-threats.md` using PowerShell:
+3. Concatenate header + three sub-files into `02-threats.md` with the consolidation script (substitute the literal values from your briefing; use YOUR shell's invocation form per common.md rule S -- from bash, `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` with the same parameters):
    ```powershell
-   $WORKSPACE    = '<workspace path from your briefing>'
-   $PROJECT_NAME = '<project name from your briefing>'
-   $outDir = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
-   Get-Content `
-     "$outDir\02-header.md",
-     "$outDir\02a-context.md",
-     "$outDir\02b-threats.md",
-     "$outDir\02c-assumptions.md" |
-     Set-Content "$outDir\02-threats.md" -Encoding UTF8
-   Remove-Item "$outDir\02-header.md"
+   & '<SKILL_DIR>\scripts\consolidate.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
    ```
+   The script streams the files through the OS (not through your context window), removes the temporary `02-header.md`, prints the input-vs-output byte totals, and FAILS LOUDLY if the result is materially smaller than its inputs. Paste its output.
 
 4. Verify per common.md rule W-d. If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all sub-files and write the concatenation manually -- that defeats the purpose.
 

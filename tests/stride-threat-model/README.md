@@ -39,3 +39,15 @@ archive-comparison testing):
 ```powershell
 powershell -File tests/stride-threat-model/make-fixture.ps1 -Path C:\tmp\stm-fixture -WithArchive
 ```
+
+## Bash-invocation test
+
+```bash
+bash tests/stride-threat-model/test-bash-invocation.sh
+```
+
+Proves every script runs from bash (Git Bash on Windows) using the canonical form in
+common.md rule S. This exists because a field run whose Claude Code harness drove bash
+could not run the skill at all -- the phase files showed PowerShell-native call syntax
+and multi-line inline PowerShell, neither of which survives being pasted into bash. Run
+it whenever a script or a call site changes.

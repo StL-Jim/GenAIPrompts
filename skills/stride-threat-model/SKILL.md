@@ -2,7 +2,7 @@
 name: stride-threat-model
 description: Runs or resumes an orchestrated, multi-agent STRIDE threat model against the current workspace -- phased analysis producing a component inventory, STRIDE threat table, HTML/CSV deliverables, and draw.io diagrams under {project}-threat-model/. Use when asked to run, continue, or resume a threat model or STRIDE analysis, when the user mentions the threat-model STATE.md, or when asked to advance to a specific phase. Not for the Code Security Audit (separate workflow).
 ---
-<!-- SKILL VERSION: v25-skill (2026-07-23b) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a); 2026-07-23a: sweep scalability (extension/size/saturation exclusions), manifest tool-state exclusions, Phase 0 scope-after-discovery ordering; 2026-07-23b: 00-resources.txt canonical-name format pinned + name-aware archive comparison (discovery vs classification drift), candidate-triage tally, Rule 13a exploratory-read reinforcement; 2026-07-23c: secrets convergence rule (secrets are attributes on their owning element, never a standalone C-NNN); 2026-07-23d: Phase 4 EDGE tier keys on ingress position not just Type word, sweep/partition fail clearly when manifest missing, validate-drawio reports empty diagram set; 2026-07-24a: Phase 2B persists excluded-candidate working list to 02b-excluded.md so Phase 2C carries the Excluded Threats Ledger forward instead of reconstructing it -->
+<!-- SKILL VERSION: v25-skill (2026-07-23b) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a); 2026-07-23a: sweep scalability (extension/size/saturation exclusions), manifest tool-state exclusions, Phase 0 scope-after-discovery ordering; 2026-07-23b: 00-resources.txt canonical-name format pinned + name-aware archive comparison (discovery vs classification drift), candidate-triage tally, Rule 13a exploratory-read reinforcement; 2026-07-23c: secrets convergence rule (secrets are attributes on their owning element, never a standalone C-NNN); 2026-07-23d: Phase 4 EDGE tier keys on ingress position not just Type word, sweep/partition fail clearly when manifest missing, validate-drawio reports empty diagram set; 2026-07-24a: Phase 2B persists excluded-candidate working list to 02b-excluded.md so Phase 2C carries the Excluded Threats Ledger forward instead of reconstructing it; 2026-07-24b: HARNESS PORTABILITY -- common.md rule S (bash vs PowerShell invocation), Phase 0 steps 1/2/3/5 collapsed into scripts/init-workspace.ps1, archive-compare.ps1 and consolidate.ps1 extracted, all inline multi-line PowerShell removed from the phase files -->
 
 # STRIDE Threat Model -- Orchestrator
 
@@ -14,8 +14,15 @@ rules bind everything you write too (ASCII, evidence, computed numbers).
 Definitions used below: SKILL_DIR = this skill's directory. WORKSPACE = current
 working directory (the repo under assessment). PROJECT_NAME = leaf directory name.
 OUTPUT_ROOT = {WORKSPACE}\{PROJECT_NAME}-threat-model. Shell state does not persist
-between tool calls -- re-declare these as PowerShell variables inside each block that
-uses them, or substitute literal paths.
+between tool calls -- neither variables nor the working directory -- so substitute
+literal paths into every call rather than relying on anything set earlier.
+
+YOUR SHELL MAY BE POWERSHELL OR BASH. The phase files show script calls in PowerShell
+form. If your shell tool is bash (Git Bash on Windows), translate every one to:
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'`
+-- same parameters, single-quoted paths. Never paste a multi-line PowerShell block into
+bash; write it to a temp .ps1 and run it with -File. This is common.md rule S, and it
+binds you and every subagent you dispatch (they read common.md first).
 
 ## Session Start (every session, first action)
 1. Print exactly one line: `Running stride-threat-model SKILL VERSION: <stamp above>`.

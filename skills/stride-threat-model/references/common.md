@@ -47,15 +47,39 @@ W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use
    contracts above.
 
    Shell state does not persist. Every PowerShell block runs in a FRESH shell --
-   variables set in one block are gone in the next. Any block that uses $WORKSPACE,
-   $PROJECT_NAME, $OUTPUT_ROOT, or $SKILL_DIR must declare them at the top of that
-   same block, from the values your briefing names:
+   variables set in one block are gone in the next, and the working directory does not
+   reliably persist either. Any block that uses $WORKSPACE, $PROJECT_NAME, $OUTPUT_ROOT,
+   or $SKILL_DIR must declare them at the top of that same block, from the values your
+   briefing names:
    ```powershell
    $WORKSPACE    = '<workspace path from your briefing>'
    $PROJECT_NAME = '<project name from your briefing>'
    $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
    $SKILL_DIR    = '<skill dir from your briefing>'
    ```
+
+S. Running the skill's scripts (READ THIS BEFORE YOUR FIRST SCRIPT CALL). All mechanical
+   work ships as .ps1 files under <SKILL_DIR>\scripts\. Your shell tool may be PowerShell
+   OR bash (Git Bash on Windows) depending on the harness -- the phase files show script
+   calls in PowerShell form, so if your shell is bash you MUST translate. Use whichever
+   line matches your shell; both are equivalent, and both take the same parameters:
+
+   From a PowerShell shell:
+   ```powershell
+   & '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   From a bash shell (Git Bash on Windows):
+   ```bash
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   Single-quote every path (bash then leaves backslashes alone, and spaces in paths are
+   safe). Do not `cd` first and rely on it -- always pass absolute paths.
+
+   NEVER hand-run a multi-line PowerShell block by pasting it into a bash shell: the
+   quoting will fail or, worse, half-execute. If a phase file shows a multi-line block
+   and your shell is bash, write the block to a temporary .ps1 file and invoke it with
+   the -File form above. Every mechanical step that matters already ships as a script --
+   prefer the script over reconstructing its logic inline.
 
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and

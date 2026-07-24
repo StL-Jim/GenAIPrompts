@@ -109,14 +109,10 @@ Content selection is MECHANICAL for diagrams 1, 2, and 4 -- what appears is a fu
 
 Run this after all four files exist; paste its OUTPUT into the completion banner verbatim (Operating Rule 15). A PARSE FAIL is the unescaped-character failure that makes a file unloadable on the desktop -- fix the file and re-run until every line is clean; never leave a failing file for the user to discover:
 
-Set $SKILL_DIR, $WORKSPACE, and $PROJECT_NAME from the values your briefing names, in the same block as the call (shell state does not persist between tool calls):
+Substitute the literal SKILL_DIR, WORKSPACE, and PROJECT_NAME values your briefing names, and use the invocation form for YOUR shell (common.md rule S -- from bash use `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` with the same parameters):
 
 ```powershell
-$SKILL_DIR    = '<SKILL_DIR from your briefing>'
-$WORKSPACE    = '<WORKSPACE from your briefing>'
-$PROJECT_NAME = '<PROJECT_NAME from your briefing>'
-
-& $SKILL_DIR\scripts\validate-drawio.ps1 -Workspace $WORKSPACE -ProjectName $PROJECT_NAME
+& '<SKILL_DIR>\scripts\validate-drawio.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
 ```
 
 Reconcile the counts against the source files and state the result: containers on c4-02 and dfd = the number of component-bearing tiers (EDGE/APPLICATION/DATA/SECURED that have at least one member -- NOT the TB count; trust boundaries are edge annotations, not containers); every TB-NNN appears as a ` | TB-NNN` annotation on at least one boundary-crossing flow (or is listed in the notes box if it backs no flow) -- state both the component-bearing-tier count and the count of TB-NNN reconciled as edge markers; C-NNN cells on c4-02 = inventory component count; edges on dfd = 02a DF count; bad edge refs and bad parents = 0 everywhere. The validator script counts containers mechanically; it does not assert containers == TB count, because containers are tiers, not trust boundaries. Any TB-NNN that appears as neither an edge marker nor a notes-box entry is a rule violation -- fix the diagram, not the number.

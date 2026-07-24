@@ -104,6 +104,20 @@ Documentation artifact:
 - Date: (if available)
 - Evidence: [evidence: docs/architecture.md]
 
+### Secrets and credentials (NOT a separate element class -- convergence rule)
+A secret, credential, key, or token surface (an API key, a shared auth secret, a
+cloud access key, a DB password, a bearer/session token) is NEVER its own element
+and NEVER gets a C-NNN/DS-NNN. Parallel partitions must handle these identically or
+they diverge (one agent componentizes a key, another folds it in -- a field-observed
+split). The rule: record each secret surface as a `Secrets referenced:` line on the
+component, data store, or trust-boundary-evidence element that OWNS, HOLDS, or USES it,
+naming the secret by its concrete identity with evidence (e.g. `Secrets referenced:
+AUTH_SECRET (shared static bearer secret) [evidence: services/api/auth.py:1]`). List
+every secret surface this way -- do not drop it and do not promote it to an element.
+The reconciliation agent keeps these attributes on their owning elements; Phase 2A's
+Secrets asset floor enumerates them from there, so a secret that is never listed on any
+element silently vanishes from the threat model.
+
 ## Partition Contract (parallel passes)
 Phase 1 runs as three parallel agents, one per manifest partition (docs / iac / rest,
 written by scripts/partition-manifest.ps1). Your accounting universe is YOUR partition

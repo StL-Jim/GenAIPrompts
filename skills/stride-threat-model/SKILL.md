@@ -2,7 +2,7 @@
 name: stride-threat-model
 description: Runs or resumes an orchestrated, multi-agent STRIDE threat model against the current workspace -- phased analysis producing a component inventory, STRIDE threat table, HTML/CSV deliverables, and draw.io diagrams under {project}-threat-model/. Use when asked to run, continue, or resume a threat model or STRIDE analysis, when the user mentions the threat-model STATE.md, or when asked to advance to a specific phase. Not for the Code Security Audit (separate workflow).
 ---
-<!-- SKILL VERSION: v25-skill (2026-07-23b) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a); 2026-07-23a: sweep scalability (extension/size/saturation exclusions), manifest tool-state exclusions, Phase 0 scope-after-discovery ordering; 2026-07-23b: 00-resources.txt canonical-name format pinned + name-aware archive comparison (discovery vs classification drift), candidate-triage tally, Rule 13a exploratory-read reinforcement; 2026-07-23c: secrets convergence rule (secrets are attributes on their owning element, never a standalone C-NNN); 2026-07-23d: Phase 4 EDGE tier keys on ingress position not just Type word, sweep/partition fail clearly when manifest missing, validate-drawio reports empty diagram set; 2026-07-24a: Phase 2B persists excluded-candidate working list to 02b-excluded.md so Phase 2C carries the Excluded Threats Ledger forward instead of reconstructing it; 2026-07-24b: HARNESS PORTABILITY -- common.md rule S (bash vs PowerShell invocation), Phase 0 steps 1/2/3/5 collapsed into scripts/init-workspace.ps1, archive-compare.ps1 and consolidate.ps1 extracted, all inline multi-line PowerShell removed from the phase files; 2026-07-24c: Reviewer metadata block is real form controls (#reviewed-by input, #reviewer-notes textarea) not static blanks -- fixes untypeable fields and the always-empty Reviewer column in exported dispositions.csv; print CSS + beforeprint details-expansion; 2026-07-24d: PASS 1 PRIMACY RESTORED -- field report showed Phase 0 finishing fast on mechanical output (the displacement regression); Pass 1 leads with investigator voice + a stated reading reconciliation (docs read == docs in manifest), Pass 2 demoted to a short safety-net paragraph with its mechanics moved into the script, noise bucket hard-guarded against resource-shaped names -->
+<!-- SKILL VERSION: v25-skill (2026-07-23b) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a); 2026-07-23a: sweep scalability (extension/size/saturation exclusions), manifest tool-state exclusions, Phase 0 scope-after-discovery ordering; 2026-07-23b: 00-resources.txt canonical-name format pinned + name-aware archive comparison (discovery vs classification drift), candidate-triage tally, Rule 13a exploratory-read reinforcement; 2026-07-23c: secrets convergence rule (secrets are attributes on their owning element, never a standalone C-NNN); 2026-07-23d: Phase 4 EDGE tier keys on ingress position not just Type word, sweep/partition fail clearly when manifest missing, validate-drawio reports empty diagram set; 2026-07-24a: Phase 2B persists excluded-candidate working list to 02b-excluded.md so Phase 2C carries the Excluded Threats Ledger forward instead of reconstructing it; 2026-07-24b: HARNESS PORTABILITY -- common.md rule S (bash vs PowerShell invocation), Phase 0 steps 1/2/3/5 collapsed into scripts/init-workspace.ps1, archive-compare.ps1 and consolidate.ps1 extracted, all inline multi-line PowerShell removed from the phase files; 2026-07-24c: Reviewer metadata block is real form controls (#reviewed-by input, #reviewer-notes textarea) not static blanks -- fixes untypeable fields and the always-empty Reviewer column in exported dispositions.csv; print CSS + beforeprint details-expansion; 2026-07-24d: PASS 1 PRIMACY RESTORED -- field report showed Phase 0 finishing fast on mechanical output (the displacement regression); Pass 1 leads with investigator voice + a stated reading reconciliation (docs read == docs in manifest), Pass 2 demoted to a short safety-net paragraph with its mechanics moved into the script, noise bucket hard-guarded against resource-shaped names; 2026-07-24e: Phase 0 DISCOVERY split into its own subagent (phase-0-discovery.md) so deep reading gets a dedicated context window instead of competing with orchestration; Pass 1 must read OFF-IMPORT-GRAPH classes (client-side/view files, environment+deployment overlays, scheduled/out-of-band entry points) -- field: two external integrations missed because an import-graph walk cannot reach them; reading accounting now per-class -->
 
 # STRIDE Threat Model -- Orchestrator
 
@@ -74,16 +74,28 @@ wait for explicit user approval. Corrections at a gate are applied before moving
 (re-dispatch the phase, or make the edit yourself if it is small and mechanical).
 
 ## Dispatch
-Run Phase 0 YOURSELF, in THIS session -- do NOT delegate it to a subagent. Phase 0 is
-interactive (it asks the user Q1-Q6a and presents the scope at GATE 1) and a subagent
-cannot talk to the user; running it here also means the user sees the discovery scripts'
-progress live and can intervene. Follow references/phase-0.md directly. The mechanical
-sweep (scripts/sweep.ps1) is Phase 0's long pole on a large repo: it prints one line per
-pattern with a match count and elapsed seconds, and may print `SATURATED` on a pervasive
-pattern -- that is expected progress, not a failure. If it is slow, let it finish; it
-already excludes bulk-data/oversized files so it does not hang. Everything AFTER Phase 0
-is a subagent. Briefing template -- fill the <>, launch as a general-purpose agent, one
-per phase:
+Run Phase 0 YOURSELF, in THIS session, WITH ONE EXCEPTION: its discovery step (step 7)
+is dispatched as a subagent. Phase 0 is interactive -- it asks the user Q1-Q6a and
+presents the scope at GATE 1, and a subagent cannot talk to the user -- so initialization,
+the questions, exposure validation, the archive comparison, the scope note and the Scope
+Proposal all stay here. But step 7's DISCOVERY is the reading-heavy heart of the workflow
+and needs a full, dedicated context window: run in this session it competes with
+orchestration and user dialogue, and a model managing a conversation economizes on
+reading (field-observed: fewer files read, integrations missed). So dispatch it, per the
+table below, briefed on references/phase-0-discovery.md.
+
+When the discovery agent returns, VERIFY before you build scope on it: 00-discovery.md
+exists and is substantive; its Pass 1 reading accounting shows docs-read EQUAL to
+docs-in-manifest and no class with files present but none read; and its depth verdict is
+not THIN. If any of those fail, re-dispatch it naming the shortfall -- nothing downstream
+detects what discovery missed, so a shallow discovery silently caps the whole run.
+
+The mechanical sweep (scripts/sweep.ps1) that agent runs is Phase 0's long pole on a
+large repo: it prints one line per pattern with a match count and elapsed seconds, and may
+print `SATURATED` on a pervasive pattern -- expected progress, not a failure. Speed there
+is fine; speed in the READING is the warning sign.
+
+Briefing template -- fill the <>, launch as a general-purpose agent, one per phase:
 
     You are executing phase <N> of a STRIDE threat model run.
     SKILL_DIR: <abs>  WORKSPACE: <abs>  PROJECT_NAME: <name>  OUTPUT_ROOT: <abs>
@@ -96,6 +108,7 @@ per phase:
 
 | Order | Phase file(s) | Parallel group | Extra briefing line |
 |---|---|---|---|
+| 0 | phase-0-discovery.md | -- (during Phase 0 step 7) | Rehydration: STATE.md and 00-file-manifest.txt (00-scope.md does not exist yet). Read deeply; a fast finish on a large repo is a failure, not efficiency. |
 | 1 | phase-1a.md + phase-1-shared.md | A (with 1b, 1c) | -- |
 | 1 | phase-1b.md + phase-1-shared.md | A | -- |
 | 1 | phase-1c.md + phase-1-shared.md | A | -- |

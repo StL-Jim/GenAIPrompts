@@ -17,6 +17,7 @@ $refDir = "$skillDir\references"
 $order = @(
   'common.md',
   'phase-0.md',
+  'phase-0-discovery.md',
   'phase-1-shared.md',
   'phase-1a.md',
   'phase-1b.md',

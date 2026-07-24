@@ -81,6 +81,7 @@ X. Subagent conduct. You are a subagent: you cannot ask the user anything. If yo
      01-inventory.md                   (Phase 1)
      02a-context.md                    (Phase 2A: assets, trust boundaries, data flows)
      02b-threats.md                    (Phase 2B: STRIDE threat table)
+     02b-excluded.md                   (Phase 2B: excluded-candidate working list -- source for the Phase 2C Excluded Threats Ledger)
      02c-assumptions.md                (Phase 2C: questions and assumptions)
      02-threats.md                     (Phase 2C: consolidated, built from 02a/02b/02c)
      diagrams/

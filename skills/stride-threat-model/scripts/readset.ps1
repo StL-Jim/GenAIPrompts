@@ -1,4 +1,4 @@
-# SKILL VERSION: v25-skill (2026-07-24l)
+# SKILL VERSION: v25-skill (2026-07-24m)
 # skills/stride-threat-model/scripts/readset.ps1
 #
 # Computes Phase 0 Pass 1's MANDATORY READ SET from the file manifest, and (in -Verify
@@ -62,6 +62,18 @@ function Get-Class([string]$p) {
   return $null   # non-code, non-doc (data, assets, binaries) -- outside the read set
 }
 
+# THE FLOOR IS THE SMALL, HIGH-VALUE CLASSES ONLY. app-source and client-view are covered
+# MECHANICALLY by the Pass 2 sweep (which reads every file in the repo) and by the density
+# refinement (which reads the highest-signal ones). They are NOT in the mandatory read set.
+# Field evidence over three runs: ~20 files read plus a comprehensive sweep found every
+# external integration, while a 289-file floor could not be met at all -- forcing either a
+# fabricated verdict or the orchestrator overriding the gate. A gate that must be overridden
+# to make progress is not a gate. The floor is what one agent can actually read in a session,
+# and it is exactly the material a mechanical pattern cannot substitute for: where the system
+# starts, how it is configured per environment, who it trusts, what it calls out to, and what
+# its authors wrote down.
+$floorClasses = @('entrypoint','config-env','auth','ext-client','docs')
+$sweepCovered = @('app-source','client-view')
 $classes = @('entrypoint','config-env','auth','ext-client','app-source','client-view','docs')
 $set = foreach ($p in $manifest) { $c = Get-Class $p; if ($c) { [PSCustomObject]@{ Class = $c; Path = $p } } }
 $set = @($set)
@@ -74,11 +86,9 @@ $set = @($set)
 # judgment call, so nothing is silently dropped and the totals still reconcile. Small,
 # high-value classes are never filtered -- an entry point or a config file matters whether
 # or not it contains a URL.
-$neverFilter = @('entrypoint','config-env','auth','ext-client','docs')
 $signalRe = '://|<script[^>]+src=|<iframe[^>]+src=|<embed[^>]+src=|fetch\(|axios|XMLHttpRequest|\.ajax\(|integrity=|HttpClient|WebClient|RestClient|RestSharp|new \w+Client|createClient|connectionString|getenv|environ\[|process\.env|ConfigurationManager|IConfiguration|AppSettings|arn:aws|_URL|_URI|_HOST|_ENDPOINT|_ADDR|_BUCKET|_TABLE|_QUEUE|_TOPIC'
 $deferred = @()
 foreach ($c in $classes) {
-  if ($neverFilter -contains $c) { continue }
   $inClass = @($set | Where-Object { $_.Class -eq $c })
   if ($inClass.Count -le $BulkClassThreshold) { continue }
   foreach ($item in $inClass) {
@@ -93,7 +103,8 @@ foreach ($c in $classes) {
 $deferredPaths = @{}
 foreach ($d in $deferred) { $deferredPaths[$d.Path] = $true }
 $setAll = $set
-$set = @($set | Where-Object { -not $deferredPaths[$_.Path] })
+$set      = @($setAll | Where-Object { -not $deferredPaths[$_.Path] -and ($floorClasses -contains $_.Class) })
+$sweepSet = @($setAll | Where-Object { -not $deferredPaths[$_.Path] -and ($sweepCovered -contains $_.Class) })
 
 if (-not $Verify) {
   $set | Sort-Object Class, Path | ForEach-Object { "$($_.Class)`t$($_.Path)" } |
@@ -101,6 +112,10 @@ if (-not $Verify) {
   if ($deferred.Count -gt 0) {
     $deferred | Sort-Object Class, Path | ForEach-Object { "$($_.Class)`t$($_.Path)" } |
       Set-Content "$out\00-readset-deferred.txt" -Encoding ASCII
+  }
+  if ($sweepSet.Count -gt 0) {
+    $sweepSet | Sort-Object Class, Path | ForEach-Object { "$($_.Class)`t$($_.Path)" } |
+      Set-Content "$out\00-readset-sweep-covered.txt" -Encoding ASCII
   }
   "MANDATORY READ SET written to 00-readset.txt -- every file listed is read IN FULL."
   "  {0,-12} {1,8} {2,9} {3,9}" -f 'class','in class','IN FLOOR','deferred'
@@ -112,7 +127,10 @@ if (-not $Verify) {
     "  {0,-12} {1,8} {2,9} {3,9}{4}" -f $c, $tot, $flo, $def, $note
   }
   "  {0,-12} {1,8} {2,9} {3,9}" -f 'TOTAL', $setAll.Count, $set.Count, $deferred.Count
-  "Manifest total: $($manifest.Count) | mandatory read set (READ ALL OF THESE): $($set.Count)"
+  "Manifest total: $($manifest.Count) | MANDATORY READ SET (read all of these): $($set.Count)"
+  if ($sweepSet.Count -gt 0) {
+    "Sweep-covered: $($sweepSet.Count) app-source/client-view files are NOT in the floor -- the Pass 2 sweep reads every one of them mechanically, and the density refinement reads the highest-signal ones. Listed in 00-readset-sweep-covered.txt."
+  }
   if ($deferred.Count -gt 0) {
     "Deferred: $($deferred.Count) files in high-cardinality classes carry NO external-reference signal (listed in 00-readset-deferred.txt). They are accounted for, not dropped -- read any the sweep or your investigation later flags."
   }

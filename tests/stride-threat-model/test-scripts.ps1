@@ -116,6 +116,15 @@ $tmp = Join-Path $env:TEMP 'stm-concat-test.md'
 Check 'concat produced non-empty output' ((Test-Path $tmp) -and ((Get-Item $tmp).Length -gt 10000))
 if (Test-Path $tmp) { Remove-Item $tmp }
 
+"=== script hygiene ==="
+foreach ($f in (Get-ChildItem (Join-Path $SkillDir 'scripts') -Filter *.ps1)) {
+  $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+  Check "no NUL bytes in $($f.Name)" (-not ($bytes -contains 0))
+  $errs = $null
+  [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs)
+  Check "$($f.Name) parses" ($errs.Count -eq 0)
+}
+
 "=== degenerate inputs (graceful failure, not silent-wrong) ==="
 $deg = Join-Path $env:TEMP 'stm-degenerate'
 if (Test-Path $deg) { Remove-Item -Recurse -Force -LiteralPath $deg }

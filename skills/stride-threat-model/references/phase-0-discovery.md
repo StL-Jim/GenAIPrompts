@@ -32,6 +32,16 @@ artifacts named below.
 
    AS YOU READ, LOG IT -- THIS IS A DELIVERABLE, NOT BOOKKEEPING. Append every file you read, floor files and investigation files alike, to `{PROJECT_NAME}-threat-model/00-files-read.txt`, one relative path per line. It is the RECORD OF WHAT WAS REVIEWED: without it there is no list of what discovery actually looked at, nothing can be verified, and a reviewer cannot tell a thorough pass from a shallow one. A completion summary that says "read N key files" instead of producing this file is not an acceptable substitute -- write the file.
 
+   THE FLOOR IS SMALL ON PURPOSE, AND IT IS NOT THE WHOLE JOB. It holds only what a
+   mechanical pattern cannot substitute for -- where the system starts, how it is configured
+   per environment, who it trusts, what it calls out to, and what its authors wrote down.
+   Ordinary application source and view files are NOT in it: the Pass 2 sweep reads every one
+   of them mechanically, and the density refinement sends you into the highest-signal ones.
+   That division is deliberate. Finding an external integration is a pattern problem (a URL
+   is a literal string); reading is for what patterns cannot do -- dynamically-built names, a
+   resource named only in a comment, and above all UNDERSTANDING how the pieces connect. Read
+   the floor completely, then investigate outward as far as the system's structure warrants.
+
    The read set is achievable BY CONSTRUCTION: high-cardinality classes are signal-filtered by the script (a view or source file with no external reference is deferred, mechanically, and listed in 00-readset-deferred.txt), so the floor is the files that can actually contain an integration -- not every file in the repo. It is meant to be met, not sampled. If the floor still looks large, that is the repo telling you the truth about its integration surface.
 
    YOU DO NOT ISSUE A VERDICT ON YOUR OWN COVERAGE. Do not write "VERDICT: COMPLETE", "depth:
@@ -51,7 +61,8 @@ artifacts named below.
 
    You may run the verification yourself while working, to find out what you still owe:
    ```powershell
-   & '<SKILL_DIR>\scriptseadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
+   & '<SKILL_DIR>\scripts
+eadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
    ```
    (bash shell: the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, rule S.)
    Use it as a worklist -- it names the floor files you have not read yet. Keep reading and

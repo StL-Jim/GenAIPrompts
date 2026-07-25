@@ -26,10 +26,16 @@ Install (both machines):
 
 ```bash
 git pull
-powershell -File skills/stride-threat-model/install.ps1
+bash skills/stride-threat-model/install.sh
 ```
 
-`install.ps1` copies the skill into `~/.claude/skills/stride-threat-model`. Then, from a Claude Code session with your target repository as the working directory, ask it to run the STRIDE threat model (the skill triggers on "run the threat model" / "STRIDE analysis" / resume requests). Outputs land in `{PROJECT_NAME}-threat-model/` exactly as the monolith produces them; STATE.md resume works across sessions, and a half-finished monolith run and the skill share the same output layout.
+(`install.ps1` is the PowerShell equivalent if you prefer.) Both copy the skill into
+`~/.claude/skills/stride-threat-model`, resolving `$HOME` on whatever machine runs them,
+and both print the installed version stamp and path so you can confirm what landed.
+
+Use the installer rather than `cp -r`: it REPLACES the target directory, whereas `cp`
+merges into it, so a file removed from the repo would linger in the installed copy and
+still be read by a later run. Then, from a Claude Code session with your target repository as the working directory, ask it to run the STRIDE threat model (the skill triggers on "run the threat model" / "STRIDE analysis" / resume requests). Outputs land in `{PROJECT_NAME}-threat-model/` exactly as the monolith produces them; STATE.md resume works across sessions, and a half-finished monolith run and the skill share the same output layout.
 
 Requires Claude Code with subagent (Task) support and Windows PowerShell 5.1. The monolith prompt remains fully usable in Continue.dev; the two produce the same artifact layout. `scripts/concat-monolith.ps1` can rebuild the monolith from the per-phase skill files.
 

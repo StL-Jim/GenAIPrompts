@@ -1,4 +1,4 @@
-# SKILL VERSION: v25-skill (2026-07-24g)
+# SKILL VERSION: v25-skill (2026-07-24l)
 # skills/stride-threat-model/scripts/readset.ps1
 #
 # Computes Phase 0 Pass 1's MANDATORY READ SET from the file manifest, and (in -Verify
@@ -144,10 +144,12 @@ foreach ($c in $classes) {
   if ($missing.Count -gt 0) { $missing | Select-Object -First 25 | ForEach-Object { "        UNREAD: $_" } }
   if ($missing.Count -gt 25) { "        ... and $($missing.Count - 25) more" }
 }
+$stamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
 "  TOTAL UNREAD IN MANDATORY SET: $totalMissing"
+"  [readset.ps1 $stamp | read-set $($set.Count) files | read-log $($readList.Count) entries]"
 if ($totalMissing -gt 0) {
-  "VERDICT: INCOMPLETE -- the files listed above are in the mandatory read set and were not read. Read them, append them to 00-files-read.txt, and re-run. Do not proceed to scope on this."
+  "VERDICT: INCOMPLETE -- $totalMissing of $($set.Count) mandatory files unread. Read the files named above, append them to 00-files-read.txt, and re-run. Do not proceed to scope on this."
   exit 1
 }
-"VERDICT: COMPLETE -- every file in the mandatory read set was read."
+"VERDICT: COMPLETE -- all $($set.Count) files in the mandatory read set appear in the read log."
 exit 0

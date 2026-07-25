@@ -34,11 +34,29 @@ artifacts named below.
 
    The read set is achievable BY CONSTRUCTION: high-cardinality classes are signal-filtered by the script (a view or source file with no external reference is deferred, mechanically, and listed in 00-readset-deferred.txt), so the floor is the files that can actually contain an integration -- not every file in the repo. It is meant to be met, not sampled. If the floor still looks large, that is the repo telling you the truth about its integration surface.
 
-   WHEN YOU BELIEVE PASS 1 IS DONE, PROVE IT (this is a hard gate, not a formality):
+   YOU DO NOT ISSUE A VERDICT ON YOUR OWN COVERAGE. Do not write "VERDICT: COMPLETE", "depth:
+   adequate", or any verdict-shaped sentence about how much you read -- not even a true one.
+   Coverage is a computed fact, not an impression, and the orchestrator computes it by
+   diffing 00-readset.txt against your 00-files-read.txt after you return. A field run wrote
+   `Verdict: COMPLETE (all critical integration points identified and enumerated)` -- which
+   is not this script's output, is a different claim than the one being verified (files read,
+   not integrations found), and read as verification while being an opinion. If you find
+   yourself composing a sentence that ASSESSES your own thoroughness, stop: that sentence is
+   not yours to write.
+
+   WHAT YOU REPORT INSTEAD, as plain facts the orchestrator can check against the artifacts:
+   the number of files you read (which must equal the line count of 00-files-read.txt), the
+   number of further files you read beyond the floor, and anything you could not read and
+   why. Nothing evaluative.
+
+   You may run the verification yourself while working, to find out what you still owe:
    ```powershell
-   & '<SKILL_DIR>\scripts\readset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
+   & '<SKILL_DIR>\scriptseadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
    ```
-   It prints, per class, enumerated vs read vs UNREAD, names the unread files, and exits non-zero with `VERDICT: INCOMPLETE` if any floor file went unread. Paste its output verbatim (common.md Rule 15 -- this reconciliation is TOOL-COMPUTED precisely because a recalled count is indistinguishable from a fabricated one). If the verdict is INCOMPLETE, go read the named files, append them to 00-files-read.txt, and re-run until it reports COMPLETE. Do NOT proceed to Pass 2 on an INCOMPLETE verdict, and do not explain the gap away -- the named files are the ones a field run silently skipped.
+   (bash shell: the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, rule S.)
+   Use it as a worklist -- it names the floor files you have not read yet. Keep reading and
+   re-running until it stops naming files. But its output is a tool result to act on, not a
+   verdict for you to restate.
 
    The classes the script computes, defined by ROLE rather than any framework's vocabulary -- it matches on whatever your stack calls them:
    - ENTRY POINTS -- however this stack expresses them: `main`/`app`/`index`/`Program`/`Startup`, route or endpoint registration, serverless handlers, queue consumers, scheduled/cron jobs, CLI commands, webhook receivers. Every one, not the first one you find.

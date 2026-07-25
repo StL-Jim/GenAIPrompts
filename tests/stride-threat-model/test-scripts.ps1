@@ -72,6 +72,11 @@ $raw = Get-Content (Join-Path $out '00-discovery-raw.txt')
 Check 'raw excludes seed.sql (not scanned)' (-not ($raw -match 'seed\.sql'))
 Check 'raw excludes bigdata.js (size)'      (-not ($raw -match 'bigdata\.js'))
 Check 'raw includes real source'            (($raw -join ' ') -match 'main\.py')
+$densApp = Join-Path $out '00-density-app.txt'
+Check 'sweep emits app-only density ranking' (Test-Path $densApp)
+$dens = Get-Content (Join-Path $out '00-density.txt')
+Check 'density carries an app/vendor class column' (($dens -join ' ') -match '	app	|	vendor	')
+Check 'vendored file excluded from app density' (-not ((Get-Content $densApp) -match 'node_modules|vendor'))
 
 "=== validate-drawio ==="
 $dg = Join-Path $out 'diagrams'

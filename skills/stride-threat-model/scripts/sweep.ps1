@@ -1,4 +1,4 @@
-# SKILL VERSION: v25-skill (2026-07-23c)
+# SKILL VERSION: v25-skill (2026-07-24f)
 # skills/stride-threat-model/scripts/sweep.ps1
 #
 # Phase 0 Pass 2 mechanical sweep. Streams matches (does NOT accumulate every match
@@ -22,7 +22,8 @@ $PROJECT_NAME = $ProjectName
 $out = "$WORKSPACE\$PROJECT_NAME-threat-model"
 if (-not (Test-Path $out)) { New-Item -ItemType Directory -Force $out | Out-Null }
 
-# Nine mechanical-sweep patterns (Phase 0 Pass 2). Language-agnostic; extend per-stack, never shorten.
+# Mechanical-sweep patterns (Phase 0 Pass 2): nine server-centric + three client-side.
+# Language-agnostic; extend per-stack, never shorten.
 $patterns = @(
   '://',
   's3|bucket|dynamodb|sqs|sns|kinesis|rds|redis|kafka|rabbitmq|mongo|postgres|mysql|elastic|queue|topic',
@@ -32,7 +33,15 @@ $patterns = @(
   'arn:aws',
   '\b(\d{1,3}\.){3}\d{1,3}\b',
   '([a-z0-9-]+\.)+(com|net|org|io|cloud|internal|corp|local|gov|mil|edu|us)',
-  'getenv|environ\[|process\.env'
+  'getenv|environ\[|process\.env',
+  # Client-side integration signals. The patterns above are server-centric; these catch
+  # third-party services loaded or embedded by the BROWSER -- SDKs, tag managers, payment
+  # and auth widgets, CDN-hosted assets, embedded iframes. A browser-to-third-party call
+  # is a real external integration (it carries this system's data or identity to another
+  # party) and appears in no server import graph. Field: client-side integrations missed.
+  '<script[^>]+src=|<iframe[^>]+src=|<embed[^>]+src=|<object[^>]+data=',
+  'integrity=["'']?sha|crossorigin=',
+  'fetch\(["'']https?://|axios\.(get|post|put|delete)\(["'']https?://|\$\.(ajax|getJSON)\('
 )
 
 # Extension skip list -- binary, media, fonts, archives/packages, compiled output, and
@@ -114,9 +123,27 @@ foreach ($p in $patterns) {
   $patternCounts += $line
 }
 
-$rawSet  | Sort-Object | Set-Content "$out\00-discovery-raw.txt" -Encoding ASCII
-$density.GetEnumerator() | Sort-Object Value -Descending |
-  ForEach-Object { "$($_.Value)`t$($_.Key)" } | Set-Content "$out\00-density.txt" -Encoding ASCII
+$rawSet | Sort-Object | Set-Content "$out\00-discovery-raw.txt" -Encoding ASCII
+
+# Density, CLASSIFIED app vs vendor. A raw ranking is dominated by third-party libraries
+# that happen to be full of URLs -- field-observed: an entire top-10 was vendor code, so
+# the "read the top files" step spent its whole budget on noise. Classification is
+# mechanical (path segments + well-known library filenames) so the agent never has to
+# decide it mid-read. 00-density.txt carries all files with a class column;
+# 00-density-app.txt is the application-only ranking, which is the one to read from.
+$vendorPathRe = '(^|[\\/])(lib|libs|vendor|vendors|third[-_]?party|external|packages|bower_components|jspm_packages|wwwroot[\\/]lib|Scripts[\\/]lib|assets[\\/]vendor|static[\\/]vendor|dist|build|out|obj|bin|coverage|\.next|\.nuxt)([\\/]|$)'
+$vendorFileRe = '^(jquery|bootstrap|angular|react|react-dom|vue|svelte|ember|backbone|knockout|underscore|lodash|moment|d3|popper|modernizr|polyfill|require|systemjs|zone|core-js|tinymce|ckeditor|highcharts|chart|datatables|select2|fullcalendar|swagger-ui)[.\-]|[.\-](bundle|vendor|chunk|polyfills|runtime)\.'
+function Get-FileClass([string]$p) {
+  $leaf = [System.IO.Path]::GetFileName($p)
+  if ($p -match $vendorPathRe -or $leaf -match $vendorFileRe) { 'vendor' } else { 'app' }
+}
+$classed = $density.GetEnumerator() | ForEach-Object {
+  [PSCustomObject]@{ Count = $_.Value; Path = $_.Key; Class = (Get-FileClass $_.Key) }
+} | Sort-Object Count -Descending
+$classed | ForEach-Object { "$($_.Count)`t$($_.Class)`t$($_.Path)" } | Set-Content "$out\00-density.txt" -Encoding ASCII
+$appRanked = @($classed | Where-Object { $_.Class -eq 'app' })
+$appRanked | ForEach-Object { "$($_.Count)`t$($_.Path)" } | Set-Content "$out\00-density-app.txt" -Encoding ASCII
+"Signal-bearing files: $($classed.Count) total | APPLICATION $($appRanked.Count) (00-density-app.txt -- Pass 1 must account for every one) | vendor/generated $($classed.Count - $appRanked.Count) (excluded from reading)"
 $candSet | Sort-Object | Set-Content "$out\00-candidates.txt" -Encoding ASCII
 "Candidates (tool-computed): $($candSet.Count)"
 "Sweep complete in $([int]$sw.Elapsed.TotalSeconds)s (raw match sites: $($rawSet.Count))."

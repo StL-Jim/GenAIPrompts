@@ -37,6 +37,20 @@ R. Reading files. Use the native tools: Read for a single file, Glob for filenam
    mechanical step covers the same ground. Never use cat, grep, find, head, tail, or
    other POSIX aliases in PowerShell.
 
+   NEVER CAP A READ OF A DISCOVERY ARTIFACT. Do not pipe 00-discovery-raw.txt,
+   00-candidates.txt, 00-hosts.txt, 00-density*.txt or 00-readset*.txt through
+   -First / -Last / Select-Object -First N. What you see from those files is what you
+   record, so a truncated view IS truncated data, and every resource past the cut
+   disappears from the threat model without anyone deciding to drop it (field: a run
+   filtered the raw file for external hosts with `-First 30`). If the result is large,
+   DEDUPLICATE (Sort-Object -Unique) and state the count -- never truncate. If it is still
+   too large to display, write it to a file and read the file.
+
+   Do not hand-grep the raw file for "the interesting hosts" at all: 00-hosts.txt is the
+   complete, deduplicated, counted list of every host and endpoint the sweep saw, built for
+   exactly this purpose. Reading a complete artifact beats filtering an incomplete view of
+   a bigger one.
+
 W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use the
    Write tool for new files (full content, overwrites), the Edit tool for surgical
    changes to existing output. Create directories with New-Item -ItemType Directory

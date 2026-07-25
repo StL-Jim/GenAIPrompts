@@ -146,4 +146,25 @@ $appRanked | ForEach-Object { "$($_.Count)`t$($_.Path)" } | Set-Content "$out\00
 "Signal-bearing files: $($classed.Count) total | APPLICATION $($appRanked.Count) (00-density-app.txt -- Pass 1 must account for every one) | vendor/generated $($classed.Count - $appRanked.Count) (excluded from reading)"
 $candSet | Sort-Object | Set-Content "$out\00-candidates.txt" -Encoding ASCII
 "Candidates (tool-computed): $($candSet.Count)"
+
+# DISTINCT EXTERNAL HOSTS -- the complete, deduplicated list of every host/endpoint the
+# sweep saw, with how many times each appeared. This exists so nobody ever has to grep
+# 00-discovery-raw.txt for "the interesting hosts": such a grep invariably gets capped with
+# -First N (a field run capped at 30), which turns a truncated DISPLAY into truncated DATA,
+# and a hand-written filter can only find hosts you already thought to name.
+# This file is complete by construction and needs no filtering.
+$hostCount = @{}
+foreach ($line in $rawSet) {
+  foreach ($m in [regex]::Matches($line, '(?i)\b[a-z][a-z0-9+.-]*://([^/\s"''<>,;)\]]+)')) {
+    $h = $m.Groups[1].Value -replace '^[^@]*@','' -replace ':\d+$',''
+    if ($h) { if ($hostCount.ContainsKey($h)) { $hostCount[$h]++ } else { $hostCount[$h] = 1 } }
+  }
+  foreach ($m in [regex]::Matches($line, '(?i)(?<![a-z0-9.@/-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|io|cloud|internal|corp|local|gov|mil|edu|us|co|ai|dev|app|info|biz))(?![a-z0-9-])')) {
+    $h = $m.Groups[1].Value.ToLower()
+    if ($h -and $h -notmatch '^\d+(\.\d+)*$') { if ($hostCount.ContainsKey($h)) { $hostCount[$h]++ } else { $hostCount[$h] = 1 } }
+  }
+}
+$hostCount.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object { "$($_.Value)`t$($_.Key)" } |
+  Set-Content "$out\00-hosts.txt" -Encoding ASCII
+"Distinct hosts/endpoints (tool-computed, COMPLETE -- see 00-hosts.txt, do not grep the raw file): $($hostCount.Count)"
 "Sweep complete in $([int]$sw.Elapsed.TotalSeconds)s (raw match sites: $($rawSet.Count))."

@@ -30,7 +30,9 @@ artifacts named below.
    ```
    (bash shell: use the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, common.md rule S.) That file is your floor. It is COMPUTED, not chosen by you, and every file in it is READ IN FULL.
 
-   AS YOU READ, LOG IT. Append every file you read -- floor files and investigation files alike -- to `{PROJECT_NAME}-threat-model/00-files-read.txt`, one relative path per line. This is not bookkeeping for its own sake: it is what makes your coverage VERIFIABLE instead of self-reported.
+   AS YOU READ, LOG IT -- THIS IS A DELIVERABLE, NOT BOOKKEEPING. Append every file you read, floor files and investigation files alike, to `{PROJECT_NAME}-threat-model/00-files-read.txt`, one relative path per line. It is the RECORD OF WHAT WAS REVIEWED: without it there is no list of what discovery actually looked at, nothing can be verified, and a reviewer cannot tell a thorough pass from a shallow one. A completion summary that says "read N key files" instead of producing this file is not an acceptable substitute -- write the file.
+
+   The read set is achievable BY CONSTRUCTION: high-cardinality classes are signal-filtered by the script (a view or source file with no external reference is deferred, mechanically, and listed in 00-readset-deferred.txt), so the floor is the files that can actually contain an integration -- not every file in the repo. It is meant to be met, not sampled. If the floor still looks large, that is the repo telling you the truth about its integration surface.
 
    WHEN YOU BELIEVE PASS 1 IS DONE, PROVE IT (this is a hard gate, not a formality):
    ```powershell
@@ -54,7 +56,8 @@ artifacts named below.
    THE SWEEP IS NOT A SUBSTITUTE FOR THIS PASS, AND FINISHING FAST IS A FAILURE SIGNAL. Pass 2 runs in seconds and produces tidy artifacts; that tidiness invites the belief that discovery is handled. It is not -- a mechanical pattern cannot recognize a resource it has no literal string for, which is precisely the category that has been missed in field runs. If you find yourself reaching step 7.5 having read only a handful of files, you have skipped this phase's actual work, not completed it efficiently.
 
    PASS 1 READING ACCOUNTING. Do not hand-write these numbers -- paste the `-Verify` output above, which computes them from 00-readset.txt and 00-files-read.txt. Then add the one figure the script cannot know:
-   `Investigation beyond the floor: <N> further files read | Depth verdict: <adequate | THIN -- say which area is short and go back>`
+   `Investigation beyond the floor: <N> further files read`
+   The depth verdict is NOT yours to assert -- it is the script's VERDICT line. COMPLETE means the floor was read; INCOMPLETE means it was not, whatever your impression of the run. Never write "adequate" over an unrun or failing check.
    A COMPLETE verdict means the floor was read. It does NOT by itself mean the pass was thorough: the floor is the minimum, and the investigation beyond it is where comprehension finds what no file-name rule could ever enumerate.
 
    Scope: read only what is in 00-file-manifest.txt. The manifest already excludes this workflow's own output, `audit_state*`, `security_architecture_audit.md`, and vendored/generated directories; those are out of bounds for exploratory reads too, not just manifest-driven ones (Operating Rule 13a -- the sole exception is step 7.7, which reads a prior run's `00-resources.txt` only).

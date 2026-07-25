@@ -17,7 +17,8 @@
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
   [Parameter(Mandatory=$true)][string]$ProjectName,
-  [switch]$Verify    # compare 00-files-read.txt against the read set and report gaps
+  [switch]$Verify,            # compare 00-files-read.txt against the read set and report gaps
+  [int]$BulkClassThreshold = 40   # a class larger than this is signal-filtered (see below)
 )
 
 $WORKSPACE    = $Workspace.TrimEnd('\')
@@ -43,6 +44,12 @@ $reClient= '(client|gateway|adapter|connector|integration|integrations|webhook|p
 $reViewExt  = '\.(jsx|tsx|vue|svelte|cshtml|razor|erb|hbs|mustache|ejs|pug|jade|twig|j2|jinja2?)$|\.blade\.php$|\.html?$'
 $reViewPath = '(^|/)(views?|templates?|pages|components|screens|wwwroot|public|static|assets|frontend|ui)/'
 
+# APP-SOURCE is the catch-all for ordinary application code -- business logic, services,
+# models, repositories, controllers -- that matches none of the named roles above. Without
+# it the body of the codebase is in NO class and therefore in no accounting, which is
+# exactly how a source-file count went missing from a field report.
+$reCode = '\.(cs|vb|fs|py|rb|php|java|kt|kts|scala|go|rs|swift|m|mm|c|h|cpp|hpp|cc|js|mjs|cjs|ts|pl|pm|lua|ex|exs|erl|clj|groovy|dart|sh|ps1|psm1|sql?)$'
+
 function Get-Class([string]$p) {
   if ($p -match $reDocs)     { return 'docs' }
   if ($p -match $reViewExt)  { return 'client-view' }
@@ -51,24 +58,68 @@ function Get-Class([string]$p) {
   if ($p -match $reAuth)     { return 'auth' }
   if ($p -match $reClient)   { return 'ext-client' }
   if ($p -match $reViewPath) { return 'client-view' }
-  return $null   # not in the mandatory floor; still reachable via investigation/density
+  if ($p -match $reCode)     { return 'app-source' }
+  return $null   # non-code, non-doc (data, assets, binaries) -- outside the read set
 }
 
-$classes = @('entrypoint','config-env','auth','ext-client','client-view','docs')
+$classes = @('entrypoint','config-env','auth','ext-client','app-source','client-view','docs')
 $set = foreach ($p in $manifest) { $c = Get-Class $p; if ($c) { [PSCustomObject]@{ Class = $c; Path = $p } } }
 $set = @($set)
+
+# SIGNAL FILTERING for high-cardinality classes. A floor of hundreds of files is not a
+# floor -- it is unmeetable, so it gets discarded wholesale and the whole mechanism is
+# lost (field: a 464-file floor produced 21 files read and a hand-written "adequate").
+# For any class above the threshold, the floor keeps only the files that actually carry an
+# EXTERNAL-REFERENCE signal; the rest are deferred with a MECHANICAL reason, not a
+# judgment call, so nothing is silently dropped and the totals still reconcile. Small,
+# high-value classes are never filtered -- an entry point or a config file matters whether
+# or not it contains a URL.
+$neverFilter = @('entrypoint','config-env','auth','ext-client','docs')
+$signalRe = '://|<script[^>]+src=|<iframe[^>]+src=|<embed[^>]+src=|fetch\(|axios|XMLHttpRequest|\.ajax\(|integrity=|HttpClient|WebClient|RestClient|RestSharp|new \w+Client|createClient|connectionString|getenv|environ\[|process\.env|ConfigurationManager|IConfiguration|AppSettings|arn:aws|_URL|_URI|_HOST|_ENDPOINT|_ADDR|_BUCKET|_TABLE|_QUEUE|_TOPIC'
+$deferred = @()
+foreach ($c in $classes) {
+  if ($neverFilter -contains $c) { continue }
+  $inClass = @($set | Where-Object { $_.Class -eq $c })
+  if ($inClass.Count -le $BulkClassThreshold) { continue }
+  foreach ($item in $inClass) {
+    $full = Join-Path $WORKSPACE ($item.Path -replace '/','\')
+    $hit = $false
+    if (Test-Path -LiteralPath $full) {
+      try { $hit = [bool](Select-String -LiteralPath $full -Pattern $signalRe -List -ErrorAction SilentlyContinue) } catch { $hit = $true }
+    } else { $hit = $true }   # cannot check -> keep it in the floor (err toward reading)
+    if (-not $hit) { $deferred += [PSCustomObject]@{ Class = $c; Path = $item.Path } }
+  }
+}
+$deferredPaths = @{}
+foreach ($d in $deferred) { $deferredPaths[$d.Path] = $true }
+$setAll = $set
+$set = @($set | Where-Object { -not $deferredPaths[$_.Path] })
 
 if (-not $Verify) {
   $set | Sort-Object Class, Path | ForEach-Object { "$($_.Class)`t$($_.Path)" } |
     Set-Content "$out\00-readset.txt" -Encoding ASCII
-  "MANDATORY READ SET written to 00-readset.txt -- every file listed is read IN FULL."
-  foreach ($c in $classes) {
-    $n = @($set | Where-Object { $_.Class -eq $c }).Count
-    "  {0,-12} {1,5}" -f $c, $n
+  if ($deferred.Count -gt 0) {
+    $deferred | Sort-Object Class, Path | ForEach-Object { "$($_.Class)`t$($_.Path)" } |
+      Set-Content "$out\00-readset-deferred.txt" -Encoding ASCII
   }
-  "  {0,-12} {1,5}" -f 'TOTAL', $set.Count
-  "Manifest total: $($manifest.Count) | in mandatory read set: $($set.Count) | reachable by investigation/density: $($manifest.Count - $set.Count)"
-  "After reading, record every file you read (one relative path per line) in 00-files-read.txt, then re-run this script with -Verify."
+  "MANDATORY READ SET written to 00-readset.txt -- every file listed is read IN FULL."
+  "  {0,-12} {1,8} {2,9} {3,9}" -f 'class','in class','IN FLOOR','deferred'
+  foreach ($c in $classes) {
+    $tot = @($setAll   | Where-Object { $_.Class -eq $c }).Count
+    $flo = @($set      | Where-Object { $_.Class -eq $c }).Count
+    $def = @($deferred | Where-Object { $_.Class -eq $c }).Count
+    $note = if ($def -gt 0) { '  (signal-filtered)' } else { '' }
+    "  {0,-12} {1,8} {2,9} {3,9}{4}" -f $c, $tot, $flo, $def, $note
+  }
+  "  {0,-12} {1,8} {2,9} {3,9}" -f 'TOTAL', $setAll.Count, $set.Count, $deferred.Count
+  "Manifest total: $($manifest.Count) | mandatory read set (READ ALL OF THESE): $($set.Count)"
+  if ($deferred.Count -gt 0) {
+    "Deferred: $($deferred.Count) files in high-cardinality classes carry NO external-reference signal (listed in 00-readset-deferred.txt). They are accounted for, not dropped -- read any the sweep or your investigation later flags."
+  }
+  ""
+  "NEXT: as you read, append EVERY file you read to 00-files-read.txt (one relative path per line)."
+  "      That file is the record of what was reviewed -- without it nothing can be verified."
+  "      Then run this script with -Verify. Do not hand-write a coverage summary."
   exit 0
 }
 

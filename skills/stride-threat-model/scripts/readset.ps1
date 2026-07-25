@@ -48,9 +48,17 @@ $reViewPath = '(^|/)(views?|templates?|pages|components|screens|wwwroot|public|s
 # models, repositories, controllers -- that matches none of the named roles above. Without
 # it the body of the codebase is in NO class and therefore in no accounting, which is
 # exactly how a source-file count went missing from a field report.
+# DEPENDENCY MANIFESTS name third-party services that appear NOWHERE else. A monitoring,
+# analytics, payment, feature-flag or auth SDK enters a codebase as a package reference long
+# before (and sometimes instead of) any URL: `<PackageReference Include="Dynatrace.OneAgent.Sdk">`
+# contains no scheme, no host, no TLD and no client construction, so it matches no sweep
+# pattern at all. Field: a monitoring vendor was missed for exactly this reason. These files
+# are few and small -- always read them.
+$reDeps = '(^|/)([^/]*\.csproj|[^/]*\.fsproj|[^/]*\.vbproj|packages\.config|package\.json|requirements[^/]*\.txt|pyproject\.toml|Pipfile|pom\.xml|build\.gradle(\.kts)?|go\.mod|Gemfile|composer\.json|Cargo\.toml|project\.clj|mix\.exs|pubspec\.yaml|\.csproj\.user)$'
 $reCode = '\.(cs|vb|fs|py|rb|php|java|kt|kts|scala|go|rs|swift|m|mm|c|h|cpp|hpp|cc|js|mjs|cjs|ts|pl|pm|lua|ex|exs|erl|clj|groovy|dart|sh|ps1|psm1|sql?)$'
 
 function Get-Class([string]$p) {
+  if ($p -match $reDeps)     { return 'dependency' }
   if ($p -match $reDocs)     { return 'docs' }
   if ($p -match $reViewExt)  { return 'client-view' }
   if ($p -match $reEntry)    { return 'entrypoint' }
@@ -72,9 +80,9 @@ function Get-Class([string]$p) {
 # and it is exactly the material a mechanical pattern cannot substitute for: where the system
 # starts, how it is configured per environment, who it trusts, what it calls out to, and what
 # its authors wrote down.
-$floorClasses = @('entrypoint','config-env','auth','ext-client','docs')
+$floorClasses = @('entrypoint','config-env','auth','ext-client','dependency','docs')
 $sweepCovered = @('app-source','client-view')
-$classes = @('entrypoint','config-env','auth','ext-client','app-source','client-view','docs')
+$classes = @('entrypoint','config-env','auth','ext-client','dependency','app-source','client-view','docs')
 $set = foreach ($p in $manifest) { $c = Get-Class $p; if ($c) { [PSCustomObject]@{ Class = $c; Path = $p } } }
 $set = @($set)
 

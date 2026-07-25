@@ -80,6 +80,22 @@ eadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
    Do NOT sample these classes. There is no "representative subset" of your entry points or your environment overlays -- a floor expressed as a fraction becomes a ceiling, and the class you sampled is the class you half-read. If a class is genuinely too large to read in full (hundreds of view files), read it in full where the sweep shows signal and bucket the remainder BY NAME with a reason, so the shortfall is visible and countable rather than silent.
 
    Beyond the floor, INVESTIGATE: walk imports outward from the entry points, follow references, and read what the system's own structure tells you matters. The floor guarantees coverage; the investigation is where comprehension finds what no list could name -- dynamically-constructed resource names, a resource mentioned only in a comment, an integration implied by prose.
+   THIRD-PARTY SERVICES ENTER AS DEPENDENCIES, NOT ONLY AS URLS. When you read the dependency
+   manifests, treat every third-party package that reaches a network or handles this system's
+   data as an EXTERNAL INTEGRATION in its own right -- monitoring and APM agents, analytics and
+   tag managers, error/crash reporters, payment and auth SDKs, feature-flag and CDN clients,
+   email/SMS providers. A package reference contains no scheme, no host and no TLD, so no
+   pattern in the sweep can see it; reading the manifest is the only way it is ever found, and
+   a monitoring vendor was missed in the field for exactly this reason. Name the vendor and
+   cite the manifest line.
+
+   CITE THE SOURCE, NEVER OUR OWN ARTIFACT. Every element's evidence is a `file:line` in the
+   REPOSITORY. Never cite `00-hosts.txt`, `00-candidates.txt` or `00-discovery-raw.txt` as the
+   evidence for a resource -- those are this run's derived intermediates, not the system. When
+   the sweep is what surfaced a resource, open 00-discovery-raw.txt, take the `path:line` it
+   records, and cite THAT (reading the line in context first, so you can say what the resource
+   is and who uses it).
+
    Extract every element BY CONCRETE IDENTITY as you go: every service/process, data store, bucket, table, queue, agent, external endpoint, integration, and secret surface the code defines or references. Record every finding with `file:line` (or `doc:section`) evidence.
 
    THE SWEEP IS NOT A SUBSTITUTE FOR THIS PASS, AND FINISHING FAST IS A FAILURE SIGNAL. Pass 2 runs in seconds and produces tidy artifacts; that tidiness invites the belief that discovery is handled. It is not -- a mechanical pattern cannot recognize a resource it has no literal string for, which is precisely the category that has been missed in field runs. If you find yourself reaching step 7.5 having read only a handful of files, you have skipped this phase's actual work, not completed it efficiently.

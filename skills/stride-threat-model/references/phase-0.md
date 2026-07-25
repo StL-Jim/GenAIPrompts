@@ -132,6 +132,7 @@ Output directory excluded from source repo git tracking: [yes/no]
 Scope file written: <name>-threat-model\00-scope.md
 File manifest written: <name>-threat-model\00-file-manifest.txt (<N> files -- Phase 1 will account for every one)
 Pass 1 investigation: <N> of <N> source files read | docs read IN FULL <N> of <N> (must be equal) | entry points: <list> | <N> resources found
+Pass 1 read-set verify: <COMPLETE | INCOMPLETE -- N floor files unread>  (tool-computed by readset.ps1 -Verify)
 Pass 1 depth check: <adequate | THIN -- investigation was shallow, see Scope Proposal>
 Application signal files: <N> | accounted (read+bucketed): <N> | unaccounted: 0
 Rescued candidates Pass 1 missed: <N> (0 = passes agree; high = reading was thin)

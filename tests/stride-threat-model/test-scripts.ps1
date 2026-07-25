@@ -78,6 +78,24 @@ $dens = Get-Content (Join-Path $out '00-density.txt')
 Check 'density carries an app/vendor class column' (($dens -join ' ') -match '	app	|	vendor	')
 Check 'vendored file excluded from app density' (-not ((Get-Content $densApp) -match 'node_modules|vendor'))
 
+"=== readset (mandatory read set + tool-computed verification) ==="
+$rsOut = & (Join-Path $scripts 'readset.ps1') -Workspace $FixturePath -ProjectName $proj
+$rsOut
+Check 'readset writes 00-readset.txt' (Test-Path (Join-Path $out '00-readset.txt'))
+$rs = Get-Content (Join-Path $out '00-readset.txt')
+Check 'readset classifies docs'        (($rs -join ' ') -match 'docs\s+README\.md|docs\s+docs/')
+Check 'readset classifies entrypoint'  (($rs -join ' ') -match 'entrypoint\s')
+Check 'readset classifies config-env'  (($rs -join ' ') -match 'config-env\s')
+# verify with a deliberately short read log -> must report INCOMPLETE and exit non-zero
+Set-Content (Join-Path $out '00-files-read.txt') 'README.md' -Encoding ASCII
+$vFailed = $false
+try { $vOut2 = & (Join-Path $scripts 'readset.ps1') -Workspace $FixturePath -ProjectName $proj -Verify 2>$null; if ($LASTEXITCODE -ne 0) { $vFailed = $true } } catch { $vFailed = $true }
+Check 'readset -Verify fails on an under-read log' $vFailed
+# verify with a complete read log -> COMPLETE
+($rs | ForEach-Object { ($_ -split "`t")[1] }) | Set-Content (Join-Path $out '00-files-read.txt') -Encoding ASCII
+$vOk = & (Join-Path $scripts 'readset.ps1') -Workspace $FixturePath -ProjectName $proj -Verify
+Check 'readset -Verify reports COMPLETE when all floor files read' (($vOk -join ' ') -match 'VERDICT: COMPLETE')
+
 "=== validate-drawio ==="
 $dg = Join-Path $out 'diagrams'
 if (-not (Test-Path $dg)) { New-Item -ItemType Directory -Force $dg | Out-Null }

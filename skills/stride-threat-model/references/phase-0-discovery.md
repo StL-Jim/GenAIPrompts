@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v25-skill (2026-07-24e) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
+<!-- SKILL VERSION: v25-skill (2026-07-24g) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
 
 # Phase 0 Discovery -- Exhaustive Element Discovery (SUBAGENT)
 
@@ -24,9 +24,21 @@ artifacts named below.
 
    PASS 1 -- SOURCE INVESTIGATION. This is the PRIMARY method and where MOST of this phase's effort belongs. Read the source like the security architect you are. Start from the entry points and main modules, follow their imports and references outward, and read deeply -- Operating Rule 9 ranges for files over ~2000 lines, full reads otherwise.
 
-   THE MANDATORY READ SET -- ENUMERATE IT FIRST, FROM THE MANIFEST, BEFORE YOU READ ANYTHING. "Read deeply" is not a stopping condition, and a field run satisfied it with SIX files. So begin by listing, by glob and filename over 00-file-manifest.txt, the files in the classes below. That list is your floor, it is computed not chosen, and every file on it is READ IN FULL. State each class's count before you start reading and again when you finish; a class you enumerated but did not read is an unfinished pass, not a judgment call.
+   THE MANDATORY READ SET -- COMPUTE IT FIRST, BEFORE YOU READ ANYTHING. "Read deeply" is not a stopping condition, and a field run satisfied it with SIX files. So your FIRST action in this pass is to run the read-set script, which classifies the manifest into the role-based classes below and writes `00-readset.txt`:
+   ```powershell
+   & '<SKILL_DIR>\scripts\readset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   (bash shell: use the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, common.md rule S.) That file is your floor. It is COMPUTED, not chosen by you, and every file in it is READ IN FULL.
 
-   These classes are defined by ROLE, not by any framework's vocabulary -- match on whatever your stack calls them:
+   AS YOU READ, LOG IT. Append every file you read -- floor files and investigation files alike -- to `{PROJECT_NAME}-threat-model/00-files-read.txt`, one relative path per line. This is not bookkeeping for its own sake: it is what makes your coverage VERIFIABLE instead of self-reported.
+
+   WHEN YOU BELIEVE PASS 1 IS DONE, PROVE IT (this is a hard gate, not a formality):
+   ```powershell
+   & '<SKILL_DIR>\scripts\readset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
+   ```
+   It prints, per class, enumerated vs read vs UNREAD, names the unread files, and exits non-zero with `VERDICT: INCOMPLETE` if any floor file went unread. Paste its output verbatim (common.md Rule 15 -- this reconciliation is TOOL-COMPUTED precisely because a recalled count is indistinguishable from a fabricated one). If the verdict is INCOMPLETE, go read the named files, append them to 00-files-read.txt, and re-run until it reports COMPLETE. Do NOT proceed to Pass 2 on an INCOMPLETE verdict, and do not explain the gap away -- the named files are the ones a field run silently skipped.
+
+   The classes the script computes, defined by ROLE rather than any framework's vocabulary -- it matches on whatever your stack calls them:
    - ENTRY POINTS -- however this stack expresses them: `main`/`app`/`index`/`Program`/`Startup`, route or endpoint registration, serverless handlers, queue consumers, scheduled/cron jobs, CLI commands, webhook receivers. Every one, not the first one you find.
    - CONFIGURATION AND ENVIRONMENT FILES, INCLUDING PER-ENVIRONMENT OVERLAYS -- `values-<env>.yaml`, kustomize overlays and patches, `.env*`, `appsettings*.json`, `config/*`, per-env `*.tfvars`, CI/CD environment blocks, ConfigMap/Secret manifests. Read the OVERLAY, not just the base file: an endpoint frequently appears ONLY in the production overlay while the base carries a placeholder or a dev stub. A production-only endpoint is a first-class integration.
    - AUTHENTICATION AND AUTHORIZATION -- any file whose name or path carries `auth`, `oauth`, `oidc`, `saml`, `sso`, `login`, `token`, `jwt`, `session`, `identity`, `principal`, `permission`, `policy`, `guard`, `middleware`. These name the identity providers and trust boundaries the whole model rests on.
@@ -41,18 +53,9 @@ artifacts named below.
 
    THE SWEEP IS NOT A SUBSTITUTE FOR THIS PASS, AND FINISHING FAST IS A FAILURE SIGNAL. Pass 2 runs in seconds and produces tidy artifacts; that tidiness invites the belief that discovery is handled. It is not -- a mechanical pattern cannot recognize a resource it has no literal string for, which is precisely the category that has been missed in field runs. If you find yourself reaching step 7.5 having read only a handful of files, you have skipped this phase's actual work, not completed it efficiently.
 
-   PASS 1 READING ACCOUNTING (state this verbatim before moving to Pass 2, counts tool-computed from 00-file-manifest.txt). It reports PER CLASS, because a healthy-looking total hides an entirely unread class -- which is exactly how integrations have been lost:
-   ```
-   Entry points:            <N> enumerated | <N> read IN FULL   (MUST be equal)
-   Config + env overlays:   <N> enumerated | <N> read IN FULL   (MUST be equal)
-   Auth / authz:            <N> enumerated | <N> read IN FULL   (MUST be equal)
-   External client / integ: <N> enumerated | <N> read IN FULL   (MUST be equal)
-   Client-side / view:      <N> enumerated | <N> read IN FULL   (MUST be equal, or bucketed BY NAME with reason)
-   Docs:                    <N> enumerated | <N> read IN FULL   (MUST be equal)
-   Investigation beyond the floor: <N> further files read
-   Depth verdict: <adequate | THIN -- name the class that is short and go back>
-   ```
-   Any class where read < enumerated is a rule violation to fix by reading, not to explain away. There is no acceptable "I sampled that class." If a total lands in the single digits on a repo of any size, you did not investigate -- go back before continuing.
+   PASS 1 READING ACCOUNTING. Do not hand-write these numbers -- paste the `-Verify` output above, which computes them from 00-readset.txt and 00-files-read.txt. Then add the one figure the script cannot know:
+   `Investigation beyond the floor: <N> further files read | Depth verdict: <adequate | THIN -- say which area is short and go back>`
+   A COMPLETE verdict means the floor was read. It does NOT by itself mean the pass was thorough: the floor is the minimum, and the investigation beyond it is where comprehension finds what no file-name rule could ever enumerate.
 
    Scope: read only what is in 00-file-manifest.txt. The manifest already excludes this workflow's own output, `audit_state*`, `security_architecture_audit.md`, and vendored/generated directories; those are out of bounds for exploratory reads too, not just manifest-driven ones (Operating Rule 13a -- the sole exception is step 7.7, which reads a prior run's `00-resources.txt` only).
 

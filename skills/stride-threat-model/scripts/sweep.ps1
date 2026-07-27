@@ -155,9 +155,24 @@ $candSet | Sort-Object | Set-Content "$out\00-candidates.txt" -Encoding ASCII
 # This file is complete by construction and needs no filtering.
 $hostCount = @{}
 foreach ($line in $rawSet) {
-  foreach ($m in [regex]::Matches($line, '(?i)\b[a-z][a-z0-9+.-]*://([^/\s"''<>,;)\]]+)')) {
+  # Keep the FIRST PATH SEGMENT, not just the host. On a multi-service domain the path IS
+  # the service identity: "www.bing.com" reads like a link to a search engine, while
+  # "www.bing.com/maps" is unmistakably a maps integration -- and a field run missed exactly
+  # that, because the host list had thrown the path away. Same for www.google.com/recaptcha,
+  # login.microsoftonline.com/.../oauth2, api.github.com/repos. One segment is enough to
+  # name the service without exploding into every distinct URL.
+  foreach ($m in [regex]::Matches($line, '(?i)\b[a-z][a-z0-9+.-]*://([^/\s"''<>,;)\]]+)(/[^\s"''<>,;)\]]*)?')) {
     $h = $m.Groups[1].Value -replace '^[^@]*@','' -replace ':\d+$',''
-    if ($h) { if ($hostCount.ContainsKey($h)) { $hostCount[$h]++ } else { $hostCount[$h] = 1 } }
+    if (-not $h) { continue }
+    $entry = $h
+    if ($m.Groups[2].Success) {
+      $seg = ($m.Groups[2].Value.TrimStart('/') -split '[/?#]')[0]
+      # skip file-ish and templated segments -- they name a resource, not a service
+      if ($seg -and $seg -notmatch '^[{$@<]' -and $seg -notmatch '\.[a-z0-9]{2,4}$' -and $seg.Length -le 40) {
+        $entry = "$h/$seg"
+      }
+    }
+    if ($hostCount.ContainsKey($entry)) { $hostCount[$entry]++ } else { $hostCount[$entry] = 1 }
   }
   foreach ($m in [regex]::Matches($line, '(?i)(?<![a-z0-9.@/-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|io|cloud|internal|corp|local|gov|mil|edu|us|co|ai|dev|app|info|biz))(?![a-z0-9-])')) {
     $h = $m.Groups[1].Value.ToLower()

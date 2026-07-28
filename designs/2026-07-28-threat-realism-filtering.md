@@ -332,3 +332,35 @@ Worked examples to include in the phase text (they teach the test faster than th
 - L2 app admin exports all data, where the admin role legitimately holds all-data read ->
   NOT EXPLOITABLE (that is the design, not a threat). Same action where the role is scoped to
   one tenant -> EXPLOITABLE.
+
+## D8. T1 refined -- the L3/L4 likelihood cap has TWO escapes
+
+A threat whose prerequisite is L3 or L4 is capped at Low likelihood (and therefore excluded by
+the existing inclusion gate) UNLESS one of the following is demonstrated IN THE ROW:
+
+1. **Escalation PATH** -- the row shows how an L0/L1/L2 attacker reaches L3/L4. Answers "how
+   does anyone get there at all?"
+2. **Escalation GAIN** -- the threat's impact is materially greater than what the prerequisite
+   already grants. Answers "why does it matter that they did?"
+
+The two are complementary: path in, value out. Both are read off notes the row already carries
+(`[Prereq: ...]` and `[Gains: ...]`), so neither adds a field.
+
+CAUTION ON ESCAPE 2, AND HOW IT IS TIGHTENED. "Significantly worse" is an adjective, and a
+model can argue almost anything qualifies ("full system compromise!"), which would turn this
+escape into the loophole that readmits every L4 threat -- the exact door the cap exists to
+close. So it is written as a TEST, not an adjective:
+
+> Escape 2 applies only when the gain CROSSES A BOUNDARY THE PREREQUISITE DOES NOT ALREADY
+> CROSS -- a different system, a different tenant, a materially wider blast radius, or durable
+> persistence beyond the session. Severity alone does not qualify; reach does.
+
+Worked pair (same starting privilege, opposite verdicts):
+- L3 pod shell -> reads THAT pod's own env secrets. No boundary crossed. Capped Low, excluded.
+- L3 pod shell -> recovers a cloud credential granting account-wide admin. Crosses from one
+  workload to the whole account. Cap lifts; the threat stays.
+
+Note this is the SAME discriminator as the already-compromised test (D7), applied at the
+likelihood step rather than the exclusion step. T1 and T2 are therefore one idea asked twice,
+which is a feature: fewer distinct rules to recite, one question to answer well -- what does
+the attacker hold afterwards that they did not hold before?

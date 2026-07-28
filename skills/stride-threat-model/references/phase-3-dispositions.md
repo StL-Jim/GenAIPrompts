@@ -24,6 +24,19 @@ Disposition matching complete: <N> threats matched (high confidence), <M> threat
 
 This reporting is critical for the user to understand what dispositions transferred. Do not skip it.
 
+**Prior review outcome (count it, do not match it):**
+
+The dispositions.csv you just loaded is the only measurement this toolchain has of its own output quality, so tally it before moving on. This is arithmetic on that one file: it does NOT depend on the semantic matching above and is NOT a comparison between runs. Report it even when zero threats matched -- the counts describe the PRIOR run's threats, not this run's, and they stay meaningful when nothing matched.
+
+Count the Disposition column across every row, then group the `False Positive` rows by their Component and OWASP values (both are columns in the dispositions schema) to see where rejections concentrated. Report:
+
+```
+Prior review (<file date>): <T> threats reviewed -- <A> Active, <F> False Positive (<P>%), <R> Risk Accepted, <C> Mitigated by Compensating Control, <D> Duplicate, <O> Other.
+False positives concentrated in: <top one or two Component or OWASP values with counts, or 'no concentration'>
+```
+
+The percentage is the share of emitted threats a review team judged not worth being on the list. The concentration line is the more useful half: it names which filter is leaking, which a percentage alone cannot. Per Operating Rule 15 both are counted from the file, never estimated or recalled. If the file has no Disposition column, or every value is empty, report `Prior review: dispositions.csv present but un-dispositioned` and move on. Do not editorialise about the numbers and do not adjust this run's threats to improve them -- the tally is a measurement, and a measurement you optimise against stops being one.
+
 **Priority revision handling:**
 
 If a matched disposition entry has different OriginalPriority and RevisedPriority values, the team revised the rating during a prior stakeholder review. Both values carry forward: the threat's effective Priority becomes the RevisedPriority, and the OriginalPriority is preserved for display alongside it. If the values are equal, no revision was made and the current Priority is used as-is.

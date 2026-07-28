@@ -58,6 +58,8 @@ Impact anchors:
 - High: compromise scoped to a single user, session, or component; partial data exposure; sustained outage of a critical service.
 - Medium / Low: degraded service, or exposure of internal metadata or non-sensitive data.
 
+IMPACT IS READ OFF THE STATED GAIN, not chosen alongside it. The `[Gains: ...]` note in the row already says what the attacker ends up holding; the Impact severity must be the anchor that gain actually matches. Critical requires the Gains to name bulk data, a tenant or system boundary crossed, or execution / full control -- a Gains scoped to one user, one session, or one component is High, however serious it sounds in prose. A row whose Impact outranks its own stated Gains is severity inflation: a rule violation to correct, not a judgement call to defend. The check costs nothing to apply and nothing to audit, because both values sit in the same row -- a reviewer in the stakeholder session can catch a wrong rating without leaving the table, which is the whole reason the rating is stated next to the evidence for it.
+
 Risk severity calculation:
 - CRITICAL = High Likelihood x Critical Impact
 - HIGH = High Likelihood x High Impact, OR Medium Likelihood x Critical Impact
@@ -168,6 +170,7 @@ Structure:
 - Matrix cells evaluated ((components + boundary-crossing flows) x 6 STRIDE categories): <N>
 - Data-flow obligation check: DFs in 02a-context.md with Encryption or AuthN = none/plaintext/unknown: <N>; every one accounted for as a threat or an Excluded Threats Ledger row: <yes | list of unaccounted DF-NNN -- an unaccounted flow is a rule violation>
 - Component coverage: every C-NNN from the inventory MUST appear at least once in the Threat Table or the Excluded Threats Ledger. Components appearing in neither, each with a one-line justification: <list, or 'none'>
+- Impact-to-Gains consistency: rows whose Impact severity outranks their own `[Gains: ...]` note: <count, or 'none' -- any nonzero count is severity inflation to correct before finishing, not to report and keep>
 - Total candidate threats identified during STRIDE matrix walk: <N>
 - Confirmed threats (main table): <N>
 - Likely threats (main table): <N>
@@ -182,7 +185,7 @@ Structure:
 ## Threat Table (Confirmed and Likely)
 | ThreatID | Confidence | Priority | Category | OWASP | Component | TrustBoundary | Title | ThreatAgent | Asset | Attack | AttackSurface | Impact | Description | Evidence | Likelihood | SecurityControl | ResidualRisk | Mitigation | Disposition | DispositionRationale |
 |----------|------------|----------|----------|-------|-----------|---------------|-------|-------------|-------|--------|---------------|--------|-------------|----------|------------|-----------------|--------------|------------|-------------|----------------------|
-| 01 | Confirmed | Priority 1 | Spoofing | A07:2021 | C-003 (Auth Service) | TB-002 | Session token replay due to absent token binding | External Attacker | AS-002 (Auth tokens) | Captured session cookie replayed against API (MITRE T1550.004) | External Interfaces | Confidentiality, Integrity | After intercepting a session cookie via XSS or network capture, attacker replays it against the API to impersonate the user. Edge terminates TLS, no token binding present, no anomaly detection. | AS-002 (auth tokens) reachable via DF-003 crossing TB-002; no token binding or anomaly detection on the session path [evidence: src/auth/session.go:120-158 issues bearer cookie with no binding; no device-binding config in src/auth/] | High | Partial -- TLS 1.3 on edge, no token binding | Elevated | Implement RFC 8473 token binding (SC-8); reduce session lifetime to 30 min (AC-12); add anomalous-IP detection (SI-4). | | |
+| 01 | Confirmed | Priority 2 | Spoofing | A07:2021 | C-003 (Auth Service) | TB-002 | Session token replay due to absent token binding | External Attacker (L0) | AS-002 (Auth tokens) | Captured session cookie replayed against API (MITRE T1550.004) | External Interfaces | Confidentiality, Integrity | After intercepting a session cookie via XSS or network capture, attacker replays it against the API to impersonate the user. Edge terminates TLS, no token binding present, no anomaly detection. [Prereq: none -- an unauthenticated attacker who has captured one session cookie] [Gains: full impersonation of that one user's session, including every action that user can perform] [Risk calc: High likelihood x High impact] | AS-002 (auth tokens) reachable via DF-003 crossing TB-002; no token binding or anomaly detection on the session path [evidence: src/auth/session.go:120-158 issues bearer cookie with no binding; no device-binding config in src/auth/] | High | Partial -- TLS 1.3 on edge, no token binding | Elevated | Implement RFC 8473 token binding (SC-8); reduce session lifetime to 30 min (AC-12); add anomalous-IP detection (SI-4). | | |
 
 ```
 

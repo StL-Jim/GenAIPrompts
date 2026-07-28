@@ -303,3 +303,32 @@ Consequence for cross-prompt scope: SMALLER than D2's full removal. `threat-mode
 can still compare the internal fields present in the markdown, rather than needing them
 removed from a shared schema. `threat-model-disposition.md` still loses OriginalPriority and
 RevisedPriority from the dispositions round-trip.
+
+## D7. T2 restated (user's wording, plus the scope refinement)
+
+Adopt the user's phrasing verbatim, it is plainer than the draft's "dominated by prerequisite":
+
+> **If achieving the prerequisite gives an attacker equal or greater access than the threat's
+> impact, the threat is not exploitable.**
+
+REFINEMENT that makes it robust: the comparison is about what the attacker gains that they did
+not already have -- SCOPE, REACH or PERSISTENCE -- not merely "access". Two cases with the same
+starting privilege and opposite verdicts:
+
+- Pod shell -> reads env vars holding THAT pod's secrets. The prerequisite already grants it.
+  NOT EXPLOITABLE. (This case alone accounts for a large share of the observed noise.)
+- Pod shell -> recovers credentials that reach OTHER services. The prerequisite did not grant
+  that. Real escalation, real threat.
+
+The discriminator is only visible if the row states what is gained, which is why the
+`[Gains: ...]` note is mandatory: a row that cannot name what the attacker holds afterwards
+that they did not hold before has nothing in it, and is excluded.
+
+Worked examples to include in the phase text (they teach the test faster than the rule does):
+- L4 cluster admin sniffs pod traffic for a DB password -> NOT EXPLOITABLE (L4 reads the
+  secret directly).
+- L1 normal user exploits IDOR to read another user's record -> EXPLOITABLE (a normal user is
+  not meant to reach another user's data).
+- L2 app admin exports all data, where the admin role legitimately holds all-data read ->
+  NOT EXPLOITABLE (that is the design, not a threat). Same action where the role is scoped to
+  one tenant -> EXPLOITABLE.

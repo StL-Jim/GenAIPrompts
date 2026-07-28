@@ -14,7 +14,7 @@ STATE.md is orchestrator-owned. Do not read-modify-write it.
 
 Two outputs in this sub-phase:
 
-**Output 1: `02c-assumptions.md`** -- Questions and Assumptions, with the threat filtering summary required by the original prompt structure.
+**Output 1: `02c-assumptions.md`** -- the exclusions ledger, control coverage, assumptions, and the threat filtering summary.
 
 Required sections:
 

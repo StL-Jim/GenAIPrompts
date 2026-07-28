@@ -131,7 +131,7 @@ Only Confirmed and Likely threats go in this table -- and they are the only thre
 
 | Column | Description |
 |--------|-------------|
-| ThreatID | `01`, `02`, etc. Stable across re-runs. Maximum 25 threats so two digits is sufficient. |
+| ThreatID | `01`, `02`, etc. Stable across re-runs. Two digits, zero-padded. |
 | Confidence | One of: `Confirmed`, `Likely`. Reflects what was verified against the system model per the Confidence Levels section. Confirmed = asset, path, and control-state all verified. Likely = asset and path verified, control-state uncertain (the Description must state what would confirm it). |
 | Priority | One of: Priority 1, Priority 2. Priority 1 = threats meeting the risk severity calculation's CRITICAL outcome; Priority 2 = threats meeting the HIGH outcome. (Medium and Low risk-calc outcomes are excluded entirely by the prioritization rules.) |
 | Category | STRIDE category, exactly one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. |

@@ -62,7 +62,7 @@ Sections in order (each gets an `<h2>` and an `id` matching its TOC link; every 
 5. Trust Boundaries -- a table mirroring the schema in 02a (TB ID, Boundary, Principals, Establishing Control, Evidence).
 6. Data Flows -- a table mirroring the schema in 02a (DF ID, Source, Destination, Data, Protocol, AuthN, Encryption, Crosses TB?, Evidence).
 7. Threats -- the merged threat table (see detailed format below). Render with priority-colored row backgrounds and the color rules listed below.
-8. Questions and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary, Excluded Threat Categories, Questions for Stakeholders, Assumptions Made.
+8. Filtering and Assumptions -- content from the `02c-assumptions.md` portion of `02-threats.md`: Threat Filtering Summary and Assumptions Made.
 9. Coverage and Known Gaps -- the Coverage and Known Gaps section from the `02c-assumptions.md` portion of `02-threats.md`: files read/skipped and every known analysis gap with its explanation. This section is mandatory even when there are no gaps (state "No known gaps") -- stakeholders must see what the analysis could and could not cover.
 
 #### Threats section format

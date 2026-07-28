@@ -1,10 +1,10 @@
 <!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
 
-### Phase 2C -- Questions, Assumptions, and Consolidation
+### Phase 2C -- Exclusions, Coverage, and Consolidation
 
 #### Phase 2C Rehydration (MANDATORY FIRST STEP)
 
-Read STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, and 02b-threats.md. (00-scope.md informs the Excluded Threat Categories rationale and the 02-threats.md header's deployment exposure line.)
+Read STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, and 02b-threats.md. (00-scope.md informs the 02-threats.md header's deployment exposure line.)
 
 Read these files with the Read tool (disk content overrides memory): STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md, and 02b-excluded.md (the excluded-candidate working list Phase 2B wrote -- it is the VERBATIM source for the Excluded Threats Ledger below; you carry its rows forward, you do not reconstruct them from counts).
 
@@ -19,7 +19,7 @@ Two outputs in this sub-phase:
 Required sections:
 
 ```markdown
-# Phase 2C -- Questions and Assumptions
+# Phase 2C -- Exclusions and Coverage
 
 ## Threat Filtering Summary
 - Total threats identified during STRIDE matrix walk: <N>
@@ -35,10 +35,6 @@ Required sections:
   - <N> Out of scope (e.g., client-side only, physical security)
   - <N> Code-level (routed to the code security audit via the Excluded Threats Ledger)
   - <N> Unverified (plausible but not grounded in the System Map; routed to the code audit via the ledger)
-
-## Excluded Threat Categories
-- <Category>: <one-line rationale for deprioritization>
-- ...
 
 ## Excluded Threats Ledger
 BUILD THIS FROM `02b-excluded.md`, NOT FROM MEMORY OR COUNTS. Phase 2B wrote every excluded candidate to `02b-excluded.md` (one line: `component ID | STRIDE category | short title | exclusion reason`). Carry each of those lines forward into one ledger row here, verbatim in substance -- assign the `EX-NN` id, map the four fields to the columns, and expand the exclusion reason to satisfy the per-reason requirements below. Do NOT reconstruct or guess the ledger from the Filtering Summary's rolled-up counts: the counts tell you HOW MANY rows to expect, `02b-excluded.md` tells you WHICH candidates they are with 2B's actual reasoning. If `02b-excluded.md` is missing or its line count is less than the not-promoted total, STOP and report it (Phase 2B did not persist the working list) rather than inventing rows to hit the count.
@@ -62,10 +58,6 @@ The reverse index from governance-framework controls to the threats whose Mitiga
 |---------|------|--------|----------|-------|
 | AC-3 | Access Enforcement | AC | 01, 04, 09 | 3 |
 | SC-8 | Transmission Confidentiality and Integrity | SC | 02, 07 | 2 |
-
-## Questions for Stakeholders
-- <Specific question about unclear architecture or security controls>
-- ...
 
 ## Assumptions Made
 - <Assumption about security controls, architecture, or deployment, with the gap that drove the assumption>

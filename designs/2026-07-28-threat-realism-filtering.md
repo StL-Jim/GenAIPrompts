@@ -184,3 +184,88 @@ all?** It is the right answer for a threat model read by security practitioners.
 audience is exclusively the application team, it is noise they cannot act on, and the simpler
 answer is Sonnet's original rule -- route those to the ledger and keep them out of the
 deliverable entirely.
+
+---
+
+# Revision 2 -- user decisions (2026-07-28)
+
+Recorded after review of the draft above. These OVERRIDE the corresponding parts of it.
+
+## D1. Platform-Owned Risks section: NOT WANTED
+
+Section 4's T4 and section 6's new 02c section are withdrawn. Platform-owned concerns route
+to the Excluded Threats Ledger instead, per the original proposal, with a new exclusion reason
+`Platform-owned` (an exclusion, not a lead -- the code audit branches only on `Code-level`,
+`Unverified` and `Attested-mitigated (unverified)`, so a `Platform-owned` row is recorded and
+visible but generates no audit work). No new deliverable section anywhere.
+
+## D2. Priority is removed ENTIRELY
+
+Not just the displayed label -- the whole concept leaves the deliverables:
+
+- `Priority` column: removed from the threat table.
+- `OriginalPriority` / `RevisedPriority`: removed from the CSV and from the dispositions
+  round-trip.
+- The HTML `RevisedPriority` select control and the priority-revision display rule: removed.
+- Priority-based row colouring: removed (SecurityControl = `None` highlighting stays).
+- Priority-based sorting: replaced (see below).
+- Banner/summary counts by priority: removed.
+
+**Rationale (user):** everything in the table has already cleared a CRITICAL-or-HIGH gate. A
+threat is worth being on the list or it is not; a second tier invites the team to argue about
+tiers instead of about threats.
+
+**What is KEPT:** the risk severity calculation itself, as the INCLUSION GATE. Likelihood x
+Impact still decides admission (CRITICAL/HIGH in, Medium/Low out) and the `[Risk calc: ...]`
+note still records it in the Description so a reviewer can audit the admission decision. What
+disappears is the ranking LABEL, not the reasoning.
+
+**Replacement for sorting:** by Component, then STRIDE Category, then ThreatID. This groups
+the table the way a reviewer reads it (all threats against one component together) instead of
+by a rank that no longer exists.
+
+**Replacement for the RevisedPriority review signal:** `Disposition` already carries it, and
+carries it better -- `Risk Accepted` is a clearer review outcome than "revised from 1 to 2".
+
+**Cross-prompt scope (measured):** phase-2b 10 lines, phase-2c 1, phase-3-html 17,
+phase-3-csv 8, threat-model-disposition.md 34, threat-model-comparison.md 25. The disposition
+and comparison prompts MUST change in the same commit or the round-trip breaks.
+
+**CSV contract:** goes from 22 columns to 20. This is a deliberate, breaking change to a
+schema shared with the disposition prompt; both move together, and dispositions.csv files
+produced by older runs will not round-trip.
+
+## D3. Confidence stays in the data, leaves the review
+
+Not removed (it is the inclusion gate: a candidate that cannot reach Likely goes to the ledger
+as `Unverified`), but moved out of the HTML's visible columns into the collapsible detail.
+Teams stop arguing with the grade; the comparison prompt keeps the field. Zero contract change.
+
+## D4. New realism question added
+
+To the realistic-threat-assessment list in phase-2b: **"Does the implementation effort really
+buy that much more security?"** v24 already asks about the ATTACKER's ROI; this asks about the
+DEFENDER's, which is uncovered and is the sharpest discriminator for defence-in-depth noise --
+a control costing three sprints that only inconveniences someone who already owns the cluster
+fails it immediately.
+
+## D5. OPEN -- ResidualRisk is the same two-level split
+
+`ResidualRisk` is defined as `CRITICAL -> Severe, HIGH -> Elevated`: the identical distinction
+Priority 1/2 encoded, under different words. If Priority goes for being a tier the team argues
+about, Severe/Elevated inherits that argument.
+
+Three options, user's call:
+1. Remove ResidualRisk too -- fully consistent with D2; costs another column and its uses.
+2. Keep it -- it is genuinely different in one way: it is scored AFTER crediting existing
+   controls, so it can be lower than the admission calc and is the only place existing-control
+   credit is visible.
+3. Collapse it to a single value (e.g. drop the level, keep the residual-risk PROSE) so the
+   control credit survives without a tier.
+
+Not decided; nothing implemented.
+
+## Resulting column count
+
+Threat table: 21 -> 20 (Priority removed). CSV: 22 -> 20 (OriginalPriority, RevisedPriority
+removed). If D5 removes ResidualRisk: 19 each.

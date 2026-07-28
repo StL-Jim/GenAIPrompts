@@ -103,9 +103,9 @@ For each set, identify items present in one run but not the other. The asset and
 **Step 4: Filtering and exclusion check**
 Read both `02c-assumptions.md` files (or `02d-assumptions.md` for older threat models — they are equivalent). Extract from each:
 - Threat Filtering Summary (totals: candidates identified, threats included, threats excluded by reason)
-- Excluded Threat Categories (the categories the agent decided not to enumerate, with reasoning)
+- Excluded Threats Ledger (the EX-NN rows: which specific candidates were considered and not promoted, each with its reason)
 - Assumptions Made (assumptions the threat model relied on)
-- Questions for Stakeholders (open questions the threat model couldn't resolve)
+- Excluded Threat Categories and Questions for Stakeholders, IF PRESENT -- threat models generated before 2026-07-28 have these two sections and newer ones do not, by design. Their absence from the newer run is a schema change, never a coverage regression: do not report it as a delta, do not count it as content the newer run dropped, and do not ask the newer run's author to supply it. The Excluded Threats Ledger carries the exclusion reasoning in both schemas, per-candidate rather than rolled up by category.
 
 This information feeds into both Section 1 (high-level context) and the per-threat reasoning categories in Sections 3 and 4 (specific evidence for why threats are absent or new).
 
@@ -288,7 +288,7 @@ One entry per threat in the older model with no match (and no Low confidence can
 For each, classify into one of these reasoning categories, in priority order (use the strongest applicable category):
 
 - **Component/asset not in newer model's inventory**: The threat references a component (C-NNN) or asset (AS-NNN) that does not appear in the newer model's inventory. The threat is absent because its foundation is not in the newer run's working set. Cite the specific missing component or asset ID. This is the most certain category because it's directly observable from inventory files.
-- **Excluded by category in newer run**: The newer model's `02c-assumptions.md` lists Excluded Threat Categories matching this threat's category, OR the filtering totals indicate threats in this category were excluded, OR -- the strongest evidence -- the newer model's Excluded Threats Ledger contains an EX-NN row matching this threat's component and concern: cite the EX-NN row and its Exclusion Reason verbatim. A `Code-level` reason means the newer run deliberately routed the concern to the code security audit, not that it was dropped.
+- **Excluded by category in newer run**: The newer model's Excluded Threats Ledger contains an EX-NN row matching this threat's component and concern (the strongest evidence), OR the filtering totals indicate threats in this category were excluded, OR -- only for models old enough to have the section -- its Excluded Threat Categories lists this threat's category: cite the EX-NN row and its Exclusion Reason verbatim. A `Code-level` reason means the newer run deliberately routed the concern to the code security audit, not that it was dropped.
 - **Categorization shifted**: The concern appears to be present in the newer model under a different framing -- a related Section 2 entry covers it. If this applies, name the related newer threat ID.
 - **Absent from newer model, no explicit exclusion noted**: The threat is not in the newer model and no inventory gap or filtering decision explains the absence. The agent cannot determine whether the underlying concern was actually mitigated in code, whether the newer run's analysis just didn't surface it, or whether some other factor explains the difference. This category honestly acknowledges that absence from a threat model is not evidence of mitigation -- only a code-level review (such as the CodeSecurityAudit prompt's output) could provide that evidence.
 - **Unable to determine**: The agent examined the available threat model artifacts but cannot conclusively assign any of the above categories. State what would help determine the answer.

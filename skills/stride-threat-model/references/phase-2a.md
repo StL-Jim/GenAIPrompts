@@ -40,8 +40,16 @@ Structure:
 # Phase 2A -- Assets, Trust Boundaries, Data Flows
 
 ## Assets
+
+Every asset carries a CRITICALITY tier, recorded as the third field. The tier is assigned by LOOKUP, not by judgement -- it is what lets a later phase rank a threat by what it targets rather than by how the impact sounds in prose:
+- `Crown Jewel` -- the asset named by the single-most-sensitive-asset clause of the System Restatement in 01-inventory.md. That clause was confirmed by the USER at the end of Phase 1, which is what makes this tier attested ground truth instead of your own estimate. Normally exactly one asset holds it; two is acceptable only when the restatement genuinely names two. Never assign it to an asset the restatement does not name.
+- `Sensitive` -- data matching the Q4 data-sensitivity answer in 00-scope.md (PII, PHI, financial, and the like), plus every secret, credential, and authentication or session asset. These are the assets whose loss is reportable, or which directly enable impersonation.
+- `Supporting` -- everything else: internal metadata, configuration holding no secrets, service availability, non-sensitive code and infrastructure.
+
+If the restatement's most-sensitive-asset clause corresponds to no asset you enumerated, do NOT invent an asset and do NOT quietly promote a substitute: leave Crown Jewel unassigned and record the mismatch in the Asset Coverage Check. It means Phase 1 and Phase 2A disagree about what this system holds, which is worth a human's attention rather than a silent repair.
+
 ### Data Assets
-- AS-001: <name> -- <classification> -- handled by [C-001, C-003, DS-002] -- [evidence: ...]
+- AS-001: <name> -- <classification> -- <criticality> -- handled by [C-001, C-003, DS-002] -- [evidence: ...]
 ### Secrets
 - AS-NNN: ...
 ### Authentication / Sessions
@@ -58,6 +66,8 @@ Structure:
 - Each represented by a Data Asset above: <yes | list of unmapped classifications -- an unmapped classification is a rule violation>
 - Secret/credential surfaces in 01-inventory: <N>; each under Secrets: <yes | gaps>
 - Source repository in scope: <yes/no>; if yes, present under Code / IP: <yes/no>
+- Crown Jewel assigned: <AS-NNN, and the restatement clause it matches | UNMAPPED -- the restatement names "<clause>" and no enumerated asset corresponds, so Phase 1 and Phase 2A disagree>
+- Every asset carries one of the three criticality tiers: <yes | list of AS-NNN missing a tier -- an untiered asset breaks the Impact test in Phase 2B>
 
 ## Trust Boundaries
 | TB ID | Boundary | Principals | Establishing Control | Evidence |

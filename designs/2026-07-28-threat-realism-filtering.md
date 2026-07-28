@@ -269,3 +269,37 @@ Not decided; nothing implemented.
 
 Threat table: 21 -> 20 (Priority removed). CSV: 22 -> 20 (OriginalPriority, RevisedPriority
 removed). If D5 removes ResidualRisk: 19 each.
+
+## D6. Priority and Likelihood are INTERNAL ONLY (refines D2)
+
+D2 said "remove Priority entirely". Refined: the CONCEPT is kept and used, the DISPLAY is
+removed. This is better than deletion because the risk severity calculation is the ADMISSION
+GATE -- Likelihood x Impact is what keeps Medium/Low out and the table small. Delete the
+concept and the filter goes with it.
+
+KEPT, internal:
+- The risk severity calculation, Likelihood and Impact as its inputs, and the resulting
+  CRITICAL/HIGH admission decision.
+- The `[Risk calc: <Likelihood> likelihood x <Impact> impact]` note at the end of each
+  Description, in `02b-threats.md` and the canonical `02-threats.md`.
+
+REMOVED from the deliverables (HTML report and CSV):
+- `Priority` column, `Likelihood` column, `OriginalPriority`, `RevisedPriority`
+- the `RevisedPriority` select control and the priority-revision display rule
+- priority-based row colouring (SecurityControl = `None` highlighting stays)
+- priority-based sorting -> Component, then Category, then ThreatID
+- tier counts in banners and summary sections
+
+HTML rendering: the Description is rendered with the trailing `[Risk calc: ...]` note
+STRIPPED. The note survives in the markdown; the team never reads a tier.
+
+WHY THE NOTE SURVIVES (stated plainly, since "auditability" was the wrong word): it is a
+debugging aid for the threat model itself, not a record for auditors. When a reviewer looks
+at a row and asks "why is this in here at all?", the note is the model's answer. A threat
+that reads as theoretical while its note claims High likelihood is a visible mismatch --
+which is exactly the inflation this realism work exists to catch.
+
+Consequence for cross-prompt scope: SMALLER than D2's full removal. `threat-model-comparison.md`
+can still compare the internal fields present in the markdown, rather than needing them
+removed from a shared schema. `threat-model-disposition.md` still loses OriginalPriority and
+RevisedPriority from the dispositions round-trip.

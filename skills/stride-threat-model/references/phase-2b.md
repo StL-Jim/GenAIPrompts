@@ -113,7 +113,7 @@ Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every co
 
 Data-flow obligation: the System Map compels findings, not just context. Every data flow in 02a-context.md whose Encryption or AuthN column records none, plaintext, or unknown MUST end the phase accounted for -- either cited by a threat in the main table or recorded as an Excluded Threats Ledger row stating why it does not rise to one (fully mitigated by a code/IaC-EVIDENCED control; `Attested-mitigated (unverified)` when the only mitigation evidence is a Phase 0 attestation -- the flow is still accounted for, but the mitigation claim stays visible as a verification lead; out of scope; or Unverified with its confirming question). There is no silent third option: an observed unprotected flow that appears in no output is a rule violation, reported in the Filtering Notes check below.
 
-While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full code/IaC-verified mitigation, attested-only mitigation, scope rules, or the architecture-level test). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. WRITE this working list to `{PROJECT_NAME}-threat-model/02b-excluded.md` with the Write tool -- one line per excluded candidate in the form `component ID | STRIDE category | short title | exclusion reason` (exclusion reason beginning with one of the reason keywords the Phase 2C ledger uses: Fully mitigated, Attested-mitigated (unverified), Medium severity, Low likelihood, Out of scope, Generic-to-all-systems, Code-level, Unverified). This file MUST persist on disk because Phase 2C runs as a SEPARATE session and builds the Excluded Threats Ledger by carrying these rows forward VERBATIM -- it is not in your context then, so a candidate you exclude but do not write here is lost, and 2C would be forced to reconstruct (guess) the ledger from rolled-up counts. Its line count MUST equal the sum of the not-promoted counts in your Filtering Notes. This ledger is how a downstream code audit distinguishes "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
+While walking the matrix, keep a compact working list of every candidate threat that was considered but EXCLUDED (by the severity floor, likelihood floor, full code/IaC-verified mitigation, attested-only mitigation, scope rules, or the architecture-level test). For each excluded candidate record one line: component ID, STRIDE category, a short title, and the exclusion reason. WRITE this working list to `{PROJECT_NAME}-threat-model/02b-excluded.md` with the Write tool -- one line per excluded candidate in the form `component ID | STRIDE category | short title | exclusion reason` (exclusion reason beginning with one of the reason keywords the Phase 2C ledger uses: Fully mitigated, Attested-mitigated (unverified), Medium severity, Low likelihood, Not exploitable, Out of scope, Generic-to-all-systems, Code-level, Unverified -- plus `Rejected at review`, which only the threat review gate adds, never you). This file MUST persist on disk because Phase 2C runs as a SEPARATE session and builds the Excluded Threats Ledger by carrying these rows forward VERBATIM -- it is not in your context then, so a candidate you exclude but do not write here is lost, and 2C would be forced to reconstruct (guess) the ledger from rolled-up counts. Its line count MUST equal the sum of the not-promoted counts in your Filtering Notes. This ledger is how a downstream code audit distinguishes "the threat model considered this and excluded it" from "the threat model never considered it." Do not expand these into full threat rows.
 
 For each selected threat, verify its architectural conditions against the system model and assign a confidence level (Confirmed or Likely) per the Confidence Levels section above. Confirmed and Likely threats are filled into the main threat table. A candidate that cannot reach Likely -- asset or path not confirmable from the System Map -- is recorded as an `Unverified` row in the Excluded Threats Ledger (Phase 2C), not emitted as a threat.
 
@@ -177,6 +177,7 @@ Structure:
 - Likely threats (main table): <N>
 - Threats excluded as Medium severity: <N>
 - Threats excluded as Low likelihood: <N>
+- Threats rejected at the Phase 2B threat review gate: <N> (0 when 2B first writes this file; raised only if the user drops a threat at the gate, and whoever drops it recomputes the totals here)
 - Threats excluded as fully mitigated (code/IaC-verified controls only): <N>
 - Candidates routed as Attested-mitigated (unverified) (suppressed only by an attested control; verification lead for the code audit): <N>
 - Threats excluded as out of scope: <N>
@@ -201,7 +202,11 @@ Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority
 Unverified candidates routed to ledger: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Excluded working list: 02b-excluded.md written (<N> rows = not-promoted count, source for the 2C ledger)
-THREAT REVIEW GATE: these two files are the reviewable output. Nothing downstream has been built yet.
+
+Would you like to review each threat individually before proceeding?
+Type 'review' to go through them one at a time -- one threat per message, keep / drop / correct.
+Type 'proceed' to begin Phase 2C, which consolidates the threats into the canonical
+02-threats.md and builds the Excluded Threats Ledger -- the last phase before the exports.
 Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

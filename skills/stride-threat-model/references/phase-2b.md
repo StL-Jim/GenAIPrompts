@@ -204,10 +204,10 @@ STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Excluded working list: 02b-excluded.md written (<N> rows = not-promoted count, source for the 2C ledger)
 
 Would you like to review each threat individually before proceeding?
-Type 'review' and I will list them so you can pick the ones you want to talk through.
-Questioning a threat is a conversation -- ask why it is there, whether a control you
-already have covers it, or what a developer will say about it, and I will go back to the
-evidence and answer.
+Just say so in your own words. I will show them one at a time, COMPLETE -- every field,
+exactly as it will appear in the report -- and stop after each one. Questioning a threat
+is a conversation: ask why it is there, whether a control you already have covers it, or
+what a developer will say about it, and I will go back to the evidence and answer.
 Type 'proceed' to begin Phase 2C, which consolidates the threats into the canonical
 02-threats.md and builds the Excluded Threats Ledger -- the last phase before the exports.
 Phase status reported to orchestrator (it owns STATE.md).

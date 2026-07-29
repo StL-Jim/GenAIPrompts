@@ -194,14 +194,6 @@ MANDATORY -- exactly this one table, nothing else: `02b-threats.md` contains the
 
 Write the file with the Write tool. Return your completion banner to the orchestrator (it owns STATE.md).
 
-#### Phase 2B Stakeholder Explainer: `.\{PROJECT_NAME}-threat-model\outputs\architecture-threat-explanation.html`
-
-For each threat in the table above, explain why it is an architecture-level finding and not a code-level finding, so the user can use this to answer stakeholders (developers, management, fellow security professionals) who push back on a finding. Use your own judgment on explanation and structure per threat; a card per threat with a short Architecture Issue / Why Not Just Code / Explain to Developers framing is a reasonable default, but prioritize a clear, accurate explanation over rigid adherence to that shape.
-
-Write as a single self-contained HTML file (inline `<style>`, no external CSS/JS), ASCII-only per Operating Rule 14. Plain and simple -- this is a leave-behind for conversations, not the main report. It carries the AI-generation disclosure banner as the first child of `<body>` per Operating Rule 16 (it is a stakeholder deliverable).
-
-Write with the Write tool. Verify per common.md rule W-d.
-
 **Phase 2B Completion Banner:**
 ```
 === PHASE 2B COMPLETE: 02b-threats.md WRITTEN ===
@@ -209,7 +201,7 @@ Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority
 Unverified candidates routed to ledger: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Excluded working list: 02b-excluded.md written (<N> rows = not-promoted count, source for the 2C ledger)
-Stakeholder explainer: outputs/architecture-threat-explanation.html written
+THREAT REVIEW GATE: these two files are the reviewable output. Nothing downstream has been built yet.
 Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

@@ -136,7 +136,7 @@ X. Subagent conduct. You are a subagent: you cannot ask the user anything. If yo
        c4-03-component.drawio          (Phase 4)
        dfd.drawio                      (Phase 4)
      outputs/
-       architecture-threat-explanation.html (Phase 2B: architecture-vs-code explainer for stakeholders)
+       architecture-threat-explanation.html (Phase 3C: architecture-vs-code explainer for stakeholders, written from the reviewed threat table)
        threat-model.html               (Phase 3)
        threats.csv                     (Phase 3, single comprehensive CSV)
    ```

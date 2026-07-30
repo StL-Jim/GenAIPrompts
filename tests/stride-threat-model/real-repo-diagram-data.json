@@ -1,0 +1,57 @@
+{
+ "_comment": "Derived by hand from the astrolog-chart-automation repo (601 files, 27 Python modules) to exercise the renderer against REAL structure rather than a sample designed to flatter it: uneven tier sizes, a hub component, long real names, and a corridor that may exceed the 8-edge legible limit. This tests the RENDERER, not the agent contract -- no agent produced this file.",
+ "diagrams": [
+  {
+   "name": "c4-02-container",
+   "title": "Container Diagram -- astrolog-chart-automation",
+   "nodes": [
+    { "id": "A-001", "label": "Chart Operator (local browser)", "kind": "actor", "tier": "ACTORS" },
+    { "id": "C-001", "label": "Flask Chart API (web/chart_api.py)", "kind": "component", "tier": "EDGE", "threat": "P1" },
+    { "id": "C-002", "label": "Web Frontend (index/natal/progression HTML+JS)", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-003", "label": "AI Interpreter", "kind": "component", "tier": "APPLICATION", "threat": "P2" },
+    { "id": "C-004", "label": "Kerykeion Wrapper", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-005", "label": "Birth Data Manager", "kind": "component", "tier": "APPLICATION", "threat": "P1" },
+    { "id": "C-006", "label": "Chart DB Generator (Astrolog subprocess)", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-007", "label": "Natal Chart Generator", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-008", "label": "Transit / Progression / Synastry Generators", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-009", "label": "PDF Report Builder", "kind": "component", "tier": "APPLICATION" },
+    { "id": "C-010", "label": "Config Loader", "kind": "component", "tier": "APPLICATION" },
+    { "id": "DS-001", "label": "birth_data.json (PII)", "kind": "store", "tier": "DATA", "threat": "P1" },
+    { "id": "DS-002", "label": "Chart Cache", "kind": "store", "tier": "DATA" },
+    { "id": "DS-003", "label": "Generated Charts", "kind": "store", "tier": "DATA" },
+    { "id": "DS-004", "label": "PDF Reports", "kind": "store", "tier": "DATA" },
+    { "id": "DS-005", "label": "Swiss Ephemeris Data", "kind": "store", "tier": "DATA" },
+    { "id": "EXT-001", "label": "api.anthropic.com", "kind": "external", "tier": "EXTERNAL" },
+    { "id": "EXT-002", "label": "api.geonames.org", "kind": "external", "tier": "EXTERNAL", "threat": "P1" }
+   ],
+   "edges": [
+    { "source": "A-001", "target": "C-001", "protocol": "HTTP", "secure": false, "async": false },
+    { "source": "C-001", "target": "C-002", "protocol": "HTTP", "secure": false, "async": false },
+    { "source": "C-001", "target": "C-003", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-001", "target": "C-004", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-001", "target": "C-005", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-001", "target": "C-009", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-004", "target": "C-007", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-004", "target": "C-008", "protocol": "in-process", "secure": true, "async": false },
+    { "source": "C-006", "target": "DS-003", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-005", "target": "DS-001", "protocol": "file", "secure": false, "async": false },
+    { "source": "C-003", "target": "DS-002", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-007", "target": "DS-003", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-008", "target": "DS-003", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-009", "target": "DS-004", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-004", "target": "DS-005", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-006", "target": "DS-005", "protocol": "file", "secure": true, "async": false },
+    { "source": "C-003", "target": "EXT-001", "protocol": "HTTPS", "secure": true, "async": false },
+    { "source": "C-010", "target": "EXT-002", "protocol": "HTTP", "secure": false, "async": false }
+   ],
+   "notes": [
+    "C-001 -> EDGE tier (terminates inbound browser traffic)",
+    "C-002..C-010 -> APPLICATION tier",
+    "DS-001..DS-005 -> DATA tier; EXT-001/002 -> EXTERNAL",
+    "EXT-002 reached over plaintext HTTP (config.py:34 GEONAMES_API_URL)",
+    "TB-001 (browser -> API) reconciled on A-001 -> C-001",
+    "TB-002 (app -> data) reconciled on C-005 -> DS-001"
+   ]
+  }
+ ]
+}

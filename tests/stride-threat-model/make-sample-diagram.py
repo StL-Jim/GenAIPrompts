@@ -27,6 +27,7 @@ MEMBER_Y0   = 80
 ZONE_H_BASE = 120
 GAP         = 320          # node-to-node horizontal gap
 NOTICE_H    = 30
+LANE_Y      = 0
 
 SZ = {"component": (400, 200), "store": (320, 240), "external": (400, 200), "actor": (120, 200)}
 
@@ -91,7 +92,8 @@ def build():
     for c in present:
         ox = origin(c)
         if c in CONTAINED:
-            h = ZONE_H_BASE + len(members[c]) * V_PITCH
+            mh = max(SZ[n[2]][1] for n in members[c])
+            h = MEMBER_Y0 + (len(members[c]) - 1) * V_PITCH + mh + 80
             cells.append('<mxCell id="zone-%s" value="%s" style="%s" vertex="1" parent="1">'
                          '<mxGeometry x="%d" y="%d" width="%d" height="%d" as="geometry"/></mxCell>'
                          % (c, c, ZONE_STYLE % ZONE_COLOR[c], ox, ZONE_Y, COL_W, h))
@@ -109,6 +111,13 @@ def build():
                              '<mxGeometry x="%d" y="%d" width="%d" height="%d" as="geometry"/></mxCell>'
                              % (nid, label, STYLE[kind], ax, ay, w, hh))
                 pos[nid] = (ax, ay, w, hh, cidx[c])
+
+    tallest = max((ZONE_Y + MEMBER_Y0 + (len(members[c]) - 1) * V_PITCH
+                   + max(SZ[n[2]][1] for n in members[c]) + 80) if c in CONTAINED
+                  else (ZONE_Y + (len(members[c]) - 1) * V_PITCH + max(SZ[n[2]][1] for n in members[c]))
+                  for c in present)
+    global LANE_Y
+    LANE_Y = tallest + 40
 
     # fan attachment points: exits ordered by target id, entries by source id
     exits, entries = {}, {}
@@ -144,23 +153,28 @@ def build():
         st = EDGE_STYLE + att + ("" if secure else "strokeColor=#CC0000;strokeWidth=3;")
 
         pts = ""
-        if ct > cs and cs in corridor:
+        y_out, y_in = int(sy + sh * f_out), int(ty + th * f_in)
+        if ct - cs >= 2:
+            # rule 4: long-haul lane below every container
+            pts = ('<Array as="points"><mxPoint x="%d" y="%d"/><mxPoint x="%d" y="%d"/></Array>'
+                   % (sx + sw + 40, LANE_Y, tx - 40, LANE_Y))
+        elif ct > cs and cs in corridor:
             lst = corridor[cs]
             i, m = lst.index((src, tgt)), len(lst)
             gap_left = 40 + cs * COL_PITCH + 440
             wx = int(gap_left + (i + 1) * GAP / (m + 1))
-            wy = int(((sy + sh * f_out) + (ty + th * f_in)) / 2)
-            pts = '<Array as="points"><mxPoint x="%d" y="%d"/></Array>' % (wx, wy)
+            # TWO waypoints pin the whole middle run: enter the channel at the exit
+            # height, leave it at the entry height. One waypoint let the router
+            # collapse neighbouring edges onto a shared segment.
+            pts = ('<Array as="points"><mxPoint x="%d" y="%d"/><mxPoint x="%d" y="%d"/></Array>'
+                   % (wx, y_out, wx, y_in))
 
         cells.append('<mxCell id="e-%s-%s" value="%s" style="%s" edge="1" parent="1" source="%s" target="%s">'
                      '<mxGeometry relative="1" as="geometry">%s</mxGeometry></mxCell>'
                      % (src, tgt, proto, st, src, tgt, pts))
 
     right = max(x + w for x, y, w, h, _ in pos.values())
-    bottom = max(ZONE_Y + ZONE_H_BASE + len(members[c]) * V_PITCH if c in CONTAINED
-                 else max((pos[n[0]][1] + pos[n[0]][3]) for n in members[c])
-                 for c in present)
-    legend_y = bottom + 160
+    legend_y = tallest + 160
     cells.append('<mxCell id="legend" value="%s" style="%s" vertex="1" parent="1">'
                  '<mxGeometry x="40" y="%d" width="480" height="360" as="geometry"/></mxCell>'
                  % ("LEGEND&#10;&#10;EDGE / DMZ (orange)&#10;APPLICATION (amber)&#10;DATA (teal)"

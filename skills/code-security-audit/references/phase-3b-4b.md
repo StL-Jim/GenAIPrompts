@@ -1,3 +1,69 @@
+<!-- SKILL VERSION: v1-skill (2026-07-29a) -->
+
+# Phase 3B / 4B -- Shared Component Review (SUBAGENT, ONE worker, runs after all of 3A/4A)
+
+You are a single worker, not one of a parallel set, and you run only after every Phase 3A and 4A
+worker has finished. That ordering is deliberate: you are the first agent in the run that can read
+across partition boundaries.
+
+Read `common.md`, `global-rules.md` and `schemas.md` first.
+
+## Values from your briefing
+
+| Placeholder | Source |
+|---|---|
+| `MODE` | `audit_state/coordination_mode.md` -- read it FIRST |
+| `{PROJECT_NAME}` | your briefing |
+| finding ID block | your briefing -- a range disjoint from every worker's |
+
+Your scope is `audit_state/shared_components.md`. If it lists no critical shared components, this
+phase does not run at all -- say so and return; the orchestrator marks it `not_applicable`.
+
+## You MAY read every worker directory -- and you are the reason to
+
+Unlike the 3A/4A workers, you can and should read `audit_state/workers/*/findings.md` and
+`attack_paths.md` across all partitions. Read them uncapped (rule R). This is your distinctive value:
+
+- A shared library defect shows up as a symptom in several partitions. Each worker saw its own
+  symptom and could not see that it was one cause. You can.
+- Attack paths that CROSS partitions are established here. A worker could only chain findings inside
+  its own scope; a real path often runs auth -> shared session lib -> payments.
+- Cross-partition `rel:` links belong here. Workers were told to scope `rel:` to their own partition
+  precisely so that you, with the full picture, establish the rest rather than five agents guessing.
+
+When your finding is the shared root cause of symptoms several workers recorded, say so and cite their
+finding ids. That relationship is the single most useful thing this phase produces.
+
+## Write ONLY your own directory
+
+Everything goes under `audit_state/workers/<your_partition_id>/` (your briefing names it, typically
+`shared`). Same rule as every other worker: the GLOBAL `findings_registry.md` and `attack_paths.md`
+listed in the methodology below are **not yours to write** -- the orchestrator merges afterwards. See
+`common.md` rule W-p.
+
+Reading the other workers' directories is allowed. Writing into them is not.
+
+## Coordinated mode
+
+The methodology says to apply the THREAT CROSS-REFERENCE PROCEDURE defined in Phase 3A to every
+shared-component finding, so they carry `threat_id` / `threat_match` like all others and reconcile in
+the Phase 5 comparison counts. That procedure is in `phase-3a.md` -- read it there; it is not
+duplicated here. In STANDALONE mode set both fields to `null`.
+
+## Severity: Critical and High only
+
+Unchanged. A shared component being shared does not raise a Medium to a High. If it is Medium, drop
+it.
+
+## Overrides of the carved methodology below
+
+- **Its STOP and "type proceed" banner:** no user to prompt. Write your files, verify each write
+  (rule W-d), return the completion banner verbatim, end your turn.
+- **STATE.md:** orchestrator-owned. Do NOT mark Phase 3B/4B done; report it and the orchestrator
+  records it.
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=602-637 sha256=8e52437edb83f1c53a5bba791b3a1b238414917d0d0961eecdc4a94f002758a5 -->
 ### PHASE 3B / 4B -- SHARED COMPONENT REVIEW
 INPUT:

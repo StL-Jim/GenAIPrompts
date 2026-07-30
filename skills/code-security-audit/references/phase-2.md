@@ -1,3 +1,67 @@
+<!-- SKILL VERSION: v1-skill (2026-07-29a) -->
+
+# Phase 2 -- Global Risk Prioritization (ORCHESTRATOR, not a subagent)
+
+You run this yourself. It is small, it produces no findings, and it feeds GATE 1 -- which is a
+conversation with the user, and subagents cannot have one.
+
+## Why this phase exists before GATE 1
+
+Phase 1 already wrote `partition_plan.md`. This phase ranks partitions by exposure, blast radius and
+likely defect density -- and that ranking is what makes the partition plan REVIEWABLE. A bare table
+of file counts is close to unjudgeable; the same table alongside "auth ranked highest exposure" is a
+question a person can actually answer. Produce the ranking first, then open GATE 1 with both.
+
+You MAY revise `partition_plan.md` here if the ranking reveals a better grouping. If you do, keep
+`audit_state/partitions/<partition_id>.txt` and `partition_status.md` consistent with the revision,
+and re-state the reconciliation count.
+
+## GATE 1 -- after this phase, before any worker is dispatched
+
+Present to the user, in this order:
+
+1. The partition table: id, file count, percentage, service roots.
+2. The risk ranking from this phase, in plain language -- what is most exposed and why.
+3. Anything `partition-plan.ps1` warned about. In particular, if the `assorted` partition outgrew the
+   largest coherent one, say so plainly: the repo's shape does not fit a 5-partition cap and the
+   grouping may need to be different.
+4. Shared-component candidates, flagged as name-convention leads rather than conclusions.
+
+Then ask whether the partitioning is right, and wait. Do not dispatch workers until the user answers.
+
+A wrong partition wastes every worker downstream and costs almost nothing to fix at this point. That
+asymmetry is the entire reason this gate exists.
+
+### What to ask, and what not to
+
+Ask the user about SCOPE and REALITY -- what he alone knows:
+
+- Is any partition covering something decommissioned, or not actually deployed?
+- Is anything grouped together that should be separate, or split that belongs together?
+- Are the shared-component candidates genuinely shared?
+- Is any of this not internet-facing, or otherwise less exposed than the ranking assumes?
+
+Do NOT ask him to validate the risk-scoring arithmetic, confirm your OWASP mappings, or certify any
+code-level technical judgement. He is not the source for those, and asking invites an approval that
+carries no information.
+
+Take his answers at face value. He is describing a system he operates and you do not. If an answer
+contradicts what you read in the code, say so plainly once, with the evidence, and let him decide --
+that is a discrepancy worth surfacing, not an attestation to interrogate. Verification pressure
+belongs on subagent OUTPUT, never on the user.
+
+## Overrides of the carved methodology below
+
+- **Its STOP and "type proceed" banner:** you are the orchestrator, so a stop here is real -- but the
+  stop is GATE 1 as described above, not a literal wait for the word "proceed."
+- **STATE.md:** you own it. Update it as the methodology instructs. This is the one phase where that
+  instruction applies to you directly.
+- **The tier-coverage count** in the completion banner is a visibility check, not a hard gate. The
+  carved text is explicit that a short count should be reported honestly rather than looped over --
+  respect that. Do not re-derive the table to force an exact match.
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=384-422 sha256=58ae393614b7174ad252615333b22f63501417e89f00d01c1210ac68ff8498d8 -->
 ### PHASE 2 -- GLOBAL RISK PRIORITIZATION
 INPUT:

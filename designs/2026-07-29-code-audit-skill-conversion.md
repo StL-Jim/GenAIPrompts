@@ -75,8 +75,8 @@ let the audit consume the threat model's `01-inventory.md`. Do not do it.
 
 | Unit | Runs as | Notes |
 |---|---|---|
-| Phase 1 Global Discovery | subagent | Deep reading needs its own context window -- same lesson as the TM's Phase 0 discovery split |
-| Phase 2 Risk Prioritization + partition plan | ORCHESTRATOR | Small, and it produces the artifact GATE 1 reviews |
+| Phase 1 Global Discovery | subagent | Deep reading needs its own context window -- same lesson as the TM's Phase 0 discovery split. ALSO produces `partition_plan.md` -- see F7 |
+| Phase 2 Risk Prioritization | ORCHESTRATOR | Small. Consumes the partition plan and ranks risk; does NOT create the plan (F7) |
 | Phase 3A x N | parallel subagents | One per partition, N <= 5 |
 | Phase 4A x N | parallel subagents | One per partition, N <= 5 |
 | Phase 3B / 4B Shared Components | one subagent | Runs after 3A/4A so shared findings can reference worker output |
@@ -198,6 +198,32 @@ The orchestrator therefore assigns each worker a disjoint ID block in its briefi
 alternatives: partition-prefixed IDs (`F-auth-001`) break the flat scheme decision 7 just
 established; renumbering at consolidation breaks the `rel:` cross-references workers write between
 their own findings. Recorded in `references/common.md` rule 4.
+
+**F6. Parallel workers cannot see each other's findings.** Phase 3A lists
+`audit_state/findings_registry.md (if present)` as an INPUT. Under sequential execution a later
+worker could read earlier workers' findings and set `rel:` cross-references to them. Under parallel
+dispatch the global registry does not exist yet (F5 moves its assembly after all workers return), so
+that input is simply absent.
+- Workers must be TOLD this, or a run will either wait for a file that never arrives or invent
+  cross-partition IDs it cannot see.
+- The capability is not lost, only relocated: 3B/4B runs AFTER 3A/4A and can read every worker
+  directory, and Phase 5 sees everything. Cross-partition `rel:` links and cross-partition attack
+  paths are established there. Within 3A/4A, `rel:` is within-partition only.
+
+**F7. Phase 1 produces the partition plan, not Phase 2.** The dispatch table above originally said
+Phase 2 "produces the artifact GATE 1 reviews." The source disagrees: Phase 1's OUTPUT FILES (source
+lines 356-365) include `partition_plan.md`, `partition_status.md`, `shared_components.md` and
+`workers/<partition_id>/worker_context.md`. Phase 2 lists the plan as INPUT and outputs only
+`02_risk_prioritization.md`.
+- GATE 1 nevertheless STAYS after Phase 2, deliberately. Both placements protect the same thing (no
+  workers run until 3A either way), but Phase 2's risk ranking is exactly the plain-language context
+  that makes the partition plan judgeable -- "is it right that auth is its own partition?" is
+  answerable once auth is ranked highest-exposure, and nearly unanswerable from a bare file-count
+  table. Under decision 5a that context is the difference between a real gate and a rubber stamp.
+- Phase 2 runs in the orchestrator and MAY revise the plan when its ranking reveals a better
+  grouping. GATE 1 then presents plan and ranking together.
+- Consequence: `scripts/manifest.ps1` and `scripts/partition-plan.ps1` are invoked by the PHASE 1
+  SUBAGENT, not the orchestrator. Rule S permits this.
 
 **F5. Parallel workers writing shared artifacts is a LOST-UPDATE RACE.** The most consequential
 finding of the build so far. The carved text instructs every worker phase to write

@@ -1,3 +1,82 @@
+<!-- SKILL VERSION: v1-skill (2026-07-29a) -->
+
+# Phase 3A -- Worker Security Review (SUBAGENT, one per partition, RUN IN PARALLEL)
+
+You are one of up to five workers running AT THE SAME TIME as your siblings. Everything unusual about
+your instructions follows from that.
+
+Read `common.md`, `global-rules.md` and `schemas.md` first. `schemas.md` defines every field you must
+populate; `global-rules.md` carries the SEVERITY SCOPE that decides what counts as a finding at all.
+
+## Values from your briefing
+
+| Placeholder | Source |
+|---|---|
+| `<partition_id>` | your briefing -- YOUR partition, and only yours |
+| `{PROJECT_NAME}` | your briefing |
+| `MODE` | `audit_state/coordination_mode.md` -- read it FIRST |
+| finding ID block | your briefing -- e.g. `F-021` through `F-040` |
+
+Your exact file list is `audit_state/partitions/<partition_id>.txt`. Read it uncapped (rule R). It is
+your scope: every file in it, and no file outside it except directly relevant shared or
+trust-boundary files as the methodology allows.
+
+## Finding IDs: use your assigned block and nothing else
+
+Your briefing gives you a numeric range. Assign `F-NNN` ids from inside it, in discovery order. Never
+use an id outside your block and never renumber anything. Your siblings hold adjacent blocks and are
+writing at this moment; a collision corrupts the merged registry, and `merge-findings.ps1` will fail
+the whole run rather than guess which finding was which.
+
+## Write ONLY your own directory
+
+Every file you produce goes under `audit_state/workers/<partition_id>/`:
+
+- `security_review.md`
+- `findings.md`
+- `attack_paths.md`
+- `evidence_index.md`
+
+The methodology below lists `audit_state/findings_registry.md` and `audit_state/attack_paths.md` among
+this phase's outputs. **Do not write them.** That instruction assumes sequential workers with a stop
+between each, which is how the source prompt runs. You are parallel: concurrent read-modify-write on
+one file silently discards whichever sibling got there first, and nothing detects it, because your own
+write verification would pass. The orchestrator merges every worker's directory afterwards. Your
+per-partition files ARE your contribution. See `common.md` rule W-p.
+
+## You cannot see your siblings' findings
+
+The methodology lists `audit_state/findings_registry.md (if present)` as an input. It will not be
+present -- it is assembled after every worker returns. Do not wait for it, do not look for a partial
+copy, and do not reference finding ids you have not written yourself.
+
+Scope `rel:` to findings inside your own partition. Cross-partition relationships and attack paths
+that span partitions are established later, by Phase 3B/4B (which runs after you and can read every
+worker directory) and by Phase 5. Nothing is lost by you not doing it; something IS lost if you invent
+it.
+
+## Severity: Critical and High only
+
+If an issue is Medium, Low or Info, do not write it up. Move on without creating a finding. Do not
+record it at a higher severity to keep it -- `merge-findings.ps1` fails the run on any severity
+outside Critical/High, and inflating one to survive the check is worse than dropping it.
+
+This bar is LOWER than the threat model's, not higher: defence-in-depth findings belong here and need
+no independent exploitability argument. Apply the carved RISK SCORING as written and do not import
+tests from the threat-modeling prompt.
+
+## Overrides of the carved methodology below
+
+- **Its STOP and "type proceed" banner:** you have no user to prompt. Write your files, verify each
+  write (rule W-d), return the completion banner verbatim in your summary, end your turn.
+- **STATE.md and partition_status.md:** orchestrator-owned. Do NOT update either, despite the
+  instruction to record your partition as `security_complete`. Report completion in your summary; the
+  orchestrator records it.
+- If you hit something only the user can decide, do not guess: write what you have, and return the
+  question in your summary for the orchestrator to relay (rule X).
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=425-540 sha256=59941e42a7764454715737aeae912b24e579dff5c0def776590c9e493e9157ac -->
 ### PHASE 3A -- WORKER SECURITY REVIEW
 INPUT:

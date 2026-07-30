@@ -1,3 +1,69 @@
+<!-- SKILL VERSION: v1-skill (2026-07-29a) -->
+
+# Phase 1 -- Global Discovery (SUBAGENT)
+
+You are a single subagent with the whole context window to yourself. Discovery is deep reading, and
+it is the one phase whose output every later phase depends on: a component you miss here is a
+component no worker reviews.
+
+Read `common.md`, `global-rules.md` and `schemas.md` before starting. They are not background --
+`global-rules.md` carries the AUTO-DISCOVERY REQUIREMENTS this phase must satisfy.
+
+## Values from your briefing
+
+Substitute these literally wherever the methodology below shows them:
+
+| Placeholder | Source |
+|---|---|
+| `{PROJECT_NAME}` | your briefing |
+| `<partition_id>` | the ids `partition-plan.ps1` reports (see below) |
+
+## Run the scripts; do not reimplement them
+
+Two mechanical steps ship as scripts. Run them rather than globbing and grouping by hand -- their
+output is what GATE 1 reviews, and their reconciliation counts are what makes Rule 8 satisfiable.
+See `common.md` rule S for the bash-vs-PowerShell invocation forms.
+
+1. `scripts/manifest.ps1` -- writes `audit_state/00-file-manifest.txt`, the complete list of source
+   files under audit. Both tool directories and the root cross-run log are excluded for you.
+2. `scripts/partition-plan.ps1` -- writes `audit_state/partition_plan.md`,
+   `audit_state/partition_status.md` (every partition `pending`), and
+   `audit_state/partitions/<partition_id>.txt` (the exact file list per partition).
+
+The partition plan the script writes is a PROPOSAL, capped at 5 partitions. You may adjust the
+grouping in `partition_plan.md` if discovery shows the script's directory-based guess is wrong --
+it does no import analysis and says so. If you do adjust it, keep
+`audit_state/partitions/<partition_id>.txt` consistent with your change and re-state the
+reconciliation count, because a file that falls out of every partition is a file no worker reviews.
+
+Do not skip the scripts and describe the repo from memory. Every number you report must be command
+output (`common.md` rule 8).
+
+## Displacement warning
+
+This phase now carries a large mechanical deliverable (manifest, partition plan, worker contexts).
+Mechanical output has a documented tendency to crowd out organic reading in this toolchain. The
+scripts exist to REMOVE clerical work from you so that more of your attention goes to reading the
+code, not less. If you notice yourself producing tables instead of reading source, that is the
+failure mode -- go read.
+
+## Overrides of the carved methodology below
+
+The methodology is reproduced verbatim from a prompt written for a single human-driven IDE session.
+Three dispatch details differ here. Nothing about WHAT to analyse changes.
+
+- **Its STOP and "type proceed" banner:** you have no user to prompt. Write every output file, verify
+  each write (rule W-d), return the completion banner verbatim in your summary, and end your turn.
+  See `common.md` rule X-a.
+- **STATE.md:** orchestrator-owned. Do NOT update it, despite the "Before printing the banner,
+  update audit_state/STATE.md" instruction. Report what you completed and the orchestrator records
+  it. See `common.md` rule X.
+- **Coordination mode:** you DETECT and record it in `audit_state/coordination_mode.md` as the
+  methodology says. If detection is ambiguous, do not guess -- return the question in your summary
+  for the orchestrator to ask the user.
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=276-381 sha256=57fcbf24d53e3d9098032491e3670684807e134323d115d3690841cd87c178e6 -->
 ### PHASE 1 -- GLOBAL DISCOVERY
 INPUT:

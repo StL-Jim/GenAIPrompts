@@ -52,6 +52,25 @@ orchestrator. That is also where the largest wall-clock win lives.
 4. **Copy shared assets, do not share them.** A shared file couples two skills that should be free
    to diverge. Copy and adapt.
 
+### Considered and REJECTED: sharing discovery with the threat-model skill
+
+It looks like free efficiency -- both tools inventory the same codebase, so run discovery once and
+let the audit consume the threat model's `01-inventory.md`. Do not do it.
+
+- **It breaks the falsification property, which is the whole point of coordinated mode.** The pair is
+  valuable because the audit reaches its findings INDEPENDENTLY and can therefore contradict the
+  threat model -- disprove a "fully mitigated" exclusion, verify an attested control, find a
+  component the threat model never discovered. An audit seeded with the threat model's inventory
+  inherits its blind spots and can no longer disprove its coverage. Coordinated mode is a
+  falsification test, not an answer key.
+- It contradicts decision 4 above, at the most foundational layer of all.
+- STANDALONE mode needs independent discovery regardless, so both code paths exist either way --
+  this adds complexity rather than removing it.
+- The threat model's inventory can be weeks old (archived runs routinely are), so the audit would
+  assess a stale picture of a codebase that has moved.
+- It saves the CHEAP phase. Discovery is reading and inventorying; the cost is the per-file analysis
+  in 3A/4A. Trading the falsification property for the inexpensive half is a bad bargain.
+
 ## Dispatch shape
 
 | Unit | Runs as | Notes |

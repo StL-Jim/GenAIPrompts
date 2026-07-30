@@ -76,7 +76,7 @@ LAYOUT FORMULA -- computed, not judged; every coordinate is a function of column
 - Zone container cell (one per component-bearing tier): parent="1", id `zone-<TIER>`, absolute x = column origin, y = 80, width = 260, height = 80 + memberCount*400.
 - Member (component inside a zone container): 0-indexed slot `s` by ascending ID, `parent="zone-<TIER>"`, geometry RELATIVE to the container at x = (260 - nodeWidth) / 2, y = 60 + s*400. The x formula CENTRES the node in the 260-wide container whatever its width -- 30 for a 200-wide component or process, 50 for a 160-wide data store -- so a mixed tier stays aligned on one centre line.
 - The 400 vertical pitch leaves a 300px gap between 100-tall rows, and that gap is where edge labels and orthogonal edge runs live. The old 160 pitch left 60px, which is what forced labels on top of lines and shapes. Horizontally the 520 column pitch against a 260-wide container already leaves 320px between the nodes themselves, so only the vertical needed changing.
-- Uncontained shape (human actor, external system): parent="1", absolute x = its column origin, absolute y = 80 + s*160 where `s` is its 0-indexed ID-sorted slot within that no-container column.
+- Uncontained shape (human actor, external system): parent="1", absolute x = its column origin, absolute y = 80 + s*400 where `s` is its 0-indexed ID-sorted slot within that no-container column.
 - Long-haul lane: `laneY` = (bottom edge of the tallest column) + 40. A horizontal routing lane, not a cell -- see Edge Routing rule 4.
 - Legend box: parent="1", x = 40, y = (bottom edge of the tallest column) + 160, below the columns and below the long-haul lane -- it never adds width.
 

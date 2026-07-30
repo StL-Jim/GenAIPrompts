@@ -21,7 +21,7 @@ import os
 # ----------------------------------------------------------------- spec constants
 COL_PITCH   = 720
 COL_W       = 480
-V_PITCH     = 500
+V_PITCH     = 400
 ZONE_Y      = 80
 MEMBER_Y0   = 80
 ZONE_H_BASE = 120
@@ -133,7 +133,7 @@ def build():
             y = max(int(y), prev_bottom)
             x, _, w, hh, ci = pos[nid]
             pos[nid] = (x, y, w, hh, ci)
-            prev_bottom = y + h + 200
+            prev_bottom = y + h + 160
         for i, cell in enumerate(cells):
             for _, nid, _ in want:
                 if 'id="%s"' % nid in cell:
@@ -247,7 +247,11 @@ def build():
                      % (src, tgt, proto, st, src, tgt, pts))
 
     right = max(x + w for x, y, w, h, _ in pos.values())
-    legend_y = tallest + 160
+    # The legend used to sit below every column, which bought a small box a full-width band
+    # of empty page -- the unused bottom third. The leftmost column is already mostly dead
+    # space under its actor, so it goes there instead and costs no height at all.
+    first_col_bottom = max((pos[n[0]][1] + pos[n[0]][3]) for n in members[present[0]])
+    legend_y = first_col_bottom + 160
     cells.append('<mxCell id="legend" value="%s" style="%s" vertex="1" parent="1">'
                  '<mxGeometry x="40" y="%d" width="480" height="360" as="geometry"/></mxCell>'
                  % ("LEGEND&#10;&#10;EDGE / DMZ (orange)&#10;APPLICATION (amber)&#10;DATA (teal)"
@@ -261,7 +265,8 @@ def build():
                        NOTICE_STYLE, right - 40, NOTICE_H))
 
     up40 = lambda v: ((v + 39) // 40) * 40
-    pw, ph = max(2400, up40(right + 40)), max(1600, up40(legend_y + 360 + 80))
+    pw = max(2400, up40(right + 40))
+    ph = max(1600, up40(max(tallest, legend_y + 360) + 80))
 
     xml = ('<mxfile host="app.diagrams.net">\n'
            '  <diagram id="c4-02" name="Container">\n'

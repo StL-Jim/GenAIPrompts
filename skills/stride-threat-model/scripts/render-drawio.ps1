@@ -270,7 +270,11 @@ function Render-Diagram($d) {
       $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $wx, $yOut, $yIn
     }
 
-    [void]$cells.Add(('<mxCell id="e-{0}-{1}" value="{2}" style="{3}" edge="1" parent="1" source="{0}" target="{1}"><mxGeometry relative="1" as="geometry">{4}</mxGeometry></mxCell>' -f `
+    # The label sits at x=-0.4 along the edge (-1 is the source end, 1 the target). At the
+    # DEFAULT midpoint a label lands on whatever the line happens to cross: rendering a real
+    # repo put 'in-process' on top of a component's own title and 'HTTPS' on a database
+    # cylinder. Biasing toward the source keeps it in the gutter or corridor just left.
+    [void]$cells.Add(('<mxCell id="e-{0}-{1}" value="{2}" style="{3}" edge="1" parent="1" source="{0}" target="{1}"><mxGeometry x="-0.4" relative="1" as="geometry">{4}</mxGeometry></mxCell>' -f `
       $e.source, $e.target, (Esc $e.protocol), $st, $pts))
   }
 

@@ -48,32 +48,33 @@ NOTICE_STYLE = "text;html=1;strokeColor=none;fillColor=none;align=left;verticalA
 # ----------------------------------------------------------------- sample system
 # (id, label, kind, column)
 NODES = [
- ("A-01", "End User",              "actor",     "ACTORS"),
- ("C-01", "Akamai WAF",            "component", "EDGE"),
- ("C-02", "Traefik Ingress",       "component", "EDGE"),
- ("C-03", "Web Application",       "component", "APPLICATION"),
- ("C-04", "Reporting API",         "component", "APPLICATION"),
- ("C-05", "Batch Worker",          "component", "APPLICATION"),
- ("DS-01", "Dev Database",         "store",     "DATA"),
- ("DS-02", "QA Database",          "store",     "DATA"),
- ("DS-03", "Prod Database",        "store",     "DATA"),
- ("EXT-01", "Bing Maps",           "external",  "EXTERNAL"),
- ("EXT-02", "SMTP Relay",          "external",  "EXTERNAL"),
+ ("A-01",   "End User",          "actor",     "ACTORS"),
+ ("C-01",   "Akamai WAF",        "component", "EDGE"),
+ ("C-02",   "Traefik Ingress",   "component", "EDGE"),
+ ("C-03",   "Web Application",   "component", "APPLICATION"),
+ ("C-04",   "Admin Portal",      "component", "APPLICATION"),
+ ("C-05",   "Reporting API",     "component", "APPLICATION"),
+ ("C-06",   "Batch Worker",      "component", "APPLICATION"),
+ ("DS-01",  "Prod Database",     "store",     "DATA"),
+ ("DS-02",  "Redis Cache",       "store",     "DATA"),
+ ("EXT-01", "Bing Maps",         "external",  "EXTERNAL"),
+ ("EXT-02", "SMTP Relay",        "external",  "EXTERNAL"),
 ]
 # (source, target, protocol, secure?)
 EDGES = [
- ("A-01",  "C-01",  "HTTPS",      True),
- ("C-01",  "C-02",  "HTTPS",      True),
- ("C-02",  "C-03",  "HTTP",       False),   # attested plaintext hop
- ("C-02",  "C-04",  "HTTP",       False),
- ("C-03",  "DS-03", "TLS/5432",   True),
- ("C-04",  "DS-03", "TLS/5432",   True),
- ("C-04",  "DS-02", "5432",       False),
- ("C-05",  "DS-01", "5432",       False),
- ("C-05",  "DS-03", "TLS/5432",   True),
- ("C-03",  "EXT-01","HTTPS",      True),
- ("C-05",  "EXT-02","SMTP",       False),   # the missed SMTP cert-validation flow
- ("C-02",  "DS-03", "TLS/5432",   True),    # skip-column: EDGE -> DATA, exercises the lane
+ ("A-01", "C-01",   "HTTPS",     True),
+ ("C-01", "C-02",   "HTTPS",     True),    # same column: bottom -> top attachment
+ ("C-02", "C-03",   "HTTP",      False),   # attested plaintext hop after TLS termination
+ ("C-02", "C-04",   "HTTP",      False),
+ ("C-02", "C-05",   "HTTP",      False),
+ ("C-03", "DS-01",  "TLS/5432",  True),
+ ("C-03", "DS-02",  "TLS/6379",  True),
+ ("C-04", "DS-01",  "TLS/5432",  True),
+ ("C-05", "DS-01",  "TLS/5432",  True),
+ ("C-06", "DS-01",  "TLS/5432",  True),
+ ("C-06", "DS-02",  "6379",      False),
+ ("C-03", "EXT-01", "HTTPS",     True),    # skips DATA -> long-haul lane
+ ("C-06", "EXT-02", "SMTP",      False),   # skips DATA -> long-haul lane
 ]
 
 COL_ORDER = ["ACTORS", "EDGE", "APPLICATION", "DATA", "SECURED", "EXTERNAL"]

@@ -1,3 +1,82 @@
+<!-- SKILL VERSION: v1-skill (2026-07-30a) -->
+
+# Phase 5 -- Consolidation (SUBAGENTS, one per deliverable)
+
+Runs only after GATE 2 has approved `findings_registry.md`. Nothing here re-filters findings; this
+phase is presentation.
+
+## Dispatch: one subagent PER DELIVERABLE, not one for the phase
+
+The methodology below is emphatic that each output file gets its own call with the full response
+budget, and it documents exactly why: the observed failure is an agent reading a registry of N
+findings, writing planning prose, then running out of budget mid-report and silently degrading
+detailed findings into bullet points or dropping them. That narrowing is a budget artifact, not a
+decision, and nothing in the output reveals it happened.
+
+Dispatch separately, each with a fresh context window and a fresh output budget:
+
+| Subagent | Produces | Mode |
+|---|---|---|
+| 5-report | `audit_state/05_consolidated_report.html` | both |
+| 5-briefing | `audit_state/executive_briefing.html` | both |
+| 5-c4 | `audit_state/C4_architecture.md` | both |
+| 5-comparison | `audit_state/threat_audit_comparison.md` (Markdown intermediate) | COORDINATED only |
+
+The cross-run log update is the ORCHESTRATOR's, not a subagent's -- see below.
+
+## Before dispatching anything: the completeness gate
+
+Check `audit_state/partition_status.md`. If any partition is not `done`, STOP and report which. Do not
+consolidate a partial audit into a report that will read as complete. `merge-findings.ps1` already
+enforces this, but it runs earlier and the check is cheap.
+
+## The cross-run log is the orchestrator's, and it is READ-UPDATE
+
+`security_architecture_audit.md` lives at the WORKSPACE ROOT, not in `audit_state/`. It is the only
+artifact that crosses runs, and archiving `audit_state/` must never carry it away. Read it, update it,
+never overwrite it. Handle it yourself rather than delegating: a subagent that misreads the path could
+destroy the history of every prior audit, and that is not recoverable from `audit_state/`.
+
+## GATE 2 outcomes interact with the "include every finding" rule
+
+The methodology states that every finding in the registry appears in the consolidated report, and that
+selecting which to include is filtering and is wrong. That still binds. But GATE 2 now runs before
+this phase and may have set some findings to `status: false_positive` with a `sup:` rationale -- a
+situation the source prompt did not have to consider, because it had no gate at this point.
+
+Resolve it the way the methodology already resolves the analogous case for `excluded-by-design`
+findings: they appear, but compactly and separately, and they do not inflate the headline totals.
+
+- Findings with `status: open` -- full entries, counted normally.
+- Findings suppressed at GATE 2 (`false_positive` or `accepted`) -- a compact table at the end of the
+  findings section: id, severity, title, and the `sup:` rationale with its attribution to the owner.
+  NOT counted in the headline finding totals.
+- Never silently drop a suppressed finding. The suppression and its reason are part of the audit
+  record, and a reader must be able to see what was set aside and on whose word.
+
+## Prohibitions worth surfacing before you start
+
+Both are in the carved text and both are easy to violate by habit:
+
+- **No aggregate score or grade.** No overall security score, architecture score, letter grade or
+  rolled-up numeric rating. Per-finding severity and per-finding risk scores are retained; the
+  exclusion is on roll-ups.
+- **No time or effort estimates, no remediation schedule.** Findings carry severity and fix guidance;
+  sequencing belongs to the team that owns the code.
+
+## Overrides of the carved methodology below
+
+- **STOP and "type proceed" banners:** subagents have no user to prompt. Write the file, verify it
+  (rule W-d), return the banner verbatim in the summary, end the turn (`common.md` rule X-a).
+- **STATE.md:** orchestrator-owned. No subagent updates it.
+- **`create_new_file`** in the carved text means whatever file-write tool this harness provides; use
+  the Write tool per `common.md` rule W. The instruction that matters is one file per call, which
+  becomes one file per subagent here.
+- The budget discipline in the opening paragraphs applies to each subagent individually: minimal
+  preamble, no planning prose, go straight to producing the file.
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=640-913 sha256=60f8d07906f2a52469d14b61394ffac84859375c735d8b173ffcc5492db6ffa3 -->
 ### PHASE 5 -- CONSOLIDATION
 

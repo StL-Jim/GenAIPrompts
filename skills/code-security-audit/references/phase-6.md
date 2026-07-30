@@ -1,3 +1,61 @@
+<!-- SKILL VERSION: v1-skill (2026-07-30a) -->
+
+# Phase 6 -- Comparison HTML Render (SUBAGENT, COORDINATED mode only)
+
+Renders `audit_state/threat_audit_comparison.md` (the Phase 5 intermediate) into
+`audit_state/threat_audit_comparison.html`.
+
+## When this phase does not run
+
+In STANDALONE mode it does not run at all. `STATE.md` should already carry
+`Phase 6 (Comparison HTML Render): not_applicable`, set at init, so resume logic never waits on a
+phase that was never going to execute. Confirm that and move on -- do not mark it `pending`, and do
+not produce an empty or placeholder comparison file.
+
+STANDALONE is a fully supported path, not a degraded one. It must not rot: the test suite exercises
+both modes, and a change that only works in COORDINATED is an incomplete change.
+
+## Why this is a separate phase at all
+
+The comparison is produced as a Markdown intermediate in Phase 5 and rendered here, rather than
+generated as HTML in one call, because it has tested as too content-dense for single-call HTML
+generation. That is OUTPUT PATTERN B in the carved text. Do not "simplify" this into a single step --
+the two-step shape is the fix for a known failure, not an accident.
+
+## Render, do not re-analyse
+
+Your input is the Markdown intermediate. Your job is to render it. Do NOT re-derive the comparison
+from `findings_registry.md` and the threat model, do not re-run the matching, and do not change any
+verdict. If the intermediate looks wrong, say so in your summary and return -- the orchestrator will
+re-run Phase 5's comparison subagent. Silently correcting it here would leave the Markdown and the
+HTML disagreeing, with no indication which one a reader should trust.
+
+## Content discipline the render must preserve
+
+The carved text is explicit: entries must contain actual content reproduced from the threat model and
+the findings registry, not just ids and pointers. A reader seeing "Threat 07 confirmed by F-012" with
+no further detail cannot act on it. The reader must see what the threat said, where the code is
+broken, with what evidence, and how to fix it -- in one place.
+
+If the Markdown intermediate already satisfies this, carry it through faithfully. Rendering must not
+compress it back into pointers to save space.
+
+`contradicts-exclusion` entries lead the section and stay prominent. Those are findings where the
+threat model examined this exact concern and concluded it was handled, and the audit found otherwise
+-- the most consequential output of coordinated mode.
+
+## Overrides of the carved methodology below
+
+- **Its STOP and "type proceed" banner:** no user to prompt. Write the HTML, verify it (rule W-d),
+  return the completion banner verbatim in your summary, end your turn (`common.md` rule X-a).
+- **STATE.md:** orchestrator-owned. Do not mark Phase 6 done; report it and the orchestrator records
+  it.
+- Finding ids appear as `F-NNN` (decision 7). If the Markdown intermediate carries a date-prefixed
+  form from an older run, render it as written rather than rewriting ids -- but flag the mismatch in
+  your summary.
+
+## Methodology (verbatim -- do not edit inside the markers)
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=916-1008 sha256=a39f4fa9bfacfab8f7a12dfb6809612b44090f41bdd9848dabd9cc9eb8d2a856 -->
 ### PHASE 6 -- COMPARISON HTML RENDER (COORDINATED mode only)
 

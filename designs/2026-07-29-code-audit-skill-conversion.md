@@ -174,8 +174,12 @@ supplying workers to an architecture that already expected them.
   subagents serve that intent better -- each gets a genuinely fresh window rather than depending on
   the operator to open a new session.
 - What is genuinely LOST: the per-partition STOP currently shows the owner each partition's findings
-  as they land. Parallel dispatch replaces N checkpoints with one GATE 2. OWNER DECISION PENDING at
-  task 11 -- offer an option to review per-partition as workers return.
+  as they land. Parallel dispatch replaces N checkpoints with one GATE 2. **RESOLVED 2026-07-30: a
+  single GATE 2, no per-partition review.** The owner's reasoning: run it a few times first and let
+  field experience say whether more gates are needed, rather than designing them in on speculation.
+  Consistent with the standing "no premature victory" rule -- do not build a gate to fix a problem no
+  run has exhibited. Build no per-partition review hooks; adding one later is cheap because the
+  per-worker directories already exist and are never deleted.
 - Whatever is chosen, SKILL.md must state this deviation explicitly. A reader of the carved phase
   files will see "STOP after each" and observe the orchestrator doing something else.
 
@@ -209,6 +213,28 @@ that input is simply absent.
 - The capability is not lost, only relocated: 3B/4B runs AFTER 3A/4A and can read every worker
   directory, and Phase 5 sees everything. Cross-partition `rel:` links and cross-partition attack
   paths are established there. Within 3A/4A, `rel:` is within-partition only.
+
+**F8. Phase 5 should be one subagent PER DELIVERABLE, not one subagent for the phase.** The dispatch
+table above says "Phase 5 Consolidation | subagent". The carved text is emphatic that each output file
+gets its own call with the full response budget, and documents the failure it prevents: an agent
+reads a registry of N findings, writes planning prose, exhausts its output budget mid-report, and
+silently degrades detailed findings into bullet points or drops them. The narrowing is a budget
+artifact, not a decision, and nothing in the output reveals it.
+- One subagent per deliverable (report / briefing / C4 / comparison) gives each a fresh context window
+  AND a fresh output budget, which serves that intent strictly better than one agent making four
+  calls. This is a case where the skill architecture can honour the carved intent more fully than the
+  source could.
+- The cross-run log update stays with the ORCHESTRATOR. A subagent that misreads the path could
+  destroy every prior audit's history, and that is not recoverable from `audit_state/`.
+
+**F9. GATE 2 outcomes collide with Phase 5's "include every finding" rule.** GATE 2 can set findings
+to `false_positive` or `accepted` with a `sup:` rationale. Phase 5's carved text says every finding in
+the registry appears in the consolidated report and that selecting which to include is filtering and
+is wrong. The source never had to reconcile these because it had no gate before Phase 5.
+- Resolution uses the pattern the source already established for `excluded-by-design` findings (source
+  line 796): suppressed findings APPEAR, in a compact table with their `sup:` rationale and its
+  attribution, and are NOT counted in headline totals. Never silently dropped -- what was set aside,
+  and on whose word, is part of the audit record.
 
 **F7. Phase 1 produces the partition plan, not Phase 2.** The dispatch table above originally said
 Phase 2 "produces the artifact GATE 1 reviews." The source disagrees: Phase 1's OUTPUT FILES (source

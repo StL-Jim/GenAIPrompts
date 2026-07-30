@@ -16,6 +16,10 @@ if (Test-Path $Target) { Remove-Item -Recurse -Force $Target }
 New-Item -ItemType Directory -Force $Target | Out-Null
 Copy-Item -Recurse -Force "$src\*" $Target
 
-Get-Content (Join-Path $Target "SKILL.md") -TotalCount 5 | Select-String "SKILL VERSION"
+# Extract just the stamp, not the whole header line -- the header is a paragraph and
+# printing it in full makes every install look like an error dump.
+$stamp = (Get-Content (Join-Path $Target "SKILL.md") -TotalCount 5 |
+  Select-String -Pattern 'SKILL VERSION: (\S+ \([^)]*\))' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+if ($stamp) { "SKILL VERSION: $stamp" } else { Write-Warning "No SKILL VERSION stamp found in SKILL.md" }
 "Installed code-security-audit to $Target"
 "Files: $((Get-ChildItem -Recurse -File $Target | Measure-Object).Count)"

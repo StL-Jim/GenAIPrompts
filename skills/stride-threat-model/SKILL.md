@@ -2,7 +2,7 @@
 name: stride-threat-model
 description: Runs or resumes an orchestrated, multi-agent STRIDE threat model against the current workspace -- phased analysis producing a component inventory, STRIDE threat table, HTML/CSV deliverables, and draw.io diagrams under {project}-threat-model/. Use when asked to run, continue, or resume a threat model or STRIDE analysis, when the user mentions the threat-model STATE.md, or when asked to advance to a specific phase. Not for the Code Security Audit (separate workflow).
 ---
-<!-- SKILL VERSION: v25-skill (2026-07-29j) -- methodology carved from PROMPT VERSION v24 (2026-07-16a) and since advanced past it: threat-realism filtering (exploitability test, L0-L4 prerequisite levels, Impact bound to the stated Gains and to asset criticality, no count target), a Phase 2B threat-review gate with per-threat discussion, tool-computed Phase 0 read-set coverage, and computed draw.io layout with explicit edge routing. Full history: CHANGELOG.md in the repo, or git log. If the version you are running does not match what the user expects, they may be on a stale copy. -->
+<!-- SKILL VERSION: v25-skill (2026-07-30a) -- methodology carved from PROMPT VERSION v24 (2026-07-16a) and since advanced past it: threat-realism filtering (exploitability test, L0-L4 prerequisite levels, Impact bound to the stated Gains and to asset criticality, no count target), a Phase 2B threat-review gate with per-threat discussion, tool-computed Phase 0 read-set coverage, and computed draw.io layout with explicit edge routing. Full history: CHANGELOG.md in the repo, or git log. If the version you are running does not match what the user expects, they may be on a stale copy. -->
 
 # STRIDE Threat Model -- Orchestrator
 
@@ -186,7 +186,7 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   Skepticism at this gate points at the SUBAGENT'S OUTPUT, never at the user. The user
   correcting or deleting a threat is the gate working; do not argue the threat back onto
   the list or ask them to justify a removal.
-  GATE 3 THREAT REVIEW -- when the user asks for it. This is a DISCUSSION, not a menu. The user questions a threat the way a reviewer does: "is this real?", "isn't that already handled by our WAF?", "the dev team will say this is unreachable". There is no menu, no keyword and no shortcut syntax to memorise: the user types what he means, in his own words, and you work out what he is asking.
+  GATE 3 THREAT REVIEW -- when the user asks for it. This is a DISCUSSION, not a form to fill in. The user questions a threat the way a reviewer does: "is this real?", "isn't that already handled by our WAF?", "the dev team will say this is unreachable". He types what he means, in his own words, and you work out what he is asking.
 
   TRIGGER. The user asks for this in plain language -- "I would like to review each threat individually", "let me see them one at a time", "walk me through the threats". Any such request starts the review. Default to EVERY threat in the main table, in ThreatID order, one threat per message. He may instead name particular threats, and you may mention that is possible, but do not steer him toward it and never offer an abbreviated path as the easier option: when he asks to review each threat individually, he means each one, and the review is the point of the gate rather than an overhead to minimise.
 
@@ -194,7 +194,11 @@ member before the next step. Groups write disjoint files; only you write STATE.m
 
   Reproduce Description IN FULL, including its [Prereq:], [Gains:] and [Risk calc:] notes verbatim, and Evidence IN FULL, including EVERY citation rather than the first one. Disposition and DispositionRationale are empty until stakeholder review; show them as empty rather than dropping them. Do not summarise, do not truncate a long field, and do not omit a field because it looks uninteresting or repetitive -- the user is reviewing the threat exactly as it will appear in the report, and a field you hide is a field he cannot correct. If a row is missing a field the schema requires, show it as MISSING rather than passing over it: the gate is the place that defect gets caught.
 
-  Then stop and let him respond. He may accept it, question it, ask you something about it, or tell you to change it.
+  Then close with this line, or very close to it:
+
+  `You can accept this (say "next"), ask me to check the evidence (I'll read the actual files), tell me to change something, go back to the previous threat, jump to a number, or stop. Or ask me anything about it.`
+
+  Then stop for his response.
 
   ADVANCING. Anything that reads as acceptance -- "no", "no, next threat", "next", "fine", "looks good", "nothing" -- means he has nothing to change on that threat: go straight to the next one and print it. Do NOT ask a confirming question, do NOT summarise what he just accepted, and do not remark on the decision; the next thing he should see is the next threat. Note in particular that a bare "no" ANSWERS THE QUESTION YOU ASKED -- it means nothing to ask or change -- and is not a refusal to continue.
 

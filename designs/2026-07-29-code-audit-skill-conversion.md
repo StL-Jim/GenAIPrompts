@@ -169,11 +169,75 @@ These were each learned from a field failure. They are the reason that conversio
     produce expected artifacts; plus a bash-invocation suite for rule S.
 13. End-to-end run on a fixture, both STANDALONE and COORDINATED.
 
-## Open questions for the owner
+## Open questions -- RESOLVED with the owner (2026-07-29, session 2)
 
-- Does the audit need a per-finding review walk at GATE 2, or is a summary plus targeted lookup
-  enough? Depends on typical finding count, which is unknown here.
-- Does the audit ever run against a codebase with no prior threat model, in practice? (STANDALONE
-  mode exists, but if it is never used, Phase 6 and the binding logic can be de-emphasised.)
-- Is there an equivalent of the TM's `dispositions.csv` round-trip for audit findings? If findings
-  get dispositioned by teams, the same matching machinery may be worth carrying over.
+The three questions below were asked at the start of the build session. Answers are now decisions.
+
+5. **GATE 2 uses a severity-gated walk, not a full walk and not a bare summary.** High-priority
+   findings are reviewed individually; the remainder is a grouped summary table with the ability to
+   pull any single row up for review. Rationale: an audit can produce far more findings than the
+   threat model's ~10 threats, so a full walk does not scale, but a bare summary leaves the gate
+   depending on the summary to surface the bad rows.
+   - **SETTLED after discussion.** The Critical/High-vs-Medium/Low split does not exist: SEVERITY
+     SCOPE (`code-security-audit.md:1020`) states the audit only ever produces Critical or High.
+     Gating on severity would walk everything, so the two options were the same option.
+   - **Decision: the option to walk ALL Critical and High findings is always available, at any
+     finding count.** No cap and no threshold may remove it. The orchestrator computes the finding
+     count by severity and class (Rule 15 -- real command output) and reports it BEFORE asking
+     anything, then offers walk modes with full Critical+High walk always among them. It may flag,
+     with the number, that a long walk risks degrading into rubber-stamping. It may not refuse one.
+   - Attack-path evidence supports walking Highs individually rather than summarising them:
+     `attack_paths.md` is written by Phases 3A, 4A AND 3B/4B -- all BEFORE Gate 2 -- and per
+     `code-security-audit.md:1099` it "is read and written across five phases and feeds the Top
+     Attack Paths sections of two deliverables." Chains therefore already exist at Gate 2. A High
+     that is unremarkable alone may already be a load-bearing link, so summarising it means
+     approving a chain link unreviewed. Chaining of Medium/Low is moot for now only because
+     SEVERITY SCOPE means they are never emitted; if that bar ever drops, this gate needs no change.
+
+5a. **GATE 2 PRESENTATION -- the owner is not a developer and may not understand many findings.**
+   Stated 2026-07-29. This is a first-class design constraint, not a caveat, and it drives the walk
+   design more than volume does.
+   - **Lesson 6 applies to the human reviewer, not just the model.** Showing raw finding YAML and
+     asking "approve?" asks him to certify something he has said he often cannot evaluate. He would
+     approve, and the gate would emit a signal that looks like review and is not. This is the real
+     rubber-stamp risk; fatigue was the lesser one.
+   - Each walked finding is presented as PLAIN LANGUAGE: what someone could do, to what, and what
+     the audit claims. File/line evidence is shown but explicitly marked as not required reading.
+   - Ask ONLY for judgements he is the best available source for: scope reality (decommissioned
+     service, laptop-only admin script), business impact (regulated data, cost of outage), attested
+     controls (COORDINATED `contradicts-exclusion` rows claim a control he attested to is absent --
+     he knows), deployment exposure, and duplicate detection.
+   - Do NOT ask whether a quoted line really constitutes the named vulnerability, whether severity
+     is technically correct, or whether the fix is sound. He is not the source for these.
+   - **"I cannot judge this -- leave it as written" and "flag for a developer" must both be
+     first-class single-key answers.** Most findings will get one of them; that is the design
+     working, not a shortfall. Anything that makes these feel like failure recreates the exact
+     pressure this design exists to remove.
+   - Record gate decisions in a SEPARATE gate-log artifact. Do not invent new values for the
+     finding schema's `status` enum (lesson: methodology comes across verbatim).
+   - Side effect: per-finding cost drops sharply, which is what makes walking all Critical+High
+     practical rather than an endurance test.
+6. **Build STANDALONE and COORDINATED as equal first-class paths.** The owner wants the flexibility
+   preserved even though in practice it is almost always COORDINATED. So Phase 6 and the Threat
+   Model Binding get full treatment, and STANDALONE is not allowed to rot -- the end-to-end fixture
+   run (task 13) must exercise BOTH, and the test suite must keep both live.
+7. **Finding IDs become `F-NNN`.** Dropped the date from the source prompt's `F-YYYYMMDD-NNN`.
+   - This is a NOTATION change, not a methodology change, so decision 1 does not bar it.
+   - Reasons: every sibling ID in the prompt is `PREFIX-NNN` (`C-NNN`, `DS-NNN`, `EXT-NNN`,
+     `TB-NNN`, `EX-NNN`, `AP-NNN`; threats are bare `01`/`02`), making the date an inconsistency
+     rather than a decision. `AP-NNN` is documented at `code-security-audit.md:1102` as "assigned in
+     discovery order, stable within a run" -- the same stability property without a date. No rule
+     anywhere in the prompt increments NNN across runs or handles collisions, so the date buys no
+     uniqueness property the prompt actually relies on. And it is 10 fewer characters to hand-type
+     (lesson 9).
+   - Accepted cost: an ID quoted out of context (a ticket, an email months later) no longer
+     self-describes when it was found. The run date lives in `audit_state/` and the report header.
+   - 7 occurrences of the literal format in `code-security-audit.md`. Per lesson 10, assert every
+     replacement matched.
+8. **No dispositions round-trip, and no cross-run finding identity.** The machinery is net-new
+   invention absent from the source prompt, and lesson 6 warns against slots nothing fills. Note
+   that the schema ALREADY carries `status` (open | mitigated | accepted | false_positive) and `sup`
+   (suppression rationale) at `code-security-audit.md:1033-1035`, and line 1020 anticipates "a
+   future manual status update" -- so per-finding disposition FIELDS exist and are carried across
+   verbatim. What is deliberately not built is cross-run matching. `F-NNN` is stable within a run
+   only, so if a round-trip is ever wanted it needs a deliberate additive fingerprint field then.

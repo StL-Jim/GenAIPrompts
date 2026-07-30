@@ -205,21 +205,38 @@ function Render-Diagram($d) {
     $yIn  = [int]$entryY["$($e.source)|$($e.target)"]
     $fIn  = [math]::Round((($yIn - $tp.y) / $tp.h), 4)
 
+    $pts = ''
     if ($ct -gt $cs) {
       $att = "exitX=1;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
     } elseif ($ct -lt $cs) {
       $att = "exitX=0;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
     } else {
-      # SAME COLUMN: entry is on the TOP edge, so the fraction is an X position. A Y-derived
-      # value here produces an S-bend. Align on X.
-      $att = "exitX=$fOut;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=$fOut;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;"
+      # SAME COLUMN. Straight down (bottom -> top) is correct ONLY when nothing sits between
+      # the two nodes. With a nine-member tier it is not: a wrapper feeding a generator four
+      # slots below drove its edge straight THROUGH two unrelated components. Test for an
+      # intervening node and, if there is one, run down the container's left gutter instead.
+      $between = $false
+      $loY = [math]::Min($sp.y + $sp.h, $tp.y); $hiY = [math]::Max($sp.y, $tp.y + $tp.h)
+      foreach ($kv in $pos.GetEnumerator()) {
+        if ($kv.Key -eq $e.source -or $kv.Key -eq $e.target) { continue }
+        if ($kv.Value.col -eq $cs -and $kv.Value.y -lt $hiY -and ($kv.Value.y + $kv.Value.h) -gt $loY) { $between = $true; break }
+      }
+      if ($between) {
+        # nodes are 400 wide centred in a 480 container, so the 40px margin is free space
+        $gut = (40 + $cs * $COL_PITCH) + 20
+        $att = "exitX=0;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
+        $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $gut, $yOut, $yIn
+      } else {
+        # adjacent: entry is on the TOP edge, so the fraction is an X position. A Y-derived
+        # value here produces an S-bend. Align on X.
+        $att = "exitX=$fOut;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=$fOut;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;"
+      }
     }
 
     $st = $EDGE_STYLE + $att
     if ($e.async) { $st += 'dashed=1;' }
     if (-not $e.secure) { $st += 'strokeColor=#CC0000;strokeWidth=3;' }
 
-    $pts = ''
     if (($ct - $cs) -ge 2) {
       # DETOUR ONLY WHEN NECESSARY, and only as far as necessary.
       $blockers = @()

@@ -1,0 +1,206 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram id="c4-02-container" name="Container Diagram -- astrolog-chart-automation">
+    <mxGraphModel dx="4700" dy="2750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3360" pageHeight="3720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="notice" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=16;fontStyle=2;" value="AI-GENERATED -- this diagram was produced by an AI tool and requires human review." vertex="1">
+          <mxGeometry height="30" width="3280" x="40" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-EDGE" parent="1" style="rounded=1;container=1;collapsible=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=22;fontStyle=1;fillColor=none;dashed=1;strokeWidth=2;strokeColor=#E65100;" value="EDGE" vertex="1">
+          <mxGeometry height="360" width="480" x="760" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="C-001" parent="zone-EDGE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#CC0000;fontColor=#FFFFFF;fontSize=20;strokeWidth=3;" value="Flask Chart API (web/chart_api.py)" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-APPLICATION" parent="1" style="rounded=1;container=1;collapsible=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=22;fontStyle=1;fillColor=none;dashed=1;strokeWidth=2;strokeColor=#B58C00;" value="APPLICATION" vertex="1">
+          <mxGeometry height="3560" width="480" x="1480" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="C-002" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Web Frontend (index/natal/progression HTML+JS)" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="C-003" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#E65100;fontColor=#FFFFFF;fontSize=20;strokeWidth=3;" value="AI Interpreter" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="C-004" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Kerykeion Wrapper" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="C-005" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#CC0000;fontColor=#FFFFFF;fontSize=20;strokeWidth=3;" value="Birth Data Manager" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="1280" as="geometry" />
+        </mxCell>
+        <mxCell id="C-006" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Chart DB Generator (Astrolog subprocess)" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="C-007" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Natal Chart Generator" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="2080" as="geometry" />
+        </mxCell>
+        <mxCell id="C-008" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Transit / Progression / Synastry Generators" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="2480" as="geometry" />
+        </mxCell>
+        <mxCell id="C-009" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="PDF Report Builder" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="2880" as="geometry" />
+        </mxCell>
+        <mxCell id="C-010" parent="zone-APPLICATION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Config Loader" vertex="1">
+          <mxGeometry height="200" width="400" x="40" y="3280" as="geometry" />
+        </mxCell>
+        <mxCell id="zone-DATA" parent="1" style="rounded=1;container=1;collapsible=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=22;fontStyle=1;fillColor=none;dashed=1;strokeWidth=2;strokeColor=#00695C;" value="DATA" vertex="1">
+          <mxGeometry height="2000" width="480" x="2200" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DS-001" parent="zone-DATA" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#CC0000;fontColor=#FFFFFF;fontSize=20;strokeWidth=3;" value="birth_data.json (PII)" vertex="1">
+          <mxGeometry height="240" width="320" x="80" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="DS-002" parent="zone-DATA" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Chart Cache" vertex="1">
+          <mxGeometry height="240" width="320" x="80" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="DS-003" parent="zone-DATA" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Generated Charts" vertex="1">
+          <mxGeometry height="240" width="320" x="80" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="DS-004" parent="zone-DATA" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="PDF Reports" vertex="1">
+          <mxGeometry height="240" width="320" x="80" y="1280" as="geometry" />
+        </mxCell>
+        <mxCell id="DS-005" parent="zone-DATA" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#FFFFFF;fontSize=20;" value="Swiss Ephemeris Data" vertex="1">
+          <mxGeometry height="240" width="320" x="80" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="A-001" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;strokeColor=#666666;fontSize=20;" value="Chart Operator (local browser)" vertex="1">
+          <mxGeometry height="200" width="120" x="90" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="EXT-001" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#666666;fontColor=#FFFFFF;fontSize=20;" value="api.anthropic.com" vertex="1">
+          <mxGeometry height="200" width="400" x="2920" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="EXT-002" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#CC0000;fontColor=#FFFFFF;fontSize=20;strokeWidth=3;" value="api.geonames.org" vertex="1">
+          <mxGeometry height="200" width="400" x="2920" y="3360" as="geometry" />
+        </mxCell>
+        <mxCell id="e-A-001-C-001" edge="1" parent="1" source="A-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#CC0000;strokeWidth=3;" target="C-001" value="HTTP">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="260" />
+              <mxPoint x="640" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-001-C-002" edge="1" parent="1" source="C-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.1667;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.165;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#CC0000;strokeWidth=3;" target="C-002" value="HTTP">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1253" y="193" />
+              <mxPoint x="1253" y="193" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-001-C-003" edge="1" parent="1" source="C-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.3333;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-003" value="in-process">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1307" y="227" />
+              <mxPoint x="1307" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-001-C-004" edge="1" parent="1" source="C-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-004" value="in-process">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1360" y="260" />
+              <mxPoint x="1360" y="990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-001-C-005" edge="1" parent="1" source="C-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.6667;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-005" value="in-process">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1413" y="293" />
+              <mxPoint x="1413" y="1390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-001-C-009" edge="1" parent="1" source="C-001" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.8333;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-009" value="in-process">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1467" y="327" />
+              <mxPoint x="1467" y="2990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-004-C-007" edge="1" parent="1" source="C-004" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-007" value="in-process">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-C-004-C-008" edge="1" parent="1" source="C-004" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=0.75;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="C-008" value="in-process">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-C-006-DS-003" edge="1" parent="1" source="C-006" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.3333;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.875;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-003" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2062" y="1827" />
+              <mxPoint x="2062" y="1170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-005-DS-001" edge="1" parent="1" source="C-005" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.875;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#CC0000;strokeWidth=3;" target="DS-001" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2027" y="1460" />
+              <mxPoint x="2027" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-003-DS-002" edge="1" parent="1" source="C-003" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.6667;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5542;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-002" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1956" y="693" />
+              <mxPoint x="1956" y="693" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-007-DS-003" edge="1" parent="1" source="C-007" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.875;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-003" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2133" y="2260" />
+              <mxPoint x="2133" y="1170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-008-DS-003" edge="1" parent="1" source="C-008" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.875;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-003" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2169" y="2660" />
+              <mxPoint x="2169" y="1170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-009-DS-004" edge="1" parent="1" source="C-009" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.875;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-004" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2204" y="3060" />
+              <mxPoint x="2204" y="1570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-004-DS-005" edge="1" parent="1" source="C-004" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.25;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.125;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-005" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1991" y="1010" />
+              <mxPoint x="1991" y="1790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-006-DS-005" edge="1" parent="1" source="C-006" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.6667;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5542;entryDx=0;entryDy=0;entryPerimeter=0;" target="DS-005" value="file">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2098" y="1893" />
+              <mxPoint x="2098" y="1893" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-C-003-EXT-001" edge="1" parent="1" source="C-003" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.3333;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.335;entryDx=0;entryDy=0;entryPerimeter=0;" target="EXT-001" value="HTTPS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-C-010-EXT-002" edge="1" parent="1" source="C-010" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#CC0000;strokeWidth=3;" target="EXT-002" value="HTTP">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=16;align=left;verticalAlign=top;" value="LEGEND&#xa;&#xa;EDGE tier&#xa;APPLICATION tier&#xa;DATA tier&#xa;&#xa;Red thick edge = unencrypted or unauthenticated flow&#xa;Dashed edge = async / queued&#xa;Thick red/orange SHAPE border = a Priority 1/2 threat touches it&#xa;&#xa;Edge labels show the PROTOCOL only.&#xa;Full flow detail is in 02a-context.md." vertex="1">
+          <mxGeometry height="360" width="480" x="40" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="notes" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=16;align=left;verticalAlign=top;" value="NOTES&#xa;&#xa;C-001 -&gt; EDGE tier (terminates inbound browser traffic)&#xa;C-002..C-010 -&gt; APPLICATION tier&#xa;DS-001..DS-005 -&gt; DATA tier; EXT-001/002 -&gt; EXTERNAL&#xa;EXT-002 reached over plaintext HTTP (config.py:34 GEONAMES_API_URL)&#xa;TB-001 (browser -&gt; API) reconciled on A-001 -&gt; C-001&#xa;TB-002 (app -&gt; data) reconciled on C-005 -&gt; DS-001" vertex="1">
+          <mxGeometry height="360" width="480" x="560" y="520" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

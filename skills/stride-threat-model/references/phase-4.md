@@ -87,9 +87,9 @@ The property worth checking was never that a string appears on a line; it is tha
 
 Content selection is MECHANICAL for diagrams 1, 2 and 4 -- a function of the inventory and 02a, not judgment.
 
-**1. `c4-01-context`.** The system as ONE `component` node, every human actor class as an `actor`, every EXT-NNN as an `external`. Nothing else.
+**1. `c4-01-context`.** The system as ONE `component` node, every A-NNN from inventory Section 4a as an `actor`, every EXT-NNN as an `external`. Nothing else. If Section 4a is empty the context diagram is wrong, not empty -- go back and derive the actors.
 
-**2. `c4-02-container`.** EVERY C-NNN from inventory Section 2, each with the `kind` matching its type, placed in its tier. Edges come from the component Dependencies fields; a dependency with no backing DF-NNN gets `"protocol": ""`. Validation counts nodes against the inventory component count.
+**2. `c4-02-container`.** EVERY C-NNN from inventory Section 2 -- INCLUDING the attested platform components (WAF, ingress, load balancer) carrying `Attested: yes`, which are drawn like any other component so the path from the edge to the application is unbroken, each with the `kind` matching its type, placed in its tier. Edges come from the component Dependencies fields; a dependency with no backing DF-NNN gets `"protocol": ""`. Validation counts nodes against the inventory component count.
 
 **3. `c4-03-component`.** Internal structure of the primary application component -- the ONE judgment-permitted diagram. Grounded in what Phase 1 recorded for it: entry points, AuthN/AuthZ and middleware, crypto operations, data-access paths. Anything drawn that the inventory did not record needs a `file:line` citation in `notes`. This diagram is expected to vary between runs; the others are not.
 

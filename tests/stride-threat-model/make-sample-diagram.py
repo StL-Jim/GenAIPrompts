@@ -199,7 +199,11 @@ def build():
         elif ct < cs:
             att = "exitX=0;exitY=%s;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=%s;entryDx=0;entryDy=0;entryPerimeter=0;" % (f_out, f_in)
         else:
-            att = "exitX=%s;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=%s;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" % (f_out, f_in)
+            # SAME COLUMN: the entry sits on the target's TOP edge, so its fraction is an X
+            # position. The entry-alignment pass computes a Y-derived fraction, which is
+            # meaningless here -- feeding it to entryX produced an S-bend. Align on X instead,
+            # which for two nodes in one column means straight down.
+            att = "exitX=%s;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=%s;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" % (f_out, f_out)
 
         st = EDGE_STYLE + att + ("" if secure else "strokeColor=#CC0000;strokeWidth=3;")
 
@@ -219,7 +223,10 @@ def build():
                 cands = [y_out]
                 for t, b in blockers:
                     cands += [t - 80, b + 80]
-                cands = [y for y in cands if clear(y) and y > 40]
+                # A band can be clear of every NODE and still run straight through the tier
+                # titles -- y=80 is the container top edge. Reject anything in the header
+                # strip; routing over the top of the whole diagram is worse than a short step.
+                cands = [y for y in cands if clear(y) and y > ZONE_Y + 100]
                 band = min(cands, key=lambda y: abs(y - y_out)) if cands else LANE_Y
             if band != y_out:
                 pts = ('<Array as="points"><mxPoint x="%d" y="%d"/><mxPoint x="%d" y="%d"/></Array>'

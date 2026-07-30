@@ -17,6 +17,24 @@
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# ENVIRONMENT GUARD. This suite proves invocation from GIT BASH ON WINDOWS, which is what
+# common.md rule S documents and what the harness that once failed in the field was using.
+# It relies on `pwd -W` to convert POSIX paths to the Windows form powershell.exe -File
+# needs. WSL bash and Linux bash do not support `pwd -W`: there the conversion silently
+# yields a POSIX path, powershell.exe receives a workspace it cannot resolve, and every
+# assertion below becomes meaningless -- passing or failing for reasons unrelated to the
+# skill. Detect that and say so LOUDLY rather than reporting a result nobody should trust.
+if ! (cd / && pwd -W) >/dev/null 2>&1; then
+  echo "=================================================================="
+  echo " SKIPPED: this suite requires Git Bash on Windows."
+  echo " This shell does not support 'pwd -W' ($(uname -s)), so POSIX->Windows"
+  echo " path conversion is unavailable and powershell.exe cannot be driven."
+  echo " Nothing was verified. Run it from Git Bash to actually test rule S."
+  echo "=================================================================="
+  exit 0
+fi
+
 SK_NIX="$(cd "$HERE/../../skills/code-security-audit/scripts" && pwd)"
 # PowerShell's -File wants a Windows path.
 SK_WIN="$(cd "$SK_NIX" && pwd -W 2>/dev/null | sed 's|/|\\|g')"
@@ -56,11 +74,23 @@ $PS "$SK_WIN\\partition-plan.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/
 check "partition-plan.ps1 runs from bash" $?
 
 # merge-findings needs worker output; without it the script must FAIL CLOSED rather than
-# emit an empty registry. Both behaviours are asserted below.
-$PS "$SK_WIN\\merge-findings.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
-rc=$?
-if [ $rc -ne 0 ]; then pass=$((pass+1)); echo "  PASS  merge-findings.ps1 fails closed with no worker output"
-else fail=$((fail+1)); echo "  FAIL  merge-findings.ps1 should not succeed with no worker output"; fi
+# emit an empty registry.
+#
+# Establish the precondition explicitly rather than trusting the rm -rf at the top of this
+# script. That rm races a PowerShell process that has only just exited and may still hold
+# handles under Windows; when it loses, worker directories from the PREVIOUS run survive,
+# merge-findings correctly succeeds, and this negative test reports a spurious failure.
+# A test whose result depends on whether a delete won a race is worse than no test.
+rm -rf "$WS_NIX/audit_state/workers"
+mkdir -p "$WS_NIX/audit_state/workers"
+if [ -n "$(ls -A "$WS_NIX/audit_state/workers" 2>/dev/null)" ]; then
+  fail=$((fail+1)); echo "  FAIL  could not establish empty workers/ precondition"
+else
+  $PS "$SK_WIN\\merge-findings.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
+  rc=$?
+  if [ $rc -ne 0 ]; then pass=$((pass+1)); echo "  PASS  merge-findings.ps1 fails closed with no worker output"
+  else fail=$((fail+1)); echo "  FAIL  merge-findings.ps1 should not succeed with no worker output"; fi
+fi
 
 # Now give it workers and confirm it succeeds when invoked from bash.
 for p in services-auth services-api shared; do

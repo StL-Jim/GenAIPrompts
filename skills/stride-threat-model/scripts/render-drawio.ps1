@@ -85,14 +85,18 @@ function Render-Diagram($d) {
     }
     for ($s=0; $s -lt $members[$c].Count; $s++) {
       $n = $members[$c][$s]; $w = $SZ[$n.kind][0]; $hh = $SZ[$n.kind][1]
+      $sty = $STYLE[$n.kind]
+      # THREAT OVERRIDE -- the only meaning of a red or orange shape border.
+      if ($n.threat -eq 'P1') { $sty = $sty -replace 'strokeColor=#[0-9A-Fa-f]{6}','strokeColor=#CC0000'; $sty += 'strokeWidth=3;' }
+      elseif ($n.threat -eq 'P2') { $sty = $sty -replace 'strokeColor=#[0-9A-Fa-f]{6}','strokeColor=#E65100'; $sty += 'strokeWidth=3;' }
       if ($isContained) {
         $rx = [int](($COL_W - $w) / 2); $ry = $MEMBER_Y0 + $s * $V_PITCH
         [void]$cells.Add(('<mxCell id="{0}" value="{1}" style="{2}" vertex="1" parent="zone-{3}"><mxGeometry x="{4}" y="{5}" width="{6}" height="{7}" as="geometry"/></mxCell>' -f `
-          $n.id, (Esc $n.label), $STYLE[$n.kind], $c, $rx, $ry, $w, $hh))
+          $n.id, (Esc $n.label), $sty, $c, $rx, $ry, $w, $hh))
         $pos[$n.id] = @{ x=$ox+$rx; y=$ZONE_Y+$ry; w=$w; h=$hh; col=$cidx[$c]; cell=$cells.Count-1; contained=$true }
       } else {
         # provisional slot; the barycentre pass below moves it
-        $pos[$n.id] = @{ x=$ox; y=$ZONE_Y + $s*$V_PITCH; w=$w; h=$hh; col=$cidx[$c]; cell=-1; contained=$false; kind=$n.kind; label=$n.label }
+        $pos[$n.id] = @{ x=$ox; y=$ZONE_Y + $s*$V_PITCH; w=$w; h=$hh; col=$cidx[$c]; cell=-1; contained=$false; kind=$n.kind; label=$n.label; sty=$sty }
       }
     }
   }
@@ -126,7 +130,7 @@ function Render-Diagram($d) {
     foreach ($n in $members[$c]) {
       $p = $pos[$n.id]
       [void]$cells.Add(('<mxCell id="{0}" value="{1}" style="{2}" vertex="1" parent="1"><mxGeometry x="{3}" y="{4}" width="{5}" height="{6}" as="geometry"/></mxCell>' -f `
-        $n.id, (Esc $n.label), $STYLE[$n.kind], $p.x, $p.y, $p.w, $p.h))
+        $n.id, (Esc $n.label), $p.sty, $p.x, $p.y, $p.w, $p.h))
     }
   }
 
@@ -264,6 +268,12 @@ function Render-Diagram($d) {
                     'Edge labels show the PROTOCOL only.','Full flow detail is in 02a-context.md.')
   [void]$cells.Add(('<mxCell id="legend" value="{0}" style="{1}" vertex="1" parent="1"><mxGeometry x="40" y="{2}" width="480" height="360" as="geometry"/></mxCell>' -f `
     ((Esc ($legendLines -join "`n")).Replace("`n",'&#10;')), $LEGEND_STYLE, $legendY))
+
+  if ($d.notes -and @($d.notes).Count -gt 0) {
+    $noteText = (Esc (@('NOTES','') + @($d.notes) -join "`n")).Replace("`n",'&#10;')
+    [void]$cells.Add(('<mxCell id="notes" value="{0}" style="{1}" vertex="1" parent="1"><mxGeometry x="560" y="{2}" width="480" height="360" as="geometry"/></mxCell>' -f `
+      $noteText, $LEGEND_STYLE, $legendY))
+  }
 
   $right = ($pos.Values | ForEach-Object { $_.x + $_.w } | Measure-Object -Maximum).Maximum
   $cells.Insert(0, ('<mxCell id="notice" value="{0}" style="{1}" vertex="1" parent="1"><mxGeometry x="40" y="0" width="{2}" height="{3}" as="geometry"/></mxCell>' -f `

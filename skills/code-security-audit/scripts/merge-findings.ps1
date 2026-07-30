@@ -127,9 +127,17 @@ $mergeReport | ForEach-Object { "  $_" }
 if ($sevs.Count -gt 0) { $sevs | Group-Object | Sort-Object Name | ForEach-Object { "    $($_.Name): $($_.Count)" } } else { "    (none parsed)" }
 "  By class:"
 if ($clss.Count -gt 0) { $clss | Group-Object | Sort-Object Name | ForEach-Object { "    $($_.Name): $($_.Count)" } } else { "    (none parsed)" }
-if ($tms.Count -gt 0) {
+# Only in COORDINATED mode. In STANDALONE every finding carries threat_match: null by
+# design, so printing the breakdown adds a line of noise to a report read at GATE 2.
+$realTms = @($tms | Where-Object { $_ -ne 'null' })
+if ($realTms.Count -gt 0) {
   "  By threat_match (COORDINATED mode):"
-  $tms | Group-Object | Sort-Object Name | ForEach-Object { "    $($_.Name): $($_.Count)" }
+  $realTms | Group-Object | Sort-Object Name | ForEach-Object { "    $($_.Name): $($_.Count)" }
+  $contra = @($realTms | Where-Object { $_ -eq 'contradicts-exclusion' }).Count
+  if ($contra -gt 0) {
+    "  NOTE: $contra finding(s) CONTRADICT a threat model exclusion -- the model examined"
+    "        that exact concern and judged it handled. Lead with these at GATE 2."
+  }
 }
 "  Findings per partition:"
 foreach ($pd in $partitionDirs) {

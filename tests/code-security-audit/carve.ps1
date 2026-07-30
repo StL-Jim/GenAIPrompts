@@ -185,7 +185,11 @@ foreach ($c in $Carves) {
       $failures.Add("$($c.File): MISSING. Run with -Emit to generate.")
       continue
     }
-    $existing = Get-Content -LiteralPath $target -Raw
+    # Normalise line endings before comparing. Git's core.autocrlf rewrites these files to
+    # CRLF on checkout, so the bytes on disk legitimately differ from the LF-joined source
+    # text without the CONTENT differing at all. Comparing raw would fail on any Windows
+    # clone with autocrlf enabled -- which is the default -- even though nothing is wrong.
+    $existing = (Get-Content -LiteralPath $target -Raw) -replace "`r`n", "`n"
     $m = [regex]::Match($existing, $BeginRe)
     if (-not $m.Success) { $failures.Add("$($c.File): no BEGIN VERBATIM CARVE marker"); continue }
 
@@ -221,6 +225,64 @@ foreach ($t in $Transforms) {
 }
 
 $results | Format-Table -AutoSize | Out-String | Write-Host
+
+# ---------------------------------------------------------------------------
+# SOURCE COVERAGE ACCOUNTING
+#
+# Decision 1 makes verbatim fidelity the acceptance criterion, so it is not enough to
+# show that what WAS carved is faithful -- it must also be shown that nothing
+# methodological was left behind. Every line of the source prompt must be accounted for
+# as exactly one of:
+#
+#   CARVED    reproduced verbatim in a reference file (the map above)
+#   ABSORBED  rewritten into SKILL.md because it describes ORCHESTRATION, not analysis --
+#             the operating model, phase order, and state system, all of which the skill
+#             necessarily reimplements (subagents, gates, orchestrator-owned STATE.md)
+#   FILLER    a `---` separator, a section banner, or a blank line
+#
+# Any line in none of those is an UNACCOUNTED line and fails the run. That is the check
+# that would catch methodology being silently dropped.
+# ---------------------------------------------------------------------------
+$Absorbed = @(
+  @{ Start = 1;   End = 64;  Why = 'CONTEXT / PRIMARY OBJECTIVE / SECONDARY OUTPUTS / OPERATING MODEL / PHASE EXECUTION ORDER -> SKILL.md dispatch table and gate policy' }
+  @{ Start = 151; End = 273; Why = 'STATE FILE SYSTEM / STATE.md SCHEMA / SESSION-START / PRIOR-AUDIT ACK -> SKILL.md state schema + scripts/init-workspace.ps1' }
+)
+$Filler = @(
+  @{ Start = 274; End = 275 }, @{ Start = 382; End = 383 }, @{ Start = 423; End = 424 }
+  @{ Start = 541; End = 542 }, @{ Start = 600; End = 601 }, @{ Start = 638; End = 639 }
+  @{ Start = 914; End = 915 }, @{ Start = 1009; End = 1011 }
+)
+
+$covered = @{}
+foreach ($c in $Carves)   { for ($i = $c.Start; $i -le $c.End; $i++) { $covered[$i] = 'CARVED' } }
+foreach ($a in $Absorbed) { for ($i = $a.Start; $i -le $a.End; $i++) { if (-not $covered.ContainsKey($i)) { $covered[$i] = 'ABSORBED' } } }
+foreach ($f in $Filler)   { for ($i = $f.Start; $i -le $f.End; $i++) { if (-not $covered.ContainsKey($i)) { $covered[$i] = 'FILLER' } } }
+
+$unaccounted = @(1..$srcLines.Count | Where-Object { -not $covered.ContainsKey($_) })
+$nCarved   = @($covered.Values | Where-Object { $_ -eq 'CARVED' }).Count
+$nAbsorbed = @($covered.Values | Where-Object { $_ -eq 'ABSORBED' }).Count
+$nFiller   = @($covered.Values | Where-Object { $_ -eq 'FILLER' }).Count
+
+Write-Host "SOURCE COVERAGE ($SourceRel, $($srcLines.Count) lines):"
+Write-Host ("  CARVED      {0,5}  verbatim in reference files" -f $nCarved)
+foreach ($a in $Absorbed) { Write-Host ("  ABSORBED    {0,5}  lines {1}-{2}: {3}" -f ($a.End - $a.Start + 1), $a.Start, $a.End, $a.Why) }
+Write-Host ("  FILLER      {0,5}  separators, banners, blanks" -f $nFiller)
+Write-Host ("  UNACCOUNTED {0,5}" -f $unaccounted.Count)
+
+# Verify FILLER really is filler rather than an assumption -- a range asserted to be a
+# separator that actually holds prose would hide dropped methodology behind this check.
+foreach ($f in $Filler) {
+  for ($i = $f.Start; $i -le $f.End; $i++) {
+    $line = $srcLines[$i - 1]
+    if ($line.Trim() -ne '' -and $line.Trim() -ne '---' -and $line.Trim() -ne 'PHASE EXECUTION') {
+      $failures.Add("FILLER line $i is not filler: '$line'. The coverage map is wrong and may be hiding dropped methodology.")
+    }
+  }
+}
+if ($unaccounted.Count -gt 0) {
+  $ranges = ($unaccounted | Select-Object -First 20) -join ', '
+  $failures.Add("UNACCOUNTED source lines ($($unaccounted.Count)): $ranges$(if ($unaccounted.Count -gt 20) { ' ...' }). Every line must be CARVED, ABSORBED or FILLER. An unaccounted line is methodology that may have been dropped.")
+}
 
 if ($failures.Count -gt 0) {
   Write-Host "CARVE $(if ($Emit) { 'EMIT' } else { 'VERIFY' }): FAILED ($($failures.Count))" -ForegroundColor Red

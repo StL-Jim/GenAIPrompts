@@ -107,11 +107,38 @@ def build():
                              % (nid, label, STYLE[kind], c, rx, ry, w, hh))
                 pos[nid] = (ox + rx, ZONE_Y + ry, w, hh, cidx[c])
             else:
-                ax, ay = ox, ZONE_Y + s * V_PITCH
+                ax, ay = ox, ZONE_Y + s * V_PITCH   # provisional; barycentre pass below
                 cells.append('<mxCell id="%s" value="%s" style="%s" vertex="1" parent="1">'
                              '<mxGeometry x="%d" y="%d" width="%d" height="%d" as="geometry"/></mxCell>'
                              % (nid, label, STYLE[kind], ax, ay, w, hh))
                 pos[nid] = (ax, ay, w, hh, cidx[c])
+
+    # BARYCENTRE PASS for uncontained columns (actors, externals): put each node at the
+    # mean y of what it connects to, then push apart to remove overlap while keeping order.
+    # ID order is arbitrary with respect to connectivity, which is what left SMTP Relay at
+    # the top of the diagram while its only neighbour sat at the bottom.
+    for c in present:
+        if c in CONTAINED or len(members[c]) == 0:
+            continue
+        want = []
+        for nid, _, kind, _ in members[c]:
+            ns = [pos[o][1] + pos[o][3] / 2 for a, b, _, _ in EDGES
+                  for o in ((b,) if a == nid else (a,) if b == nid else ())
+                  if o in pos and pos[o][4] != cidx[c]]
+            h = SZ[kind][1]
+            want.append((sum(ns) / len(ns) - h / 2 if ns else pos[nid][1], nid, h))
+        want.sort()
+        prev_bottom = ZONE_Y
+        for y, nid, h in want:
+            y = max(int(y), prev_bottom)
+            x, _, w, hh, ci = pos[nid]
+            pos[nid] = (x, y, w, hh, ci)
+            prev_bottom = y + h + 200
+        for i, cell in enumerate(cells):
+            for _, nid, _ in want:
+                if 'id="%s"' % nid in cell:
+                    cells[i] = cell.replace('y="%d"' % (ZONE_Y + [m[0] for m in members[c]].index(nid) * V_PITCH),
+                                            'y="%d"' % pos[nid][1], 1)
 
     tallest = max((ZONE_Y + MEMBER_Y0 + (len(members[c]) - 1) * V_PITCH
                    + max(SZ[n[2]][1] for n in members[c]) + 80) if c in CONTAINED
@@ -156,9 +183,24 @@ def build():
         pts = ""
         y_out, y_in = int(sy + sh * f_out), int(ty + th * f_in)
         if ct - cs >= 2:
-            # rule 4: long-haul lane below every container
-            pts = ('<Array as="points"><mxPoint x="%d" y="%d"/><mxPoint x="%d" y="%d"/></Array>'
-                   % (sx + sw + 40, LANE_Y, tx - 40, LANE_Y))
+            # Rule 4 revised: detour only if the straight path actually hits a node in an
+            # intervening column, and then only to the NEAREST clear horizontal band.
+            # Routing every skip edge to a floor lane sent a top-row-to-top-row flow on a
+            # 1100px round trip to avoid a 480px container -- worse than the crossing.
+            blockers = [(py, py + ph) for (px, py, pw2, ph, pc) in pos.values()
+                        if cs < pc < ct]
+            def clear(y):
+                return all(not (t - 60 < y < b + 60) for t, b in blockers)
+            band = y_out
+            if not clear(band):
+                cands = [y_out]
+                for t, b in blockers:
+                    cands += [t - 80, b + 80]
+                cands = [y for y in cands if clear(y) and y > 40]
+                band = min(cands, key=lambda y: abs(y - y_out)) if cands else LANE_Y
+            if band != y_out:
+                pts = ('<Array as="points"><mxPoint x="%d" y="%d"/><mxPoint x="%d" y="%d"/></Array>'
+                       % (sx + sw + 40, band, tx - 40, band))
         elif ct > cs and cs in corridor:
             lst = corridor[cs]
             i, m = lst.index((src, tgt)), len(lst)

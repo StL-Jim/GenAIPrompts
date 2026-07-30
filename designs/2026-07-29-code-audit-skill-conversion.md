@@ -103,8 +103,16 @@ walk impractical. Ask before building one.
 ## Reuse from the threat-model skill (copy, adapt, do not share)
 
 - `scripts/init-workspace.ps1` -- directory creation and state bootstrap.
-- `scripts/manifest.ps1` -- file manifest; the exclusion list needs inverting (exclude the
-  threat-model directory, keep `audit_state` as the audit's OWN output which it may read).
+- `scripts/manifest.ps1` -- file manifest. CORRECTED 2026-07-29 during the build: the line below
+  originally said the exclusion list "needs inverting (exclude the threat-model directory, keep
+  `audit_state` as the audit's OWN output which it may read)." Following that would introduce a bug.
+  The manifest is a list of SOURCE FILES TO AUDIT, and `audit_state/` is the audit's OUTPUT, not
+  source -- including it makes Phase 3A workers audit `findings_registry.md` as though it were
+  application code. BOTH tool directories stay excluded from the manifest, plus the root file
+  `security_architecture_audit.md` (F4). What actually inverts is READ PERMISSION, which is a rule
+  not a glob: `audit_state/` is required reading (it is this skill's state) while
+  `{PROJECT_NAME}-threat-model/` is readable only as the COORDINATED-mode cross-reference input and
+  never as evidence about the code. That lives in `references/common.md` rule 6.
 - `scripts/partition-manifest.ps1` -- already exists for the TM's 1a/1b/1c split and is the closest
   existing analogue to `partition_plan.md`.
 - `scripts/consolidate.ps1` -- pattern for Phase 5.
@@ -149,6 +157,72 @@ These were each learned from a field failure. They are the reason that conversio
 12. **Deterministic work belongs in PowerShell, not in the model.** The single biggest quality and
     speed win in the TM conversion. Counting, globbing, concatenating, diffing -- all scripted, with
     output pasted so Rule 15 holds.
+
+## Findings from reading the source prompt (2026-07-29, build session)
+
+Recorded during the build because each one contradicts or qualifies something above.
+
+**F1. The prompt mandates SEQUENTIAL partition execution, not parallel.** The claim above that it
+"was written for parallel execution that a human currently simulates by hand" is half right. The
+partition STRUCTURE exists, but PHASE EXECUTION ORDER (lines 52-53) says
+`FOR EACH partition: Phase 3A -> STOP after each`, and OPERATING MODEL says STOP after every phase
+and do not continue automatically. Parallelising is a real change to the execution model, not merely
+supplying workers to an architecture that already expected them.
+- It is still the right change. Line 42 states the REASON for the STOPs: "instruction adherence
+  degrades as a session's context fills," and rehydration from `audit_state/` makes a new session
+  free. The STOP is therefore a context-hygiene device, not an analytical requirement, and parallel
+  subagents serve that intent better -- each gets a genuinely fresh window rather than depending on
+  the operator to open a new session.
+- What is genuinely LOST: the per-partition STOP currently shows the owner each partition's findings
+  as they land. Parallel dispatch replaces N checkpoints with one GATE 2. OWNER DECISION PENDING at
+  task 11 -- offer an option to review per-partition as workers return.
+- Whatever is chosen, SKILL.md must state this deviation explicitly. A reader of the carved phase
+  files will see "STOP after each" and observe the orchestrator doing something else.
+
+**F2. Carved phase text contains human-facing STOP and "Type 'proceed'" banners.** Handed verbatim
+to a subagent this is an unexecutable instruction (lesson 4: subagents cannot talk to the user).
+Resolution: methodology stays verbatim INSIDE the carve markers; dispatch semantics are overridden
+in the framing header ABOVE them, which must state plainly that the worker has no user to prompt,
+and that where the carved text says STOP and print a proceed banner, the worker instead writes its
+output files and returns its summary to the orchestrator. Framing must precede the carved text.
+
+**F3. Line 189 ties the current date to Finding IDs.** "Before writing any files get the current
+date to know when artifacts were created, last updated or to use for Finding IDs." Under decision 7
+the date no longer appears in finding IDs. Line 189 sits in the UNCARVED region (151-273) which the
+skill rewrites, so keep the date requirement (still needed for LAST_UPDATED, archive directory
+names, prior-run detection) and drop only the Finding-IDs clause.
+
+**F1a. Parallel workers force disjoint finding-ID blocks.** A consequence of F1, not a free choice.
+Sequential workers could simply continue the numbering; parallel workers would collide on `F-NNN`.
+The orchestrator therefore assigns each worker a disjoint ID block in its briefing. Rejected
+alternatives: partition-prefixed IDs (`F-auth-001`) break the flat scheme decision 7 just
+established; renumbering at consolidation breaks the `rel:` cross-references workers write between
+their own findings. Recorded in `references/common.md` rule 4.
+
+**F5. Parallel workers writing shared artifacts is a LOST-UPDATE RACE.** The most consequential
+finding of the build so far. The carved text instructs every worker phase to write
+`audit_state/findings_registry.md` and `audit_state/attack_paths.md` (source lines 520-521, 579-580,
+622-623), and `evidence_index.md` is explicitly READ-before-WRITE across 3A and 4A (line 578). That
+is safe ONLY because the source serialises workers with a STOP between each (F1). Dispatch them in
+parallel and concurrent read-modify-write on one file silently drops whichever worker wrote first.
+Nothing in the run would report it: each worker verifies its own write succeeded, and it did.
+- **Fix:** workers write ONLY inside their own `audit_state/workers/<partition_id>/`. The global
+  `findings_registry.md`, `attack_paths.md` and `evidence_index.md` are ASSEMBLED by
+  `scripts/merge-findings.ps1`, run by the orchestrator after all workers return. Per-worker files
+  already exist in the source schema, so this uses the structure the prompt already defines rather
+  than inventing one.
+- This is a second dispatch-mechanics override of carved text, same mechanism as F2: the override
+  belongs in the framing header and in `references/common.md` rule W, never inside the carve
+  markers.
+- Bonus: the merge step is the natural place to compute the GATE 2 counts by severity and class,
+  which satisfies Rule 15 mechanically instead of asking the orchestrator to count by hand.
+- Consequence for sequencing: the merge runs BEFORE Gate 2, because `findings_registry.md` is the
+  artifact Gate 2 reviews. Phase 5's own consolidation (report assembly) is a separate later script.
+
+**F4. `security_architecture_audit.md` lives at the workspace ROOT, not in `audit_state/`** (line
+182). It is the persistent cross-run audit log and the SOLE exception to the rule that the workspace
+root accumulates no audit artifacts. `manifest.ps1` must not treat it as target source code, and
+`init-workspace.ps1` must not clobber it -- Phase 5 reads and updates it by design.
 
 ## Task breakdown
 

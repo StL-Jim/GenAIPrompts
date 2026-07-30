@@ -152,9 +152,32 @@ def build():
     for src, tgt, _, _ in EDGES:
         exits.setdefault(src, []).append(tgt)
         entries.setdefault(tgt, []).append(src)
-    for d in (exits, entries):
-        for k in d:
-            d[k].sort()
+    for k in exits:
+        exits[k].sort(key=lambda t: pos[t][1] + pos[t][3] / 2)
+
+    # ENTRY ALIGNMENT. Fanning both ends independently puts a jog in an edge whose endpoints
+    # are already level: a source with 3 exits sends its third at 0.75 of its height, while a
+    # target with 1 entry receives at 0.50, and the router steps between them. Instead, each
+    # entry WANTS its source's exit height, and only moves when two entries would collide.
+    entry_y = {}
+    for tgt, srcs in entries.items():
+        tx0, ty0, tw0, th0, _ = pos[tgt]
+        want = []
+        for src in srcs:
+            sx0, sy0, sw0, sh0, _ = pos[src]
+            k = len(exits[src])
+            f = (exits[src].index(tgt) + 1) / (k + 1)
+            want.append((sy0 + sh0 * f, src))
+        want.sort()
+        lo, hi, sep = ty0 + 30, ty0 + th0 - 30, 45
+        placed, prev = {}, None
+        for y, src in want:
+            y = min(max(y, lo), hi)
+            if prev is not None and y - prev < sep:
+                y = prev + sep
+            placed[src] = min(y, hi)
+            prev = placed[src]
+        entry_y[tgt] = placed
 
     corridor = {}
     for src, tgt, _, _ in EDGES:
@@ -168,8 +191,8 @@ def build():
         sx, sy, sw, sh, cs = pos[src]
         tx, ty, tw, th, ct = pos[tgt]
         ei, ek = exits[src].index(tgt), len(exits[src])
-        ni, nk = entries[tgt].index(src), len(entries[tgt])
-        f_out, f_in = round((ei + 1) / (ek + 1), 4), round((ni + 1) / (nk + 1), 4)
+        f_out = round((ei + 1) / (ek + 1), 4)
+        f_in = round((entry_y[tgt][src] - ty) / th, 4)
 
         if ct > cs:
             att = "exitX=1;exitY=%s;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=%s;entryDx=0;entryDy=0;entryPerimeter=0;" % (f_out, f_in)

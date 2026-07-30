@@ -195,6 +195,10 @@ MANDATORY -- exactly this one table, nothing else: `02b-threats.md` contains the
 
 Write the file with the Write tool. Return your completion banner to the orchestrator (it owns STATE.md).
 
+EXCLUSION PROFILE (compute before returning your banner). Tally the excluded candidates BY REASON and report the profile in the banner below. Count them from `02b-excluded.md` -- Operating Rule 15, counted and never recalled -- list only reasons with a nonzero count, and check that they SUM to the total: a profile that does not sum means the working list did not capture every candidate, which is a defect to fix now rather than a rounding difference.
+
+This profile exists so the user can see the SHAPE of the filtering at the moment he is deciding whether to accept it. A run where one reason accounts for most exclusions is telling him which test did the work -- and whether that was the right test to do the work is a judgement he can make and you cannot. He may well ask to see the candidates behind any one reason; have them ready and show them all.
+
 **Phase 2B Completion Banner:**
 ```
 === PHASE 2B COMPLETE: 02b-threats.md WRITTEN ===
@@ -202,6 +206,7 @@ Main table: <N>  (Confirmed: <N>  |  Likely: <N>)   Priority 1: <N>  |  Priority
 Unverified candidates routed to ledger: <N>
 STRIDE coverage: S=<N> T=<N> R=<N> I=<N> D=<N> E=<N>
 Excluded working list: 02b-excluded.md written (<N> rows = not-promoted count, source for the 2C ledger)
+  By reason: <reason> <N> | <reason> <N> | <reason> <N> ...   (nonzero reasons only; sums to <N>)
 
 Would you like to review each threat individually before proceeding?
 Just say so in your own words. I will show them one at a time, COMPLETE -- every field,

@@ -77,6 +77,25 @@ that span partitions are established later, by Phase 3B/4B (which runs after you
 worker directory) and by Phase 5. Nothing is lost by you not doing it; something IS lost if you invent
 it.
 
+## Write findings as BARE FIELD LINES, not a markdown list
+
+`findings.md` is parsed by a script. Each field goes on its own line as `field: value`, exactly as
+`schemas.md` shows:
+
+    id: F-001
+    pid: web-plus
+    src: web/server.py:42
+    class: Confirmed
+    sev: Critical
+
+Do NOT render them as a markdown bullet list (`- id: F-001`), and do not wrap them in a table.
+Prose headings BETWEEN findings are fine; the field lines themselves must be bare.
+
+This is not stylistic. A field worker rendered the schema as a bullet list -- a fair reading of a
+"compact schema" -- and the merge step matched nothing, reported `Total findings: 0`, and exited
+successfully on a run that had found a leaked API key. The merge now tolerates both shapes and
+fails loudly when a substantial findings file yields nothing parseable, but write the bare form.
+
 ## Severity: Critical and High only
 
 If an issue is Medium, Low or Info, do not write it up. Move on without creating a finding. Do not

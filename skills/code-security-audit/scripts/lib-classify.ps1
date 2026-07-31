@@ -13,8 +13,16 @@
 # errs toward INCLUSION: a file wrongly included costs one read, a file wrongly excluded costs a
 # missed vulnerability.
 
-# Generated, vendored, binary, or build output. Never floored, never counted against coverage.
-$script:reSkip = 'package-lock\.json$|yarn\.lock$|pnpm-lock\.ya?ml$|composer\.lock$|Gemfile\.lock$|poetry\.lock$|Cargo\.lock$|packages\.lock\.json$|\.min\.(js|css)$|\.map$|\.(png|jpe?g|gif|ico|svg|webp|bmp|pdf|zip|gz|tgz|7z|rar|jar|war|ear|dll|exe|so|dylib|pdb|class|pyc|woff2?|ttf|eot|otf|mp[34]|mov|avi|bin|dat|db|sqlite3?|parquet|xlsx?|docx?|pptx?|se1)$|(^|/)(dist|build|out|bin|obj|coverage|__snapshots__)/'
+# Generated, vendored, binary, build output, and AGENT TOOLING SCRATCH. Never floored, never
+# counted against coverage.
+#
+# The tooling-scratch alternative was added after a real run: `.superpowers/brainstorm/.../state/`
+# put `server.pid`, `server-stopped` and `typography-options.html` into a worker's mandatory read
+# floor, because the role matchers legitimately see "state", "server" and ".html". They are a
+# local agent tool's working files, not the application under audit, and every one of them
+# displaces a real source file from a worker's attention. `.github` is deliberately NOT here --
+# workflow definitions are genuine A05 config territory.
+$script:reSkip = '(^|/)\.(superpowers|claude|vscode|idea|husky)/|package-lock\.json$|yarn\.lock$|pnpm-lock\.ya?ml$|composer\.lock$|Gemfile\.lock$|poetry\.lock$|Cargo\.lock$|packages\.lock\.json$|\.min\.(js|css)$|\.map$|\.(png|jpe?g|gif|ico|svg|webp|bmp|pdf|zip|gz|tgz|7z|rar|jar|war|ear|dll|exe|so|dylib|pdb|class|pyc|woff2?|ttf|eot|otf|mp[34]|mov|avi|bin|dat|db|sqlite3?|parquet|xlsx?|docx?|pptx?|se1)$|(^|/)(dist|build|out|bin|obj|coverage|__snapshots__)/'
 
 # common.md rule 10: dev/QA/test artifacts may be inventoried but do not generate findings.
 $script:reTest = '(^|/)(tests?|spec|specs|__tests__|testdata|fixtures?|e2e|cypress|playwright)/|[._-](test|tests|spec)\.[a-z]+$|(^|/)test_[^/]+\.[a-z]+$|[^/]*Tests?\.(cs|java|kt|scala)$'

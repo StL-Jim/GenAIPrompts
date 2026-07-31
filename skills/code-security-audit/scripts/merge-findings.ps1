@@ -111,10 +111,15 @@ foreach ($s in $sources) {
 # Every number Gate 2 states must be computed command output, never recalled
 # (common.md rule 8). This is where those numbers come from.
 # ---------------------------------------------------------------------------
-$ids  = @([regex]::Matches($allFindingText, '(?m)^\s*id:\s*(F-\d+)')  | ForEach-Object { $_.Groups[1].Value })
-$sevs = @([regex]::Matches($allFindingText, '(?m)^\s*sev:\s*(\w+)')   | ForEach-Object { $_.Groups[1].Value })
-$clss = @([regex]::Matches($allFindingText, '(?m)^\s*class:\s*([\w ]+?)\s*$') | ForEach-Object { $_.Groups[1].Value })
-$tms  = @([regex]::Matches($allFindingText, '(?m)^\s*threat_match:\s*([\w-]+)') | ForEach-Object { $_.Groups[1].Value })
+# The optional leading bullet is not cosmetic tolerance -- it is a bug fix. A field worker
+# rendered the compact schema as a markdown bullet list (`- id: F-001`), which is a reasonable
+# reading of the schema's example, and the stricter regex matched nothing. The merge then
+# reported "Total findings: 0" and exited 0 on a run that had found a leaked API key. Silent
+# total loss, reported as success. Accept both shapes.
+$ids  = @([regex]::Matches($allFindingText, '(?m)^\s*[-*]?\s*id:\s*(F-\d+)')  | ForEach-Object { $_.Groups[1].Value })
+$sevs = @([regex]::Matches($allFindingText, '(?m)^\s*[-*]?\s*sev:\s*(\w+)')   | ForEach-Object { $_.Groups[1].Value })
+$clss = @([regex]::Matches($allFindingText, '(?m)^\s*[-*]?\s*class:\s*([\w ]+?)\s*$') | ForEach-Object { $_.Groups[1].Value })
+$tms  = @([regex]::Matches($allFindingText, '(?m)^\s*[-*]?\s*threat_match:\s*([\w-]+)') | ForEach-Object { $_.Groups[1].Value })
 
 $dupes = @($ids | Group-Object | Where-Object { $_.Count -gt 1 })
 
@@ -140,11 +145,28 @@ if ($realTms.Count -gt 0) {
   }
 }
 "  Findings per partition:"
+$unparseable = @()
 foreach ($pd in $partitionDirs) {
   $f = Join-Path $pd.FullName 'findings.md'
   $n = 0
-  if (Test-Path -LiteralPath $f) { $n = @([regex]::Matches((Get-Content -LiteralPath $f -Raw), '(?m)^\s*id:\s*F-\d+')).Count }
+  $bytes = 0
+  $otherFields = 0
+  if (Test-Path -LiteralPath $f) {
+    $bytes = (Get-Item -LiteralPath $f).Length
+    $raw = Get-Content -LiteralPath $f -Raw
+    $n = @([regex]::Matches($raw, '(?m)^\s*[-*]?\s*id:\s*F-\d+')).Count
+    # Other schema fields present WITHOUT any id is the decisive signal: the worker wrote
+    # findings, and this script cannot see them.
+    $otherFields = @([regex]::Matches($raw, '(?m)^\s*[-*]?\s*(sev|class|src|impact|fix):\s*\S')).Count
+  }
   "    $($pd.Name): $n"
+  # ZERO parseable findings in a file that plainly CONTAINS findings is not "this partition
+  # found nothing" -- it is total silent loss, and the two must never look the same. A real
+  # worker rendered the schema as a markdown bullet list and this merge reported success on a
+  # run that had found a leaked API key.
+  if ($n -eq 0 -and ($otherFields -gt 0 -or $bytes -gt 400)) {
+    $unparseable += "$($pd.Name) ($bytes bytes, $otherFields schema field line(s), 0 parseable findings)"
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -160,6 +182,9 @@ if ($notDone.Count -gt 0) {
 $badSev = @($sevs | Where-Object { $_ -notin @('Critical','High') })
 if ($badSev.Count -gt 0) {
   $fatal += "SEVERITY SCOPE VIOLATION: $($badSev.Count) finding(s) carry severity outside Critical/High ($(($badSev | Sort-Object -Unique) -join ', ')). The audit never emits these -- a worker kept a finding that did not reach the bar."
+}
+if ($unparseable.Count -gt 0) {
+  $fatal += "UNPARSEABLE FINDINGS: $($unparseable -join '; '). The file has substantial content but no line matching 'id: F-NNN', so every finding in it is invisible to this merge and to GATE 2. Do NOT treat this as 'the partition found nothing'. Open the file, check the schema shape against references/schemas.md, and re-dispatch or correct the format before proceeding."
 }
 
 if ($fatal.Count -gt 0) {

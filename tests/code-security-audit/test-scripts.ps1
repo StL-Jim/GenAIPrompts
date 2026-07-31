@@ -227,7 +227,23 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Check "[$mode] FAIL-CLOSED on unfinished partition" ($r.Code -ne 0) "exit $($r.Code)"
   Set-Content -LiteralPath (Join-Path $state 'partition_status.md') -Encoding ASCII -Value $doneRows
 
-  # 4. back to green, so the failures above were the injected faults and not something sticky
+  # 4. findings present but in a shape the parser does not recognise. A real Haiku worker wrote
+  #    the schema as a markdown bullet list; the merge matched nothing, printed
+  #    "Total findings: 0" and exited 0 on a run that had found a leaked API key. Silent total
+  #    loss reported as success. Both halves are asserted: the bullet form must now PARSE, and a
+  #    genuinely unreadable file must FAIL rather than look like "found nothing".
+  $bulletForm = ($backup -replace '(?m)^(\s*)(id|pid|src|class|sev|conf|score):', '$1- $2:')
+  Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value $bulletForm
+  $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] markdown-bullet schema still parses" (($r.Code -eq 0) -and ($r.Output -notmatch 'Total findings: 0')) "exit $($r.Code)"
+  Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value $backup
+
+  Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value ($backup -replace '(?m)^(\s*[-*]?\s*)id:', '$1identifier:')
+  $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] FAIL-CLOSED on unparseable findings file" (($r.Code -ne 0) -and ($r.Output -match 'UNPARSEABLE')) "exit $($r.Code)"
+  Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value $backup
+
+  # 5. back to green, so the failures above were the injected faults and not something sticky
   $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] recovers to green after faults removed" ($r.Code -eq 0) "exit $($r.Code)"
 }

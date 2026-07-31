@@ -73,6 +73,11 @@ check "manifest.ps1 runs from bash" $?
 $PS "$SK_WIN\\partition-plan.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
 check "partition-plan.ps1 runs from bash" $?
 
+# readplan dot-sources lib-classify.ps1 via $PSScriptRoot. That resolution is exactly what a
+# bash-driven `powershell.exe -File` invocation could break, so it is worth its own assertion.
+$PS "$SK_WIN\\readplan.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
+check "readplan.ps1 runs from bash (dot-source resolves)" $?
+
 # merge-findings needs worker output; without it the script must FAIL CLOSED rather than
 # emit an empty registry.
 #
@@ -115,6 +120,9 @@ done
 
 $PS "$SK_WIN\\merge-findings.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
 check "merge-findings.ps1 runs from bash with worker output" $?
+
+$PS "$SK_WIN\\renumber-findings.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" -WhatIf >/dev/null 2>&1
+check "renumber-findings.ps1 runs from bash" $?
 
 # The carve verifier is a build-time tool but is run the same way from CI or a bash shell.
 CARVE_WIN="$(cd "$HERE" && pwd -W 2>/dev/null | sed 's|/|\\|g')"

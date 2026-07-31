@@ -21,6 +21,28 @@ Your exact file list is `audit_state/partitions/<partition_id>.txt`. Read it unc
 your scope: every file in it, and no file outside it except directly relevant shared or
 trust-boundary files as the methodology allows.
 
+## Your READ FLOOR is mandatory, and it is checked
+
+`audit_state/partitions/<partition_id>.readset.txt` lists the files in your partition that carry
+the audit's actual defect surface -- entry points, auth and session code, data access, external
+calls, config and IaC, dependency manifests, and any source file containing a dangerous API.
+**Read every one of them, in full.**
+
+It is a computed subset, not the whole partition, precisely so it is achievable. The companion
+`.readset-deferred.txt` lists files deliberately NOT required -- quiet source with no dangerous
+pattern, docs, tests, generated output. You may pattern-scan those; you are not required to read
+them.
+
+After you return, the ORCHESTRATOR reconciles your floor against the harness's own record of
+every file you opened -- a transcript you do not write and cannot edit. A short read comes back
+as a bounded list of named files to go and read, not as an instruction to "read more."
+
+Do NOT write a verdict about your own coverage. Not "coverage adequate", not "all relevant files
+reviewed", not any verdict-shaped sentence about how much you read -- not even a true one. Report
+what you found; the coverage number is computed, not claimed. If you want your own worklist, you
+may append the files you read to `audit_state/workers/<partition_id>/files_read.txt`, one path per
+line -- it is used as a cross-check, never as the coverage record itself.
+
 ## Finding IDs: use your assigned block and nothing else
 
 Your briefing gives you a numeric range. Assign `F-NNN` ids from inside it, in discovery order. Never

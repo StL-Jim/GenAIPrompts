@@ -14,7 +14,9 @@
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
   [Parameter(Mandatory=$true)][string]$ProjectName,
-  [ValidateRange(1,5)][int]$MaxPartitions = 5
+  [ValidateRange(1,10)][int]$MaxPartitions = 10,
+  # Auditable files one worker can read and still have budget to reason and write findings.
+  [int]$FloorPerWorker = 60
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,38 +65,71 @@ foreach ($rel in $manifest) {
   $groups[$root].Add($rel)
 }
 
-$ordered = @($groups.GetEnumerator() | Sort-Object { $_.Value.Count } -Descending)
-
 # ---------------------------------------------------------------------------
-# CAP TO MaxPartitions
+# AUDITABLE WEIGHT -- size partitions by SOURCE, not by file count
 #
-# Keep the largest groups as coherent partitions; merge the remaining tail into a single
-# 'assorted' partition and report exactly what went into it. Coherence is preferred over
-# balance because a worker reviewing one service reasons better than one reviewing a
-# balanced but arbitrary slice. If the assorted partition ends up larger than the largest
-# coherent one, that is surfaced as a WARNING rather than silently accepted -- it means the
-# repo's shape does not fit the cap and the owner should see that at GATE 1.
+# Weighting by raw file count sends workers to the wrong places. Measured on the owner's
+# astrology repo: a 354-file directory of chart DATA outranked every real service root and got
+# its own worker, as did a 67-file reports directory. Two of five workers had nothing to audit,
+# while the actual auditable surface was 41 files. Adding workers to that plan adds nothing --
+# the lever is pointing them at source.
+#
+# Weight uses exactly the definition readplan.ps1 uses for the read floor (shared in
+# lib-classify.ps1), so a partition sized here is verified against the same rule later.
 # ---------------------------------------------------------------------------
-$partitions = New-Object System.Collections.Generic.List[object]
-if ($ordered.Count -le $MaxPartitions) {
-  foreach ($g in $ordered) {
-    $partitions.Add([pscustomobject]@{ Id = ($g.Key -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower(); Roots = @($g.Key); Files = @($g.Value) })
-  }
-} else {
-  $keep = $ordered[0..($MaxPartitions - 2)]
-  $tail = $ordered[($MaxPartitions - 1)..($ordered.Count - 1)]
-  foreach ($g in $keep) {
-    $partitions.Add([pscustomobject]@{ Id = ($g.Key -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower(); Roots = @($g.Key); Files = @($g.Value) })
-  }
-  $tailFiles = New-Object System.Collections.Generic.List[string]
-  $tailRoots = @()
-  foreach ($g in $tail) { $tailRoots += $g.Key; foreach ($f in $g.Value) { $tailFiles.Add($f) } }
-  $partitions.Add([pscustomobject]@{ Id = 'assorted'; Roots = $tailRoots; Files = @($tailFiles) })
+. (Join-Path $PSScriptRoot 'lib-classify.ps1')
+
+$weights = @{}
+foreach ($k in $groups.Keys) {
+  $w = 0
+  foreach ($rel in $groups[$k]) { if (Test-Auditable -Workspace $WORKSPACE -RelPath $rel) { $w++ } }
+  $weights[$k] = $w
+}
+$totalWeight = 0
+foreach ($k in $weights.Keys) { $totalWeight += $weights[$k] }
+
+# Roots with NO auditable source are not given a worker. They are reported, not hidden: a
+# silently absent directory is indistinguishable from one nobody thought to look at.
+$auditableRoots    = @($groups.Keys | Where-Object { $weights[$_] -gt 0 } | Sort-Object { $weights[$_] } -Descending)
+$nonAuditableRoots = @($groups.Keys | Where-Object { $weights[$_] -eq 0 } | Sort-Object)
+
+# N is derived from the auditable surface, not from how many directories exist. Most repos need
+# fewer workers than the cap allows; a repo justifying 8 needs a floor around 480 files.
+$targetN = [math]::Ceiling($totalWeight / [double]$FloorPerWorker)
+if ($targetN -lt 1) { $targetN = 1 }
+if ($targetN -gt $MaxPartitions) { $targetN = $MaxPartitions }
+if ($targetN -gt $auditableRoots.Count) { $targetN = [math]::Max(1, $auditableRoots.Count) }
+
+# Greedy first-fit-decreasing into $targetN bins. Service coherence is preserved -- a worker
+# reviewing one service reasons better than one reviewing a balanced but arbitrary slice -- and
+# only the WEIGHT changes, not the grouping principle.
+$bins = @()
+for ($i = 0; $i -lt $targetN; $i++) {
+  $bins += ,[pscustomobject]@{ Roots = New-Object System.Collections.Generic.List[string]; Weight = 0 }
+}
+foreach ($r in $auditableRoots) {
+  $lightest = $bins[0]
+  foreach ($b in $bins) { if ($b.Weight -lt $lightest.Weight) { $lightest = $b } }
+  $lightest.Roots.Add($r)
+  $lightest.Weight += $weights[$r]
 }
 
-# ---------------------------------------------------------------------------
-# WRITE
-# ---------------------------------------------------------------------------
+$partitions = New-Object System.Collections.Generic.List[object]
+foreach ($b in $bins) {
+  if ($b.Roots.Count -eq 0) { continue }
+  $files = New-Object System.Collections.Generic.List[string]
+  foreach ($r in $b.Roots) { foreach ($x in $groups[$r]) { $files.Add($x) } }
+  # Name the partition after its heaviest root so the id stays meaningful.
+  $lead = $b.Roots[0]
+  $id = ($lead -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower()
+  if ($b.Roots.Count -gt 1) { $id = "$id-plus" }
+  $partitions.Add([pscustomobject]@{ Id = $id; Roots = @($b.Roots); Files = @($files); Weight = $b.Weight })
+}
+
+# Non-auditable roots still belong to the reconciliation -- every manifest file must be
+# accounted for -- but they get no worker.
+$nonAuditableFiles = New-Object System.Collections.Generic.List[string]
+foreach ($r in $nonAuditableRoots) { foreach ($x in $groups[$r]) { $nonAuditableFiles.Add($x) } }
 $partDir = Join-Path $outDir 'partitions'
 New-Item -ItemType Directory -Path $partDir -Force | Out-Null
 
@@ -105,14 +140,14 @@ $plan.Add("Generated: $(Get-Date -Format 'yyyy-MM-ddTHH:mm')")
 $plan.Add("Manifest total: $($manifest.Count) files")
 $plan.Add("Partitions: $($partitions.Count) (cap $MaxPartitions)")
 $plan.Add('')
-$plan.Add('| partition_id | files | pct | service roots |')
-$plan.Add('|---|---|---|---|')
+$plan.Add('| partition_id | files | AUDITABLE | pct of audit surface | service roots |')
+$plan.Add('|---|---|---|---|---|')
 
 $assignedTotal = 0
 foreach ($p in $partitions) {
   $assignedTotal += $p.Files.Count
-  $pct = [math]::Round(100.0 * $p.Files.Count / $manifest.Count, 1)
-  $plan.Add("| $($p.Id) | $($p.Files.Count) | $pct% | $($p.Roots -join ', ') |")
+  $pct = if ($totalWeight -gt 0) { [math]::Round(100.0 * $p.Weight / $totalWeight, 1) } else { 0 }
+  $plan.Add("| $($p.Id) | $($p.Files.Count) | $($p.Weight) | $pct% | $($p.Roots -join ', ') |")
   $listPath = Join-Path $partDir "$($p.Id).txt"
   $p.Files | Set-Content -LiteralPath $listPath -Encoding ASCII
   $chk = Get-Item -LiteralPath $listPath
@@ -120,11 +155,30 @@ foreach ($p in $partitions) {
 }
 
 $plan.Add('')
+$plan.Add('## Not assigned to any worker (no auditable source)')
+$plan.Add('')
+if ($nonAuditableRoots.Count -gt 0) {
+  $plan.Add("$($nonAuditableFiles.Count) files across $($nonAuditableRoots.Count) root(s) contain no auditable source")
+  $plan.Add('and are deliberately given no worker. Listed so their absence is a visible decision:')
+  $plan.Add('')
+  foreach ($r in $nonAuditableRoots) { $plan.Add("- $r ($($groups[$r].Count) files)") }
+  $plan.Add('')
+  $plan.Add('If one of these SHOULD be audited, the classifier missed it -- raise it at GATE 1 rather')
+  $plan.Add('than assuming the audit covered it.')
+} else {
+  $plan.Add('None -- every service root holds auditable source.')
+}
+
+$plan.Add('')
 $plan.Add('## Reconciliation')
 $plan.Add('')
 $plan.Add("Files assigned to partitions: $assignedTotal")
+$plan.Add("Files in non-auditable roots:  $($nonAuditableFiles.Count)")
 $plan.Add("Manifest total: $($manifest.Count)")
-$plan.Add("Match: $(if ($assignedTotal -eq $manifest.Count) { 'yes' } else { 'NO -- FILES LOST, DO NOT PROCEED' })")
+$plan.Add("Auditable surface (drives worker count): $totalWeight files")
+$plan.Add("Workers: $($partitions.Count) (cap $MaxPartitions, target from surface / $FloorPerWorker per worker)")
+$reconTotal = $assignedTotal + $nonAuditableFiles.Count
+$plan.Add("Match: $(if ($reconTotal -eq $manifest.Count) { 'yes' } else { "NO -- $reconTotal accounted vs $($manifest.Count) in manifest, FILES LOST, DO NOT PROCEED" })")
 
 # Shared-component candidates, by directory-name convention.
 $sharedHits = @($groups.Keys | Where-Object {
@@ -163,25 +217,29 @@ $status | Set-Content -LiteralPath $statusPath -Encoding ASCII
 # REPORT (every number here is computed, per common.md rule 8)
 # ---------------------------------------------------------------------------
 "Manifest total: $($manifest.Count)"
-"Service-root groups found: $($ordered.Count)"
-"Partitions created: $($partitions.Count) (cap $MaxPartitions)"
-foreach ($p in $partitions) { "  $($p.Id): $($p.Files.Count) files  [$($p.Roots -join ', ')]" }
-"Files assigned: $assignedTotal"
-"Reconciliation: $(if ($assignedTotal -eq $manifest.Count) { 'OK' } else { 'MISMATCH' })"
+"Service-root groups found: $($groups.Keys.Count)"
+"  with auditable source: $($auditableRoots.Count) | with none: $($nonAuditableRoots.Count)"
+"AUDITABLE SURFACE: $totalWeight files (this, not file count, drives worker count)"
+"Workers created: $($partitions.Count) (cap $MaxPartitions, ~$FloorPerWorker auditable files per worker)"
+foreach ($p in $partitions) { "  $($p.Id): $($p.Files.Count) files, $($p.Weight) auditable  [$($p.Roots -join ', ')]" }
+if ($nonAuditableRoots.Count -gt 0) {
+  "NO WORKER ASSIGNED (no auditable source): $($nonAuditableFiles.Count) files across $($nonAuditableRoots.Count) root(s)"
+  foreach ($r in $nonAuditableRoots) { "  $r ($($groups[$r].Count) files)" }
+}
+"Files assigned: $assignedTotal | non-auditable: $($nonAuditableFiles.Count) | total accounted: $reconTotal"
+"Reconciliation: $(if ($reconTotal -eq $manifest.Count) { 'OK' } else { 'MISMATCH' })"
 "Written: $planPath, $statusPath, $partDir\*.txt"
+"NEXT: run readplan.ps1 to compute each worker's read floor before dispatching anyone."
 
-if ($assignedTotal -ne $manifest.Count) {
-  Write-Error "Partition reconciliation FAILED: $assignedTotal assigned vs $($manifest.Count) in manifest. Files were lost. Refusing to report success."
+if ($reconTotal -ne $manifest.Count) {
+  Write-Error "Partition reconciliation FAILED: $reconTotal accounted vs $($manifest.Count) in manifest. Files were lost. Refusing to report success."
   exit 1
 }
 
-$assorted = $partitions | Where-Object { $_.Id -eq 'assorted' }
-if ($assorted) {
-  # Windows PowerShell 5.1's Measure-Object -Property does NOT accept a scriptblock, so
-  # project the counts first rather than measuring a calculated property.
-  $coherentCounts = @($partitions | Where-Object { $_.Id -ne 'assorted' } | ForEach-Object { $_.Files.Count })
-  $largestCoherent = if ($coherentCounts.Count -gt 0) { ($coherentCounts | Measure-Object -Maximum).Maximum } else { 0 }
-  if ($assorted.Files.Count -gt $largestCoherent) {
-    Write-Warning "The 'assorted' partition ($($assorted.Files.Count) files, $($assorted.Roots.Count) roots) is larger than the largest coherent partition ($largestCoherent). This repo's shape does not fit a $MaxPartitions-partition cap cleanly. Raise this at GATE 1 -- the owner may want different groupings."
-  }
+# A repo whose whole auditable surface fits one worker gets one worker. Say so plainly rather
+# than letting the owner wonder why five partitions became two -- the count is derived from what
+# is actually there to audit, and a small number is the right answer for a small surface.
+if ($partitions.Count -lt $MaxPartitions) {
+  "NOTE: $($partitions.Count) worker(s) for $totalWeight auditable files. More workers would not"
+  "      read more source -- the surface is the limit, not the parallelism."
 }

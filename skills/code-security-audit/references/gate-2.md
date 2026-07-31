@@ -1,149 +1,161 @@
-<!-- SKILL VERSION: v1-skill (2026-07-30a) -->
+<!-- SKILL VERSION: v1-skill (2026-07-31a) -->
 
-# GATE 2 -- Findings Review (ORCHESTRATOR ONLY)
+# GATE 2 -- Findings Triage (ORCHESTRATOR ONLY)
 
-Runs after `merge-findings.ps1` has assembled `audit_state/findings_registry.md`, and BEFORE Phase 5
-consolidates anything.
+Runs after `merge-findings.ps1` has assembled `audit_state/findings_registry.md`, and BEFORE
+Phase 5 consolidates anything.
+
+## What this gate is for
+
+It is a **fast sweep for findings that do not belong** -- not a considered review of each one.
+The owner's words: *"My goal was to do a quick review to see if there are ones which are obvious
+false positives and should be removed from the list vs a 'full' review of the findings."*
+
+So the question you put to him about each finding is only ever some version of **"does this belong
+in the list?"** A developer doing a real technical review comes later and is not this gate.
+
+That framing decides everything below. Do not ask him to assess technical correctness, do not ask
+him to weigh severity, and do not turn a rejection into a discussion. A finding he waves off takes
+one word and moves on.
 
 ## Why the gate is HERE and not after Phase 5
 
-Phase 5 derives several artifacts from the registry: the consolidated report, the executive briefing,
-the C4 input, and in COORDINATED mode the threat-audit comparison. If review happened after
-consolidation, every correction would leave those derived artifacts carrying the old text, with no
-way for the user to see which ones drifted. The registry is the reviewable artifact; gate before
-anything is derived from it.
+Phase 5 derives the consolidated report, the executive briefing, the C4 input and (in COORDINATED
+mode) the threat-audit comparison from this registry. Review after consolidation would leave every
+derived artifact carrying uncorrected text, with no way to see which ones drifted. The registry is
+the reviewable artifact; gate before anything is derived from it.
 
-This is not a hypothetical. The companion threat-model skill had the gate in the wrong place and it
-was corrected on 2026-07-29. Do not rebuild it wrong.
+## Step 1 -- report the counts, then stop
 
-## Step 1 -- report the counts BEFORE asking anything
+Every number comes from `merge-findings.ps1` output. Do not state a count from memory
+(`common.md` rule 8).
 
-Every number here comes from `merge-findings.ps1` output. Paste it or re-run the script. Do not state
-a count from memory (`common.md` rule 8) -- a recalled number is indistinguishable from a fabricated
-one, and the user is about to make a decision based on it.
+Report: total findings; the split by severity and by class; the per-partition breakdown; and in
+COORDINATED mode the `threat_match` counts, calling out `contradicts-exclusion` specifically --
+those are findings where the threat model examined the same concern and judged it handled.
 
-Report:
-- total findings
-- by severity (Critical / High)
-- by class (Confirmed / Suspected / Not Assessable)
-- by partition
-- in COORDINATED mode, by `threat_match` -- and call out `contradicts-exclusion` counts specifically,
-  because those say the threat model judged something handled and the audit found it broken anyway
+**Do not re-run `merge-findings.ps1` once triage has begun.** See Step 5: the registry is a
+generated file and re-running it discards every decision made so far. If you need a count
+mid-triage, read it from `gate2_progress.md`.
 
-## Step 2 -- offer the review mode
+## Step 2 -- offer the pace, and say how long it will take
 
-Offer these, and let the user pick:
+Offer, with the real number attached:
 
-- **Walk all Critical and High findings** -- one at a time. ALWAYS available, at any finding count.
-- **Walk Criticals only**, with Highs as a grouped table.
-- **Summary only**, with the option to pull up any individual finding by id.
+- **Triage all Critical and High** -- one at a time. ALWAYS available at any count.
+- **Triage Criticals only**, Highs as a grouped table.
+- **Summary only**, with any finding available by id on request.
 
-If the total is large enough that a full walk risks becoming a rubber stamp, say so WITH THE NUMBER
-("that is 47 findings, roughly an hour") and let him choose anyway. You may flag the risk. You may not
-remove the option, cap the walk, or steer him away from it. If he picks the full walk, run the full
-walk.
+If the count is large enough that a full pass risks becoming a rubber stamp, say so *with the
+number* ("that is 53 findings, roughly 25 minutes at a quick pace") and let him choose anyway. You
+may flag the risk. You may not remove the option, cap the pass, or steer him off it.
 
-## Step 3 -- how to present each finding
+## Step 3 -- present each finding for a belonging judgement
 
-The user is a security practitioner, not a developer by trade. He often cannot evaluate whether a
-quoted line really constitutes the named vulnerability, and he has said so. Presenting raw finding
-YAML and asking "approve?" asks him to certify something he cannot assess -- he would approve, and the
-gate would emit a signal that looks like review and is not. That is the failure this format exists to
-prevent.
+He is a security practitioner, not a developer by trade, and has said he often cannot evaluate
+whether a quoted line really constitutes the named vulnerability. Presenting raw finding YAML and
+asking "approve?" asks him to certify something he cannot assess -- he would approve, and the gate
+would emit a signal that looks like review and carries no information.
 
-For each finding, in this order:
+Four lines, in this order:
 
-1. **What someone could do, and to what.** Plain language, one or two sentences, no jargon. Not
-   "unauthenticated IDOR in the user controller" but "anyone on the internet can read any user's
-   profile by changing a number in the URL -- no login required."
-2. **Where** -- the component and partition in human terms ("the auth service"), not just a path.
-3. **What the audit is claiming** -- one line: the finding's own claim, so he can judge whether it
-   sounds like the system he knows.
-4. **The evidence** -- file, line and the quoted source line. Present it as AVAILABLE, not as required
-   reading. One line, at the end. He may ignore it entirely and the review is still valid.
-5. In COORDINATED mode, if `threat_match` is `contradicts-exclusion`, say so prominently and quote the
-   ledger row it disproves. These are the highest-value findings in the run: the threat model looked
-   at this exact concern and concluded it was handled.
+1. **What someone could do, and to what** -- plain language, no jargon. Not "unauthenticated IDOR
+   in the user controller" but "anyone on the internet can read any user's profile by changing a
+   number in the URL, with no login."
+2. **Where** -- the component in human terms ("the auth service"), then `file:line`.
+3. **What has to be true first** -- the position an attacker must already hold. This is the line
+   that catches the findings he most wants gone: an unreachable precondition is visible here and
+   nowhere else. If the finding does not state one, say `precondition: not stated` rather than
+   inventing one.
+4. **The quoted evidence line** -- available, explicitly not required reading.
 
-Keep it to a few lines. If the plain-language statement needs a paragraph, the finding is probably
-two findings.
+In COORDINATED mode, if `threat_match` is `contradicts-exclusion`, lead with that and quote the
+ledger row it disproves.
 
-## Step 4 -- what to ask, and what never to ask
+Then the options, spelled out in words every time. Not abbreviations -- he could not tell `ok`
+from `skip` in the previous version, and `dev` meant nothing to him:
 
-Ask ONLY about things he is the best available source for:
+> **keep** -- looks like a real security issue, leave it in
+> **not security** -- may be a valid observation, but it is not a security finding
+> **not real** -- wrong about the system, or the attack could not happen here
+> **duplicate** -- same as another finding
+> **unsure** -- cannot tell, leave it in and move on
+>
+> Or just tell me what you think and I will work out which it is.
 
-- **Scope reality.** Is this component actually deployed? Decommissioned? An internal script rather
-  than a running service? The audit cannot know this and will state it confidently wrong.
-- **Business impact.** Is that data regulated? What does an outage of this actually cost? The `impact`
-  field is guesswork without him.
-- **Attested controls.** In COORDINATED mode, `contradicts-exclusion` findings claim a control he
-  attested to is missing or ineffective. He knows whether it is there.
-- **Deployment exposure.** Internet-facing, internal-only, air-gapped?
-- **Duplicates.** "Those three are the same thing" -- he often sees this faster than the tooling.
+`unsure` is a first-class answer and must read as one. Most findings may get `keep` or `unsure`,
+and that is the gate working. Never ask "are you sure?" after one, never re-raise a finding he has
+already dispositioned, and never make `unsure` feel like a shortfall.
 
-NEVER ask him to:
-- confirm that a quoted line really constitutes the named vulnerability
-- validate a severity or risk score on technical grounds
-- confirm an OWASP or CWE mapping
-- judge whether a proposed fix is correct
-- approve the finding "as written" in any general sense
+He does not have to use those words. If he says "that is the reporting service, it was
+decommissioned in March", that is `not real` plus a reason -- record it and move on without making
+him classify it.
 
-Those are your job and the workers' job. Asking anyway produces an answer with no information in it,
-which is worse than not asking, because it looks like validation afterwards.
+## Step 4 -- write progress after EVERY finding
 
-## Step 5 -- the answers, including the ones that are not answers
+He runs out of session tokens. A triage pass that cannot resume is one he has to abandon and
+redo, and the second pass will be less careful than the first.
 
-Offer these for every finding, all equally valid, all single-word:
+After each decision, append one row to `audit_state/gate2_progress.md`:
 
-| Answer | Meaning |
-|---|---|
-| `ok` | Sounds right, leave it |
-| `skip` | **I cannot judge this -- leave it exactly as the audit wrote it** |
-| `dev` | Flag for a developer to look at; leave the finding unchanged |
-| `scope` | Wrong about the system -- he explains, e.g. decommissioned, not deployed |
-| `impact` | The impact claim is wrong -- he explains |
-| `dup` | Duplicate of another finding -- he names it if he can |
+    | F-012 | not real | reporting service decommissioned March 2026 | 2026-07-31T14:22 |
 
-`skip` and `dev` are FIRST-CLASS answers, not failures. Most findings may get one of them, and that is
-the design working as intended. Never phrase a prompt so that `skip` reads as a shortfall, never ask
-"are you sure?" after one, and never re-ask a skipped finding later in the same walk. Anything that
-makes `skip` feel like giving up recreates the exact pressure this gate exists to remove.
+Write it immediately, not batched at the end. If the session dies mid-pass, that file is the whole
+record.
 
-## Step 6 -- record decisions WITHOUT inventing schema
+**On resume:** read `gate2_progress.md` first, tell him how many findings are already
+dispositioned and which id you are resuming from, and continue. Never restart a completed pass,
+and never re-ask a finding that already has a row.
 
-Write `audit_state/gate2_review_log.md`: one row per finding touched, with the answer, the user's own
-words, and the resulting action. This is the audit trail for the gate itself.
+## Step 5 -- apply decisions WITHOUT losing them
 
-Apply the outcomes to `findings_registry.md` using ONLY fields the schema already defines
-(`schemas.md`). Do NOT add values to the `status` enum and do NOT add fields:
+`findings_registry.md` is a **generated file**. `merge-findings.ps1` rebuilds it from the worker
+directories, so any edit you make here is discarded the moment that script runs again.
+
+So: `gate2_progress.md` is the durable record, and it is written first. Only when the pass is
+complete do you apply the outcomes to the registry, using fields the schema already defines
+(`schemas.md`). Do not invent `status` values and do not add fields:
 
 | Answer | Registry change |
 |---|---|
-| `ok`, `skip`, `dev` | none -- `status` stays `open` |
-| `scope` | `status: false_positive`, `sup:` = his statement, attributed |
-| `impact` | update the `impact` field, noting the correction and its source |
-| `dup` | `status: false_positive`, `sup:` = "duplicate of F-NNN", and add the id to `rel:` |
+| `keep`, `unsure` | none -- `status` stays `open` |
+| `not security` | `status: false_positive`, `sup:` = his words, attributed, plus `routed to architecture observations` |
+| `not real` | `status: false_positive`, `sup:` = his words, attributed |
+| `duplicate` | `status: false_positive`, `sup:` = "duplicate of F-NNN", and add that id to `rel:` |
 
-`status` and `sup` already exist for exactly this purpose, and `sup` is already required whenever
-`status` is `accepted` or `false_positive`. Updating a prior conclusion when new evidence invalidates
-it, and noting the correction, is what the source methodology instructs.
+If `merge-findings.ps1` is ever re-run after triage, re-apply from `gate2_progress.md` rather than
+asking him again. State plainly that you are doing so.
 
-If he says something that contradicts what the code shows, say so once, plainly, with the evidence,
-and let him decide. He is describing a system he operates and you do not. Do not interrogate, do not
-re-ask, do not treat his answer as a claim needing verification. Skepticism in this workflow is aimed
-at SUBAGENT OUTPUT, never at the user.
+Findings marked `not security` are **not deleted**. He said he was "really torn" about removing
+valid work with nowhere to go. They stay in the registry, suppressed with a reason, and Phase 5
+presents them separately from the security findings rather than dropping them.
 
-## Step 7 -- close the gate
+If something he says contradicts the code, say so once, plainly, with the evidence, and let him
+decide. He is describing a system he operates and you do not. Do not interrogate, do not re-ask,
+do not treat his answer as a claim needing verification. Skepticism in this workflow points at
+SUBAGENT OUTPUT, never at the user.
 
-State, with computed numbers: how many findings were reviewed, how many changed, how many are now
-`false_positive`, and how many are flagged for a developer. Confirm `gate2_review_log.md` was written
-and verified (rule W-d).
+## Step 6 -- close the gate, then renumber
 
-Then, and only then, dispatch Phase 5.
+State, with computed numbers: how many findings were triaged, how many kept, how many suppressed
+and under which reason, and how many are `unsure`. Confirm `gate2_progress.md` was written and
+verified (rule W-d).
 
-## What this gate does NOT do
+Also report any coverage shortfall or `CLAIMED-NOT-OBSERVED` result from `readplan.ps1 -Verify`.
+He is deciding whether this findings list is worth acting on, and "these came from a partition
+where 12 of 41 required files were never read" changes that judgement.
 
-There is deliberately no per-partition review as workers return. That was considered and declined on
-2026-07-30: run the tool a few times first and let field experience say whether more gates are needed,
-rather than designing them in on speculation. The per-worker directories under `audit_state/workers/`
-are never deleted, so adding per-partition review later costs nothing that is being given up now.
+Then run:
+
+```
+scripts/renumber-findings.ps1 -Workspace <WS> -ProjectName <PN>
+```
+
+Workers hold disjoint id blocks so they cannot collide, which leaves the merged registry reading
+F-001, F-021, F-101, F-250. A reader cannot tell whether those gaps mean findings were removed,
+lost, or never existed. This renumbers them contiguously and rewrites every `rel:` cross-reference
+and every attack-path reference in the same pass, then verifies nothing dangles. Worker
+directories keep their original ids, so any finding in the report is still traceable to the worker
+that produced it.
+
+Then dispatch Phase 5.

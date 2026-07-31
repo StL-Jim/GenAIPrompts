@@ -118,16 +118,46 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Check "[$mode] reconciliation says yes" ($plan -match 'Match: yes')
   Check "[$mode] no files lost" ($plan -notmatch 'FILES LOST')
 
-  $partFiles = @(Get-ChildItem -LiteralPath (Join-Path $state 'partitions') -Filter *.txt)
-  Check "[$mode] partition count within cap of 5" ($partFiles.Count -le 5) "got $($partFiles.Count)"
-  Check "[$mode] fixture exceeded cap, so 'assorted' exists" ($partFiles.Name -contains 'assorted.txt')
+  # Exclude the readset sidecar files readplan.ps1 writes alongside the partition lists.
+  $partFiles = @(Get-ChildItem -LiteralPath (Join-Path $state 'partitions') -Filter *.txt |
+    Where-Object { $_.BaseName -notmatch '\.readset(-deferred)?$' })
+  Check "[$mode] partition count within cap of 10" ($partFiles.Count -le 10) "got $($partFiles.Count)"
+  Check "[$mode] at least one partition created" ($partFiles.Count -ge 1)
 
-  # Every manifest file must land in exactly one partition -- a file in none is a file
-  # no worker reviews, which is the failure this reconciliation exists to catch.
+  # Partitions are now weighted by AUDITABLE SOURCE, so roots holding none get no worker
+  # deliberately. Coverage is therefore assigned + non-auditable == manifest, and the plan must
+  # SAY which roots got no worker -- a silently absent directory is indistinguishable from one
+  # nobody thought to look at.
   $assigned = @($partFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName })
-  Check "[$mode] partitions cover the whole manifest" ($assigned.Count -eq $manifest.Count) "assigned $($assigned.Count) vs manifest $($manifest.Count)"
+  $nonAudit = 0
+  if ($plan -match '(?m)^Files in non-auditable roots:\s+(\d+)') { $nonAudit = [int]$Matches[1] }
+  Check "[$mode] assigned + non-auditable == manifest" (($assigned.Count + $nonAudit) -eq $manifest.Count) "assigned $($assigned.Count) + nonaudit $nonAudit vs manifest $($manifest.Count)"
+  Check "[$mode] plan names the roots given no worker" ($plan -match 'Not assigned to any worker')
   $dupeAssign = @($assigned | Group-Object | Where-Object { $_.Count -gt 1 })
   Check "[$mode] no file in two partitions" ($dupeAssign.Count -eq 0)
+  Check "[$mode] plan reports the auditable surface" ($plan -match 'Auditable surface')
+
+  # ------------------------------------------------------------- readplan ---
+  $r = Invoke-Script 'readplan.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] readplan exits 0" ($r.Code -eq 0) "exit $($r.Code)"
+  $readsets = @(Get-ChildItem -LiteralPath (Join-Path $state 'partitions') -Filter '*.readset.txt')
+  Check "[$mode] a read floor per partition" ($readsets.Count -eq $partFiles.Count) "$($readsets.Count) floors vs $($partFiles.Count) partitions"
+  # The floor must be a SUBSET of the partition it belongs to -- a floor naming a file outside
+  # the worker's scope is a floor the worker cannot meet.
+  $escapes = @()
+  foreach ($rs in $readsets) {
+    $owner = $rs.BaseName -replace '\.readset$',''
+    $scope = @(Get-Content -LiteralPath (Join-Path $state "partitions\$owner.txt"))
+    foreach ($line in (Get-Content -LiteralPath $rs.FullName | Where-Object { $_ -ne '' })) {
+      $p = ($line -split "`t", 2)[1]
+      if ($scope -notcontains $p) { $escapes += "$owner : $p" }
+    }
+  }
+  Check "[$mode] every floor file is inside its own partition" ($escapes.Count -eq 0) ($escapes -join '; ')
+  # Verify must fail closed when there is no record of what a worker read, from any source.
+  $anyPart = $partFiles[0].BaseName
+  $r = Invoke-Script 'readplan.ps1' @('-Workspace', $fx, '-ProjectName', $proj, '-Verify', '-PartitionId', $anyPart, '-TranscriptRoot', (Join-Path $WorkRoot 'no-such-transcripts'))
+  Check "[$mode] readplan -Verify fails closed with no read record" ($r.Code -ne 0) "exit $($r.Code)"
 
   Check "[$mode] shared-component candidate flagged" ($plan -match '(?m)^- shared')
   $status = Get-Content -LiteralPath (Join-Path $state 'partition_status.md') -Raw
@@ -176,14 +206,14 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   $ff = Join-Path $state "workers\$firstPart\findings.md"
   $backup = Get-Content -LiteralPath $ff -Raw
 
-  # 1. duplicate finding ids across workers
-  $second = $partitionIds[1]
-  $sf = Join-Path $state "workers\$second\findings.md"
-  $sBackup = Get-Content -LiteralPath $sf -Raw
-  Set-Content -LiteralPath $sf -Encoding ASCII -NoNewline -Value ($sBackup -replace 'id: F-\d{3}', 'id: F-001')
+  # 1. duplicate finding ids. Injected by appending a second finding carrying an id already
+  #    used, which works whether the plan produced one partition or ten -- source-weighted
+  #    partitioning makes the count depend on the fixture's auditable surface.
+  Add-Content -LiteralPath $ff -Encoding ASCII -Value @(
+    '', 'id: F-001', "pid: $firstPart", 'src: dup/x.py:1-2', 'class: Confirmed', 'sev: High', '')
   $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] FAIL-CLOSED on duplicate finding ids" ($r.Code -ne 0) "exit $($r.Code)"
-  Set-Content -LiteralPath $sf -Encoding ASCII -NoNewline -Value $sBackup
+  Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value $backup
 
   # 2. severity outside Critical/High
   Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value ($backup -replace 'sev: High', 'sev: Medium')

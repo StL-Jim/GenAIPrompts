@@ -30,6 +30,21 @@ See `common.md` rule S for the bash-vs-PowerShell invocation forms.
    `audit_state/partition_status.md` (every partition `pending`), and
    `audit_state/partitions/<partition_id>.txt` (the exact file list per partition).
 
+   Partitions are sized by AUDITABLE SOURCE, not by file count, and the worker count is derived
+   from that surface. Expect FEWER partitions than a repo's directory count suggests -- a
+   directory of data files or generated reports gets no worker on purpose, and the plan lists
+   every root it left out. That is the design, not an omission.
+
+3. `scripts/readplan.ps1` -- writes `audit_state/partitions/<partition_id>.readset.txt`, the
+   READ FLOOR each worker must read in full, plus a `.readset-deferred.txt` of files it may
+   pattern-scan instead. Run it after partitioning and report its numbers.
+
+   This exists because a field run read too little source and nothing noticed: no phase computed
+   what a worker should read, so a worker chose what to read and then described what it chose.
+   If it prints `SPLIT REQUIRED` for a partition, do NOT hand that partition to one worker and
+   do NOT lower the floor -- say so in your summary so the orchestrator can re-partition at
+   GATE 1. If it prints a floor of ZERO for a partition, say that too.
+
 The partition plan the script writes is a PROPOSAL, capped at 5 partitions. You may adjust the
 grouping in `partition_plan.md` if discovery shows the script's directory-based guess is wrong --
 it does no import analysis and says so. If you do adjust it, keep

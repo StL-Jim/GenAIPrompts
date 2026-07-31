@@ -180,17 +180,56 @@ audit -- the precise outcome it exists to prevent.
 | Phase 1 Global Discovery | 1 subagent | `phase-1-discovery.md` | Deep reading needs its own window. Runs manifest.ps1 + partition-plan.ps1 |
 | Phase 2 Risk Prioritization | YOU | `phase-2.md` | Small; feeds GATE 1, which is a conversation |
 | GATE 1 | YOU | `phase-2.md` | Approve the partition plan before any worker runs |
-| Phase 3A x N | N parallel subagents | `phase-3a.md` | N <= 5, one per partition |
+| Phase 3A x N | N parallel subagents | `phase-3a.md` | One per partition |
+| readplan -Verify | YOU (script) | -- | After EACH worker returns, before accepting its output |
 | Phase 4A x N | N parallel subagents | `phase-4a.md` | After all 3A complete |
 | Phase 3B/4B | 1 subagent | `phase-3b-4b.md` | After all 4A. Reads across partitions |
 | merge-findings | YOU (script) | -- | Assembles globals, computes GATE 2 counts |
 | GATE 2 | YOU | `gate-2.md` | Review findings BEFORE anything derives from them |
+| renumber-findings | YOU (script) | -- | After GATE 2, before Phase 5. Contiguous ids for the report |
 | Phase 5 | 1 subagent PER deliverable | `phase-5.md` | Fresh output budget each |
 | Phase 6 | 1 subagent | `phase-6.md` | COORDINATED only |
 
-Cap partitions at 5. The limit is traceability, not capacity: beyond about five you cannot reliably
-track which worker covered what, and losing that costs more than the parallelism gains. A large
-codebase gets BIGGER partitions, not more of them.
+## Worker count is DERIVED, not chosen
+
+`partition-plan.ps1` sizes partitions by AUDITABLE SOURCE and derives the worker count from it
+(roughly one worker per 60 auditable files, capped at 10). Do not override it upward hoping for
+depth.
+
+Measured on a real repo: weighting by file count gave five partitions, two of which held no
+auditable source at all -- a 354-file directory of data files and a 67-file directory of generated
+reports each got a worker, while the entire auditable surface was 41 files. **More workers does not
+mean more source read.** The surface is the limit. If a repo genuinely needs ten workers, the plan
+will say so.
+
+Roots with no auditable source get no worker and are LISTED in the plan. Show that list at GATE 1:
+if one of them should have been audited, the classifier missed it, and that is worth catching
+before the run rather than after.
+
+## Verify coverage after every worker, yourself
+
+When a Phase 3A or 4A worker returns, do NOT take its word for what it read:
+
+```
+scripts/readplan.ps1 -Workspace <WS> -ProjectName <PN> -Verify -PartitionId <id>
+```
+
+You are a different agent from the one that did the reading, so this is an independent check, and
+it reconciles against the harness's own transcript of the worker's Read calls -- a record the
+worker does not author and cannot pad.
+
+- `VERDICT: COMPLETE` -> accept the worker's output, mark the partition, move on.
+- `VERDICT: SHORT` -> it names the unread files. Re-dispatch that worker with **exactly those
+  paths** in its briefing. That is a bounded worklist, not "read more". If a second pass is still
+  short, record the residual and raise it at GATE 2 -- a visible, counted gap beats a met number
+  nobody can trust.
+- `CLAIMED-NOT-OBSERVED` -> the worker's own read log names a file its transcript shows it never
+  opened. That is an integrity signal, not a coverage one. Raise it at GATE 2 regardless of the
+  verdict.
+- A `SELF-REPORTED` suffix means no transcript was found and the number came from the worker's own
+  log. Report it to the user as provisional; do not present it as verified.
+
+Never hand the user this command to run (rule V). You run it, you report it in plain language.
 
 ## Deviation from the source prompt, stated plainly
 
@@ -266,4 +305,18 @@ command does not happen. (`common.md` rule V.)
   `phase-5.md`, `phase-6.md` -- per-phase methodology
 - `gate-2.md` -- findings review protocol
 
-Scripts: `init-workspace.ps1`, `manifest.ps1`, `partition-plan.ps1`, `merge-findings.ps1`.
+Scripts, in the order a run uses them:
+
+| Script | Run by | When |
+|---|---|---|
+| `init-workspace.ps1` | you | session start, after mode is agreed |
+| `manifest.ps1` | Phase 1 | source inventory |
+| `partition-plan.ps1` | Phase 1 | source-weighted partitions, worker count derived |
+| `readplan.ps1` | Phase 1 | per-partition read floor |
+| `readplan.ps1 -Verify` | you | after EACH worker returns |
+| `merge-findings.ps1` | you | after all workers, before GATE 2 |
+| `renumber-findings.ps1` | you | after GATE 2, before Phase 5 |
+
+`lib-classify.ps1` is dot-sourced by `partition-plan.ps1` and `readplan.ps1`; it is not run
+directly. It holds the single definition of what counts as auditable source, so partitions are
+sized against the same rule the read floor is verified against.

@@ -276,6 +276,137 @@ Nothing in the run would report it: each worker verifies its own write succeeded
 root accumulates no audit artifacts. `manifest.ps1` must not treat it as target source code, and
 `init-workspace.ps1` must not clobber it -- Phase 5 reads and updates it by design.
 
+## FIELD RUN 2026-07-30/31 -- what actually happened, and what is still open
+
+First real run, on a monolithic application. Phases 1, 2, 3A and 4A ran; 3B/4B correctly did not
+(monolith, no cross-partition shared components); the orchestrator then jumped straight to GATE 2,
+skipping nothing else but reaching the gate without the merge step having run.
+
+**Result: 53 findings, of which only 22 were SAST-like code vulnerabilities.** The owner's verdict
+on the rest: over half the time the honest answer to "is this a security concern?" was no -- "it
+does NOT create an exploitable vulnerability." He also observed source coverage was low at Phase 3A
+and had to intervene BY HAND, asking for more subagents. Nothing in the run noticed.
+
+His stated goal, which constrains every fix below: **no ceiling, no target count, accuracy is the
+goal.** Not fewer findings -- correctly routed ones.
+
+### The rejects were TWO different problems needing opposite treatments
+
+1. **Security-framed but unreachable** -- an impossible man-in-the-middle on a Federal Reserve
+   network, DNS hijacking of external integrations, compromised CI/CD (where the CI/CD had nothing
+   to do with the application). These are WRONG and need filtering.
+2. **Valid but not security** -- he was "really torn" about deleting these, because they were
+   correct observations with nowhere to go. These need ROUTING, not filtering. Deleting correct
+   work because the tool offers no home for it is a design defect.
+
+### FIXED (committed 2026-07-31)
+
+Root cause of the file-name split: `common.md` said "the CARVED TEXT WINS", which inverted every
+framing override in the skill. Plus: phase-3b-4b named no output files at all (shared findings were
+being silently dropped); `partition_status.md` had no writer while `merge-findings.ps1` aborts
+without it; ID blocks were under-allocated by half (2N+1 needed, N documented) with no allocation
+map and no restart rule; coordination mode auto-detected instead of asking, and was detected twice
+with different tests; three Phase 5 subagents were all told to update the irreplaceable cross-run
+log; GATE 2 rebuilt as resumable triage; source-weighted partitioning; `readplan.ps1` read floor
+with orchestrator-run verification against the harness transcript; `renumber-findings.ps1`.
+
+On the owner's astrology repo, source weighting took the plan from 5 workers (2 of them on
+partitions with ZERO auditable source -- 354 files of chart data, 67 of generated reports) to 1
+worker holding all 41 auditable files. **This is why "more subagents" was never the lever.**
+
+### NOT FIXED -- needs the owner, because it changes `code-security-audit.md` itself
+
+He said he leans toward the recommendation but wants to discuss rather than bolt things on. The
+analysis is done; the edits are not made.
+
+**W1. Phase 4A output is routed into the security registry.** `architecture_review.md` ALREADY
+EXISTS as a dedicated stream (source line 575), and Phase 4A ALSO writes `findings.md` and
+`findings_registry.md` (576, 579). Once there, nothing distinguishes an architecture observation
+from a SQL injection. Removing that duplication is most of the 31-of-53, and it is a DELETION --
+the separate stream is already there. Phase 5 needs a matching section so the observations are
+delivered rather than lost, or they will be pushed back into the registry.
+
+**W2. Nothing filters on exploitability.** `risk_score = (severity x confidence x blast_radius x
+exploitability) / 10`. Exploitability is a MULTIPLIER, never a gate, and source line 1166 reads
+`Theoretical (no known exploit path) = 1` -- an unexploitable finding scores 1 and survives with
+its severity intact. There is no minimum score anywhere, and Phase 5 is explicitly forbidden from
+filtering (line 646).
+
+**W3. The prompt collects the fact that would kill the FRB finding, then forbids using it.** It
+asks whether the app is internet-facing or internal, spends the answer on a 0.6 multiplier, and
+line 1176 says "The internal-network modifier is NOT a license to deprioritize defects."
+
+**W4. No finding ever states its preconditions.** The word "precondition" appears once in 1243
+lines, as a scoring discount (line 1165). The finding schema has no field for attacker position:
+`ev` is evidence of code, `issue` describes the defect, `impact` describes consequence. Nothing
+asks what must already be true for the defect to be reachable. This is the single gap all three
+bad findings share.
+
+**W5. The severity enum forces inflation.** Critical/High only, restated in all three producing
+phases as "write it up at that severity or discard it entirely". There is no third destination in
+the whole document. Phase 4A's analysis list is coupling, dependency direction, resilience,
+operational fragility -- nine subjects, zero vulnerability classes -- and Phase 4A is MANDATORY (a
+partition cannot reach `done` without it, and Phase 5 blocks on partitions not done). A worker
+doing required work with no valid severity and a binary choice has one way to keep it: call it
+High.
+
+**W6. Novelty pressure rewards the wrong category.** "Unanticipated findings are the most important
+output" / "justify the entire toolchain". The fastest route to *unanticipated* is infrastructure or
+architecture the threat model never covered -- because threat models cover app vulnerabilities well
+and infrastructure poorly.
+
+**W7. Phase 3A's own scope produces non-security findings.** This matters more than W1 did, because
+4A was not the only source. Inside the SECURITY phase: `A08 -- insecure CI/CD` (the finding he
+flagged), `A04 -- missing security controls / threat modeling gaps`, `A09 -- logging and monitoring`
+(absence of logging is never itself exploitable), and a standing COMPLIANCE FRAMEWORK directive to
+"map all findings to NIST 800-53" and "identify control failures" -- a catalogue dominated by
+operational and infrastructure controls.
+
+### The recommended shape (analysed, not agreed)
+
+Three destinations rather than two: security findings that state an exploitable condition;
+architecture findings with their own deliverable and their own vocabulary, borrowing no severity
+scale; and an EXCLUDED LEDGER recording what was rejected and why.
+
+The ledger is not optional garnish. If a filter ships without it, the owner trades 31 visible
+hand-deletions for N invisible suppressions -- the same unease one layer deeper and no longer his
+to see. The threat model's `02b-excluded.md` is the working precedent.
+
+**What NOT to port from the threat model** (assessed against the audit's bottom-up shape):
+
+- NOT the L0-L4 ladder. The audit already has a five-point Exploitability scale doing that job;
+  a second overlapping scale is a labelling chore, and the failure was never that workers picked
+  the wrong rung -- it is that nothing made them write the precondition down at all. Port the
+  STATEMENT OBLIGATION, let the existing rating consume it.
+- NOT the L3/L4 likelihood cap. It works via the threat model's inclusion gate, which the audit
+  does not have. Porting it means inventing one, which is the change most likely to delete the
+  legitimate defence-in-depth findings the audit exists to produce.
+- NOT Impact-bound-to-Gains. It needs asset criticality tiers the audit has no counterpart for,
+  and the owner's rejects were unreachable preconditions, not inflated severities.
+- NOT the "no target count" / count-as-signal rule. The threat model treats >15 threats as a sign
+  its filters were loose; the audit says filtering is wrong. Opposite rules.
+- The already-compromised test folds in as ONE CLAUSE of the precondition test, not a second named
+  test. A precondition that already grants the impact is a precondition nobody needs to reach.
+
+**Where the edits live: `code-security-audit.md` itself, then re-emit the carve.** The lift
+machinery makes it cheap, both the prompt and the skill improve together, and the verbatim
+guarantee stays intact rather than becoming a thing with exceptions. Note that inserting text
+shifts every downstream carve range, so edit the source and re-run `carve.ps1 -Emit` -- never
+hand-edit a reference file.
+
+**Also blocking any filter work:** `phase-3a.md` currently says "defence-in-depth findings belong
+here and need no independent exploitability argument... do not import tests from the
+threat-modeling prompt." That is decision 1 written into the skill. It must be NARROWED in the same
+change -- not deleted, because the defence-in-depth sentence is the brake that stops the filter
+eating the audit's real output.
+
+### Separate concern, not this project
+
+The audit found MORE architecture issues than the STRIDE threat model did, which bothers the owner.
+Likely explanation: the audit reads code bottom-up and sees coupling that actually exists, while
+the threat model reasons top-down and sees only what its inventory captured. That is a threat-model
+gap worth its own session, not a reason to hobble the audit.
+
 ## Task breakdown
 
 1. Scaffolding: `skills/code-security-audit/` + `install.ps1`, one-paragraph version header.

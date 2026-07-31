@@ -50,9 +50,20 @@ threat model examined this exact concern and concluded it was handled, and the a
   return the completion banner verbatim in your summary, end your turn (`common.md` rule X-a).
 - **STATE.md:** orchestrator-owned. Do not mark Phase 6 done; report it and the orchestrator records
   it.
-- Finding ids appear as `F-NNN` (decision 7). If the Markdown intermediate carries a date-prefixed
-  form from an older run, render it as written rather than rewriting ids -- but flag the mismatch in
-  your summary.
+- Finding ids appear as `F-NNN` -- three digits, no date prefix, ever. If the Markdown intermediate
+  carries a date-prefixed form from an older run, render it as written rather than rewriting ids,
+  and flag the mismatch in your summary. Never GENERATE a date-prefixed id yourself.
+
+- **The reciprocal copy into the threat-model directory:** the carved text tells you to copy the
+  finished HTML to `{PROJECT_NAME}-threat-model/threat_audit_comparison.html`, and its completion
+  banner lists that path. `common.md` rule W confines your writes to `audit_state/`, and rule 6 makes
+  the threat-model directory read-only to this skill.
+
+  Resolution: **do not write it.** Produce `audit_state/threat_audit_comparison.html` only, and when
+  you return the completion banner, say plainly in your summary that the reciprocal copy was not made
+  and why. The orchestrator can place it with the user's say-so -- it is his threat model, and a copy
+  into another tool's output directory is his call, not a subagent's side effect. Do not report a
+  file you did not write.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 

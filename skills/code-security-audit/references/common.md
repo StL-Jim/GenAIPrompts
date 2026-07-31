@@ -42,6 +42,20 @@ verifier compares those regions against the source prompt by sha256 and fails on
 Read `global-rules.md` and `schemas.md` before producing any finding. They are not optional
 background; they define the fields you must populate and the severity bar you must apply.
 
+### Things the carved text names that do not exist here
+
+The carved methodology was lifted from a single-document prompt and sometimes points at parts of
+that document which this skill reorganised. These are not missing files:
+
+- **"the STATE FILE SYSTEM section"** -- the state schema, the artifact list and the session-start
+  behaviour live in `SKILL.md`, and the workspace bootstrap is `scripts/init-workspace.ps1`. You do
+  not need either: state is orchestrator-owned (rule X).
+- **`CHANGELOG.md`** -- in the repository, not in the installed skill. Version history is not
+  needed to run a phase.
+- **rule W-d** -- the write-verification step, defined inside rule W below. It is referenced
+  by name throughout; it means: after every write, confirm the file exists, is non-zero, and
+  starts as expected.
+
 ## Operating Rules (every subagent reads these before any work)
 
 R. Reading files. Use the native tools: Read for a single file, Glob for filename
@@ -159,10 +173,47 @@ X-a. How to read the carved text's STOP and "Type 'proceed'" instructions. The c
    text says about what to analyse, what to write, and what evidence is required is
    unaffected and binds fully.
 
+## PRECEDENCE -- read this before anything else conflicts
+
+Two kinds of instruction reach you, and they are not equal on the same subject.
+
+**METHODOLOGY -- what to analyse, what evidence is required, what counts as a finding, how to
+score it.** The carved text between `<!-- BEGIN VERBATIM CARVE -->` and `<!-- END VERBATIM CARVE -->`
+markers is authoritative. It is lifted word-for-word from the audit prompt. Do not paraphrase it,
+do not soften it, and do not substitute your own judgement for it.
+
+**MECHANICS -- WHERE files go, WHO writes them, WHEN you stop, WHO talks to the user.** The
+framing above the carve markers is authoritative, and the rules in this file are authoritative.
+The carved text was written for a single human-driven session running one phase at a time. You
+are a subagent running in parallel with siblings. Where the carved text describes mechanics that
+assume the older shape, the framing wins -- always, without exception, and without needing to be
+restated at the point of conflict.
+
+Concretely, and these are not examples to reason from but the actual answers:
+
+- Carved text lists `audit_state/findings_registry.md` among your outputs. **You do not write it.**
+  Write `audit_state/workers/<your_partition_id>/findings.md`. Rule W-p.
+- Carved text ends a phase with `STOP` and a banner telling the user to type 'proceed'. **You have
+  no user.** Write your files, return the banner in your summary, end your turn. Rule X-a.
+- Carved text tells you to update `STATE.md` or `partition_status.md`. **You do not.** The
+  orchestrator owns both. Rule X.
+- Carved text tells you to ask the user something. **You cannot.** Return the question in your
+  summary. Rule X.
+
+If you find yourself weighing whether a carved instruction about file placement, stopping, state
+updates, or user interaction overrides this file: it does not. That question has one answer and
+this section is it.
+
+A previous field run split on exactly this: some workers wrote `findings.md` and some wrote
+`findings_registry.md`, because a sentence here appeared to make the carved text win on
+everything. The merge reads only the former, so half the findings vanished silently -- each
+worker's own write verification passed, because its own write did succeed.
+
 ## Rules carried from the source prompt
 
 These restate GLOBAL RULES in `global-rules.md` for emphasis because field failures cluster here.
-Where this section and the carved text differ, the CARVED TEXT WINS.
+They are methodology, so where one of them differs from the carved text, the carved text wins --
+that precedence applies to THIS SECTION ONLY and never to the mechanics above.
 
 1. **Evidence or it didn't happen.** For `class = Confirmed`, `ev` MUST include at least one exact
    line quoted from the cited source. A citation without a quoted line is not verification. Never

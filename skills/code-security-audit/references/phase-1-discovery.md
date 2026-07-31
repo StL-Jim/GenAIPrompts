@@ -55,12 +55,34 @@ Three dispatch details differ here. Nothing about WHAT to analyse changes.
 - **Its STOP and "type proceed" banner:** you have no user to prompt. Write every output file, verify
   each write (rule W-d), return the completion banner verbatim in your summary, and end your turn.
   See `common.md` rule X-a.
-- **STATE.md:** orchestrator-owned. Do NOT update it, despite the "Before printing the banner,
-  update audit_state/STATE.md" instruction. Report what you completed and the orchestrator records
-  it. See `common.md` rule X.
-- **Coordination mode:** you DETECT and record it in `audit_state/coordination_mode.md` as the
-  methodology says. If detection is ambiguous, do not guess -- return the question in your summary
-  for the orchestrator to ask the user.
+- **STATE.md and partition_status.md:** orchestrator-owned. Do NOT update either, despite the
+  "Before printing the banner, update audit_state/STATE.md" instruction. `partition-plan.ps1` seeds
+  partition_status.md for you. Report what you completed and the orchestrator records it. See
+  `common.md` rule X.
+
+- **`.git/info/exclude` is already done.** The carved text tells you to add `audit_state/` and
+  `security_architecture_audit.md` entries. `init-workspace.ps1` ran before you and added
+  `audit_state*/` (note the wildcard) plus the log. Adding the non-wildcard form appends a duplicate,
+  because the idempotence check is a substring match and `audit_state/` is not a substring of
+  `audit_state*/`. Skip this step. If `.git/info/exclude` was missing, the script already warned --
+  and you cannot warn the user yourself in any case.
+- **Coordination mode is ALREADY DECIDED. Do not detect it and do not write
+  `coordination_mode.md`.** The carved text has this phase determine the mode, but the orchestrator
+  settled it with the user before dispatching you and has already written that file. READ it; treat
+  its value as final. Re-detecting with different tests is how `STATE.md` and `coordination_mode.md`
+  come to disagree, which strands the run at Phase 6.
+
+- **Deployment exposure, in STANDALONE mode: DO NOT INVENT IT.** The carved text tells you to stop
+  and ask the user "How is this application exposed?", and to record the answer. You cannot ask
+  anyone. That value is a multiplier on every exploitability score in the entire run, so a guess
+  silently mis-scores the whole audit and a defensive `Unknown` hard-codes the worst case without
+  telling anyone a question went unanswered.
+
+  If `coordination_mode.md` already carries a `DEPLOYMENT_EXPOSURE` value, use it -- the
+  orchestrator asked on your behalf. If it does not, finish every other part of this phase, write
+  all your output files, and return the question verbatim in your summary as the FIRST line, so
+  the orchestrator can put it to the user at GATE 1. Do not block the phase on it and do not
+  write a placeholder into any artifact.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 

@@ -34,12 +34,32 @@ Unlike the 3A/4A workers, you can and should read `audit_state/workers/*/finding
 When your finding is the shared root cause of symptoms several workers recorded, say so and cite their
 finding ids. That relationship is the single most useful thing this phase produces.
 
-## Write ONLY your own directory
+## Write ONLY your own directory -- and these exact filenames
 
-Everything goes under `audit_state/workers/<your_partition_id>/` (your briefing names it, typically
-`shared`). Same rule as every other worker: the GLOBAL `findings_registry.md` and `attack_paths.md`
-listed in the methodology below are **not yours to write** -- the orchestrator merges afterwards. See
-`common.md` rule W-p.
+Your briefing names your partition id (typically `shared`). Everything you write goes under
+`audit_state/workers/<your_partition_id>/`, using these names and no others:
+
+| File | Contents |
+|---|---|
+| `findings.md` | Every shared-component finding, in the `schemas.md` format |
+| `attack_paths.md` | Attack paths, including the cross-partition ones only you can build |
+| `evidence_index.md` | Your evidence citations |
+| `shared_review.md` | Your narrative review of the shared components |
+
+**The filenames matter more here than anywhere else in the run.** `merge-findings.ps1` assembles
+the global artifacts by reading exactly `findings.md`, `attack_paths.md` and `evidence_index.md`
+from each worker directory. A file under any other name is not read, not merged, and not reported
+missing -- it is simply absent from the audit, silently.
+
+The methodology below lists `audit_state/findings_registry.md`, `audit_state/attack_paths.md` and
+`audit_state/shared_components.md` as this phase's outputs. **Write none of those three.** The
+first two are global artifacts the orchestrator merges (`common.md` rule W-p). The third is
+Phase 1's inventory and is your INPUT -- overwriting it destroys the shared-component list this
+phase was dispatched to review.
+
+If you write your findings to `findings_registry.md` instead of `findings.md`, every
+shared-component finding in this run is lost. The attack paths would survive the merge and cite
+finding ids that appear nowhere, which is the shape that failure takes when it happens.
 
 Reading the other workers' directories is allowed. Writing into them is not.
 

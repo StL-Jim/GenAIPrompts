@@ -30,12 +30,39 @@ Check `audit_state/partition_status.md`. If any partition is not `done`, STOP an
 consolidate a partial audit into a report that will read as complete. `merge-findings.ps1` already
 enforces this, but it runs earlier and the check is cheap.
 
-## The cross-run log is the orchestrator's, and it is READ-UPDATE
+## STOP -- the `ALSO:` block below is NOT for you
 
-`security_architecture_audit.md` lives at the WORKSPACE ROOT, not in `audit_state/`. It is the only
-artifact that crosses runs, and archiving `audit_state/` must never carry it away. Read it, update it,
-never overwrite it. Handle it yourself rather than delegating: a subagent that misreads the path could
-destroy the history of every prior audit, and that is not recoverable from `audit_state/`.
+Read this before anything else in this file, because the carved methodology further down contains
+an `ALSO:` list that every Phase 5 subagent would otherwise act on, and three of you are running at
+once.
+
+**If you are a Phase 5 subagent, you write exactly ONE file: the deliverable your briefing names.**
+Nothing else. Specifically, you do NOT:
+
+- update `security_architecture_audit.md` at the workspace root
+- generate `audit_state/C4_architecture.md`, unless you are the 5-c4 subagent and it is your named
+  deliverable
+
+The carved `ALSO:` block assigns both to "Phase 5", which was one agent making sequential calls in
+the original prompt. Here Phase 5 is four parallel subagents. If each obeys that list, three of you
+read-modify-write the same root-level file simultaneously and the last writer wins.
+
+`security_architecture_audit.md` is the ONLY artifact that survives between runs. It is not in
+`audit_state/`, so archiving cannot restore it and neither can re-running the audit. Losing it
+destroys the history of every prior audit permanently. That is why it belongs to one actor.
+
+## The cross-run log is the ORCHESTRATOR's
+
+`security_architecture_audit.md` lives at the WORKSPACE ROOT, not in `audit_state/`. Read it, update
+it, never overwrite it. Orchestrator: handle this yourself after the deliverable subagents return.
+Do not delegate it, and do not let a subagent do it as a side effect of the `ALSO:` block.
+
+## Classification marking: use the default, do not ask
+
+The carved text says to ask the user once for a classification marking if none was specified. You
+are a subagent and cannot ask. Use the documented default `Internal Use Only`, note in your summary
+that you defaulted, and let the orchestrator raise it if it matters. Stopping to ask produces no
+deliverable at all, which is a worse outcome than a marking the owner can correct in one edit.
 
 ## GATE 2 outcomes interact with the "include every finding" rule
 

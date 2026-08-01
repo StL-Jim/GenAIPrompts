@@ -81,6 +81,23 @@ Four lines, in this order:
    nowhere else. If the finding does not state one, say `precondition: not stated` rather than
    inventing one.
 4. **The quoted evidence line** -- available, explicitly not required reading.
+5. **What the critic and judge made of it** -- one line. `judge_rulings.md` has a ruling for every
+   finding; show it, and show the critic's grounds when there was a challenge:
+
+   > *Judge: upheld. Critic challenged the precondition; judge checked the call sites and found the
+   > endpoint routed with no auth in front of it.*
+
+   This is CONTEXT for his review, not a filter on it. He is reviewing every finding regardless
+   until the scorecard earns otherwise, and a ruling he disagrees with is exactly the signal that
+   makes the scorecard worth keeping.
+
+Present findings the judge REJECTED too, in their own short section with the ruling's reason. He is
+the superior judge and can overturn any of them. Never let a rejection disappear -- a filter whose
+output he cannot see is the thing he was worried about when he reviewed all 53 by hand.
+
+Findings the judge ruled `unresolved` come FIRST, before anything else. Those are the ones where the
+repository genuinely could not answer the question and only he can -- "is the /reports/export
+endpoint still live in production?" They are the highest-value minutes in the whole gate.
 
 In COORDINATED mode, if `threat_match` is `contradicts-exclusion`, lead with that and quote the
 ledger row it disproves.
@@ -109,9 +126,14 @@ him classify it.
 He runs out of session tokens. A triage pass that cannot resume is one he has to abandon and
 redo, and the second pass will be less careful than the first.
 
-After each decision, append one row to `audit_state/gate2_progress.md`:
+After each decision, append one row to `audit_state/gate2_progress.md`, INCLUDING the judge's
+ruling so the two can be compared later:
 
-    | F-012 | not real | reporting service decommissioned March 2026 | 2026-07-31T14:22 |
+    | F-012 | not real | reporting service decommissioned March 2026 | judge:uphold | 2026-07-31T14:22 |
+
+That fourth column is what `score-judge.ps1` reads. It is how the owner finds out whether the judge
+can be trusted to shorten his review, rather than deciding to trust it -- so do not omit it, even
+when the two agree.
 
 Write it immediately, not batched at the end. If the session dies mid-pass, that file is the whole
 record.
@@ -157,6 +179,16 @@ verified (rule W-d).
 Also report any coverage shortfall or `CLAIMED-NOT-OBSERVED` result from `readplan.ps1 -Verify`.
 He is deciding whether this findings list is worth acting on, and "these came from a partition
 where 12 of 41 required files were never read" changes that judgement.
+
+Then score the judge against him:
+
+```
+scripts/score-judge.ps1 -Workspace <WS> -ProjectName <PN>
+```
+
+Report it in plain language. The number that matters is not the agreement rate but the DIRECTION of
+disagreement: findings the judge rejected that he kept are the dangerous ones, and any of them means
+he keeps reviewing everything. Say so plainly if that happens rather than leading with a percentage.
 
 Then run:
 

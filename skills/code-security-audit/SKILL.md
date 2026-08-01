@@ -187,6 +187,8 @@ audit -- the precise outcome it exists to prevent.
 | Phase 4A x N | N parallel subagents | `phase-4a.md` | After all 3A complete |
 | Phase 3B/4B | 1 subagent | `phase-3b-4b.md` | After all 4A. Reads across partitions |
 | merge-findings | YOU (script) | -- | Assembles globals, computes GATE 2 counts |
+| Critic pass | 1 subagent | `critic.md` | Argues AGAINST every finding, re-reading the code |
+| Judge pass | 1 subagent | `judge.md` | Settles each dispute; routes only what the repo cannot answer |
 | GATE 2 | YOU | `gate-2.md` | Review findings BEFORE anything derives from them |
 | renumber-findings | YOU (script) | -- | After GATE 2, before Phase 5. Contiguous ids for the report |
 | Phase 5 | 1 subagent PER deliverable | `phase-5.md` | Fresh output budget each |
@@ -207,6 +209,42 @@ will say so.
 Roots with no auditable source get no worker and are LISTED in the plan. Show that list at GATE 1:
 if one of them should have been audited, the classifier missed it, and that is worth catching
 before the run rather than after.
+
+## Finder, critic, judge -- and the owner as the last word
+
+Findings are written by the agent that discovered them, so until the critic runs nothing has argued
+the other side. A field run produced 53 findings of which only 22 were security issues, and the
+owner caught that by reading all 53 himself. These two passes exist to stop that being his job.
+
+Dispatch them in order, after `merge-findings.ps1` and before GATE 2:
+
+1. **Critic** (`critic.md`) -- reads the registry and the SOURCE, never the workers' narratives, and
+   makes the strongest honest case against each finding. `challenge: none` is expected on most.
+2. **Judge** (`judge.md`) -- reads the finding and the critique, then GOES AND READS THE CODE when
+   that is what would settle the dispute. Rules `uphold`, `reject`, or `unresolved`.
+
+Neither edits `findings_registry.md`. Nothing is deleted by either. The critic writes
+`critic_review.md`, the judge writes `judge_rulings.md`, and rejections stay visible with reasons.
+
+**`unresolved` means the repository cannot answer it -- only the owner can.** "Is this call site
+reachable" is a code question the judge settles. "Is that service still deployed" is not in any
+file. Those are the ones worth his attention, and they should be few.
+
+The owner is the superior judge. He can overturn any ruling at GATE 2, and until the scorecard
+earns it he reviews everything regardless -- the rulings are context for his review, not a filter
+on it.
+
+### Score the judge against him, every run
+
+    scripts/score-judge.ps1 -Workspace <WS> -ProjectName <PN>
+
+Run it after GATE 2. It compares the judge's rulings against the decisions he actually recorded in
+`gate2_progress.md` and reports the disagreements by direction. The dangerous one is JUDGE REJECTED
+/ OWNER KEPT: a real finding thrown away. Any of those and full review continues.
+
+This exists because he wants to stop reading every finding before forwarding it to a development
+team, and that has to be earned by measurement across several runs rather than decided. Report the
+scorecard to him in plain language; never ask him to run it (rule V).
 
 ## Verify coverage after every worker, yourself
 

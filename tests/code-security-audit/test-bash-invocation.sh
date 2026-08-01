@@ -124,6 +124,12 @@ check "merge-findings.ps1 runs from bash with worker output" $?
 $PS "$SK_WIN\\renumber-findings.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" -WhatIf >/dev/null 2>&1
 check "renumber-findings.ps1 runs from bash" $?
 
+# score-judge with neither input present must fail closed, not fail to launch.
+$PS "$SK_WIN\\score-judge.ps1" -Workspace "$WS_WIN" -ProjectName "$PN" >/dev/null 2>&1
+rc=$?
+if [ $rc -ne 0 ]; then pass=$((pass+1)); echo "  PASS  score-judge.ps1 runs from bash and fails closed with no inputs"
+else fail=$((fail+1)); echo "  FAIL  score-judge.ps1 should not succeed with no rulings or decisions"; fi
+
 # The carve verifier is a build-time tool but is run the same way from CI or a bash shell.
 CARVE_WIN="$(cd "$HERE" && pwd -W 2>/dev/null | sed 's|/|\\|g')"
 [ -z "$CARVE_WIN" ] && CARVE_WIN="$HERE"

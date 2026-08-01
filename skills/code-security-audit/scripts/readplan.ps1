@@ -45,6 +45,18 @@ param(
   # What ONE worker can read AND still have budget left to reason and write findings.
   # Also the partitioning target -- see SPLIT REQUIRED.
   [int]$FloorPerWorker = 60,
+  # The SAME claim expressed in the unit that actually binds. Derived, not guessed, against the
+  # 200K window the owner's work environment is fixed to until ~Sep 2026:
+  #
+  #   200,000  context window
+  #   -14,700  worker instructions (measured: common + global-rules + schemas + tool-usage + phase-3a)
+  #    -2,000  worker_context, partition list, readset
+  #   -45,000  reserve for reasoning, findings, and the excluded ledger
+  #   = ~138,000 tokens for source  ~=  550 KB at ~4 bytes/token
+  #
+  # Held at 500 KB for headroom. Raise it only alongside a larger window, and if the reserve ever
+  # proves too small the symptom will be truncated findings, not a refusal to read.
+  [int]$FloorKBPerWorker = 500,
   [int]$BulkClassThreshold = 40,
   [string]$TranscriptRoot = (Join-Path $env:USERPROFILE '.claude\projects')
 )
@@ -157,15 +169,36 @@ if (-not $Verify) {
     }
     "  {0,-14} {1,8} {2,9} {3,10}" -f 'TOTAL', $files.Count, $floorList.Count, $deferredList.Count
     "  Partition files: $($files.Count) | classified: $($set.Count) | non-code/asset: $($files.Count - $set.Count)"
-    "  READ FLOOR: $($floorList.Count) files -> $floorPath"
+
+    # SIZE, not just count. A floor is a claim about what fits in one worker's context window,
+    # and a file count cannot make that claim: 60 config fragments and 60 service classes differ
+    # by an order of magnitude. Sixty was chosen with no size basis at all, and on a codebase of
+    # ordinary 8-15KB classes it silently describes two to three times a 200K window as "one
+    # worker". The failure mode is the worst kind -- the worker does not refuse, it reads until
+    # it runs out and reasons over whatever happened to fit.
+    $floorBytes = 0
+    foreach ($it in $floorList) {
+      $fp = Join-Path $WORKSPACE ($it.Path -replace '/','\')
+      if (Test-Path -LiteralPath $fp) { $floorBytes += (Get-Item -LiteralPath $fp).Length }
+    }
+    $floorKB     = [math]::Round($floorBytes / 1KB)
+    $floorTokens = [math]::Round($floorBytes / 4)   # ~4 bytes/token is a fair rule of thumb for code
+    "  READ FLOOR: $($floorList.Count) files, $floorKB KB (~$floorTokens tokens) -> $floorPath"
 
     if ($floorList.Count -eq 0) {
       Write-Warning "Partition '$pname' has a read floor of ZERO -- it contains no auditable source. Dispatching a worker to it spends a worker on nothing. Raise this at GATE 1."
     }
-    if ($floorList.Count -gt $FloorPerWorker) {
-      $needed = [math]::Ceiling($floorList.Count / [double]$FloorPerWorker)
-      $splitNeeded += "$pname (floor $($floorList.Count), needs $needed workers)"
-      Write-Warning "SPLIT REQUIRED: partition '$pname' has a floor of $($floorList.Count) files against a per-worker capacity of $FloorPerWorker. Do NOT hand this to one worker and do NOT lower the floor -- split it into $needed partitions at GATE 1. An unmeetable floor is the failure this script exists to prevent."
+
+    # Either limit can bind, and the binding one decides the split. Files still matter separately
+    # from bytes: each is a tool call and a claim on attention, so many tiny files are not free
+    # even when their bytes are trivial.
+    $needByFiles = if ($floorList.Count -gt $FloorPerWorker) { [math]::Ceiling($floorList.Count / [double]$FloorPerWorker) } else { 1 }
+    $needByBytes = if ($floorKB -gt $FloorKBPerWorker)       { [math]::Ceiling($floorKB / [double]$FloorKBPerWorker) }       else { 1 }
+    $needed = [math]::Max($needByFiles, $needByBytes)
+    if ($needed -gt 1) {
+      $driver = if ($needByBytes -ge $needByFiles) { "$floorKB KB against a budget of $FloorKBPerWorker KB" } else { "$($floorList.Count) files against a capacity of $FloorPerWorker" }
+      $splitNeeded += "$pname (floor $($floorList.Count) files / $floorKB KB, needs $needed workers)"
+      Write-Warning "SPLIT REQUIRED: partition '$pname' exceeds one worker -- $driver. Do NOT hand this to one worker and do NOT lower the floor -- split it into $needed partitions at GATE 1. An unmeetable floor is the failure this script exists to prevent."
     }
     ""
   }

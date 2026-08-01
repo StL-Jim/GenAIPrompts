@@ -113,9 +113,19 @@ if (Test-Path -LiteralPath $planFile) {
 $readsets = @(Get-ChildItem -LiteralPath (Join-Path $stateDir 'partitions') -Filter '*.readset.txt' -ErrorAction SilentlyContinue)
 $floors = @()
 $extCount = @{}
+$totalKB = 0
 foreach ($rs in $readsets) {
   $rows = @(Get-Content -LiteralPath $rs.FullName | Where-Object { $_.Trim() -ne '' })
-  $floors += "$($rs.Name -replace '\.readset\.txt$','')=$($rows.Count)"
+  # BYTES as well as files. A floor is a claim about one worker's context window and a file count
+  # cannot make that claim -- 145 config fragments and 145 service classes differ by 10x.
+  $pb = 0
+  foreach ($r in $rows) {
+    $fp = Join-Path $Repo ((($r -split "`t")[-1]) -replace '/','\')
+    if (Test-Path -LiteralPath $fp) { $pb += (Get-Item -LiteralPath $fp).Length }
+  }
+  $pkb = [math]::Round($pb / 1KB)
+  $totalKB += $pkb
+  $floors += "$($rs.Name -replace '\.readset\.txt$','')=$($rows.Count)/${pkb}KB"
   foreach ($r in $rows) {
     $p = ($r -split "`t")[-1]
     $e = [System.IO.Path]::GetExtension($p)
@@ -151,7 +161,7 @@ $split = if ($splitHit.Count -gt 0) { 'YES' } else { 'no' }
 "=============================================================================="
 "---8<---"
 "repo=$name"
-"files=$manifestTotal auditable=$auditTotal workers=$($readsets.Count) split=$split"
+"files=$manifestTotal auditable=$auditTotal workers=$($readsets.Count) split=$split floorKB=$totalKB"
 "floor: $($floors -join ' ')"
 "ext: $($topExt -join ' ')"
 "why: $($topWhy -join ' ')"

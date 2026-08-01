@@ -444,6 +444,40 @@ Check 'readplan.ps1 delegates the sink test to lib-classify' `
   ($readplanSrc -match 'Test-SinkShared' -and $readplanSrc -notmatch 'Select-String[^\n]*\$sinkRe') `
   'a private copy of the sink test drifts from the shared one without any test failing'
 
+# ------------------------------------------- read floor is a SIZE, not a count ---
+#
+# A floor is a claim about what fits in one worker's context window. A file count cannot make
+# that claim: 60 config fragments and 60 service classes differ by an order of magnitude, and
+# the original 60-file cap was chosen with no size basis at all. The failure it allows is the
+# quiet kind -- the worker does not refuse an over-large floor, it reads until the window fills
+# and then reasons over whatever happened to fit.
+#
+# This asserts the BYTE limit can bind INDEPENDENTLY of the file limit, which is the whole point:
+# the fixture is two files, far under any file cap, and must still split.
+$kbTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("kbtest-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path (Join-Path $kbTmp 'src') | Out-Null
+try {
+  $blob = ('    var q = "SELECT * FROM Users WHERE n=" + name;' + [Environment]::NewLine) * 60
+  1..2 | ForEach-Object {
+    Set-Content -LiteralPath (Join-Path $kbTmp "src\Svc$_.cs") -Value "public class Svc$_ {`r`n$blob`r`n}" -Encoding UTF8
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $kbTmp, '-ProjectName', 'kbtest')
+  $null = Invoke-Script 'partition-plan.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest')
+
+  # Generous file cap, tiny byte budget: only the size rule can produce a split here.
+  $tight = Invoke-Script 'readplan.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest', '-FloorPerWorker', '60', '-FloorKBPerWorker', '1')
+  Check 'read floor reports size alongside file count' ($tight.Output -match 'READ FLOOR:\s*\d+ files,\s*\d+ KB') 'a floor stated only in files cannot be checked against a context window'
+  Check 'SPLIT REQUIRED can be driven by BYTES with the file cap unmet' `
+    ($tight.Output -match 'SPLIT REQUIRED' -and $tight.Output -match 'KB against a budget') `
+    'two files is far under any file cap -- if this does not split, size is not actually binding'
+
+  # And the same floor must NOT split when the byte budget is ample: a rule that always fires is
+  # as useless as one that never does.
+  $loose = Invoke-Script 'readplan.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest', '-FloorPerWorker', '60', '-FloorKBPerWorker', '5000')
+  Check 'no split when both budgets are ample' ($loose.Output -notmatch 'SPLIT REQUIRED') 'the size rule must discriminate, not fire unconditionally'
+} finally { Remove-Item -Recurse -Force -LiteralPath $kbTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

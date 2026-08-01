@@ -104,7 +104,7 @@ Both are in the carved text and both are easy to violate by habit:
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=640-913 sha256=60f8d07906f2a52469d14b61394ffac84859375c735d8b173ffcc5492db6ffa3 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=634-908 sha256=e5fb492360f542837f71f07c54ba0fa9d8f8c07bf1199a94590f6311a2c8f755 -->
 ### PHASE 5 -- CONSOLIDATION
 
 CRITICAL execution discipline for this phase: produce the consolidated outputs with minimal preamble. Do NOT write extensive planning notes, do NOT describe what the final report will contain in prose before producing it, do NOT enumerate which findings will appear before generating the actual content. Acknowledge in one short line that all required state files are present, then go directly to producing the output files.
@@ -158,7 +158,8 @@ OUTPUT:
 5. Top Attack Paths (3-5)
 6. Shared Component Risk Summary
 7. Evidence Gaps
-8. Optional Patch Set
+8. Architecture and Operability Observations -- drawn from each partition's architecture_review.md and presented AS OBSERVATIONS: no severity, no risk score, no finding IDs, and not counted in any finding total. They are a separate class of output with a separate audience, and mixing them into the findings table is what made an earlier run report 53 findings of which only 22 were security issues. Order them by consequence in prose. If there are none, say so in one line.
+9. Optional Patch Set
 
 Do NOT produce an overall security score, security grade, architecture score, architecture grade, or any aggregate letter-grade or numeric rating for the application as a whole. Aggregate scores and grades do not meaningfully reflect application security posture and are explicitly excluded. Per-finding severity and per-finding risk scores ARE retained (see RISK SCORING) -- the exclusion applies only to rolled-up overall scores and grades.
 

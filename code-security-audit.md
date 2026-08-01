@@ -467,38 +467,38 @@ For each new finding the worker produces in this partition:
 
 The `unanticipated` and `contradicts-exclusion` findings are the most important output for stakeholders. They represent code defects the threat model did not anticipate (or wrongly judged mitigated). Flag them clearly in worker findings files.
 
-ANALYZE (mapped to OWASP Top Ten 2021 and NIST 800-53r5):
-- **A01:2021 - Broken Access Control** (NIST: AC-*, IA-*)
+ANALYZE (mapped to OWASP Top Ten 2021):
+- **A01:2021 - Broken Access Control**
   - auth/authz patterns
   - IDOR vulnerabilities
   - privilege escalation
-- **A02:2021 - Cryptographic Failures** (NIST: SC-8, SC-12, SC-13, SC-28)
+- **A02:2021 - Cryptographic Failures**
   - secrets management + crypto
   - sensitive data exposure
   - insecure transmission
-- **A03:2021 - Injection** (NIST: SI-10, SI-11)
+- **A03:2021 - Injection**
   - SQL, NoSQL, OS command, LDAP injection
   - XSS, template injection
-- **A04:2021 - Insecure Design** (NIST: PL-8, SA-8, RA-3)
+- **A04:2021 - Insecure Design**
   - missing security controls
   - threat modeling gaps
-- **A05:2021 - Security Misconfiguration** (NIST: CM-6, CM-7, CM-8)
+- **A05:2021 - Security Misconfiguration**
   - config integrity
   - default credentials
   - unnecessary features enabled
-- **A06:2021 - Vulnerable and Outdated Components** (NIST: RA-5, SI-2)
+- **A06:2021 - Vulnerable and Outdated Components**
   - supply-chain-visible risks
   - dependency vulnerabilities
-- **A07:2021 - Identification and Authentication Failures** (NIST: IA-2, IA-5, IA-8)
+- **A07:2021 - Identification and Authentication Failures**
   - session management
   - credential management
-- **A08:2021 - Software and Data Integrity Failures** (NIST: SI-7, SA-10, SA-15)
+- **A08:2021 - Software and Data Integrity Failures**
   - deserialization vulnerabilities
   - insecure CI/CD
-- **A09:2021 - Security Logging and Monitoring Failures** (NIST: AU-2, AU-3, AU-6, AU-12)
+- **A09:2021 - Security Logging and Monitoring Failures**
   - logging and audit
   - incident detection
-- **A10:2021 - Server-Side Request Forgery (SSRF)** (NIST: SC-7, SI-10)
+- **A10:2021 - Server-Side Request Forgery (SSRF)**
   - SSRF / outbound calls
   - URL validation
 
@@ -506,11 +506,6 @@ Additional analysis:
 - validation patterns
 - error handling
 - race conditions
-
-**COMPLIANCE FRAMEWORK:**
-- Map all findings to NIST 800-53 Rev 5 controls
-- Document control family (AC, IA, SC, SI, AU, CM, etc.)
-- Identify control failures and recommended control enhancements
 
 OUTPUT FILES:
 - audit_state/workers/<partition_id>/security_review.md
@@ -554,11 +549,14 @@ INPUT:
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
-- Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
+- This phase does NOT produce security findings. It produces ARCHITECTURE OBSERVATIONS, and they belong in `architecture_review.md` only. They get no finding ID, no severity, no risk score, and no entry in `findings.md` or `findings_registry.md`.
+- The Critical/High severity floor does not apply here, because it does not mean anything here. Coupling, resilience and operational fragility do not sit on a scale whose two anchors are "complete system compromise, data breach, RCE" and "significant data exposure, privilege escalation, auth bypass". Forcing them onto it yields inflated severities rather than information: the only way to keep a real architecture observation was to call it High, and it then competed with SQL injection in the same ranked list.
+- Record each observation with what it is, where it is, why it matters operationally, and the evidence for it. Order them by consequence in your own words. Do not borrow the security severity vocabulary to do that.
+- If, while reviewing architecture, you find an actual exploitable CODE DEFECT, that is a Phase 3A finding. Record it as one, in `findings.md`, with everything Phase 3A requires.
 
 MODE-DEPENDENT BEHAVIOR:
 
-Same pattern as Phase 3A. In COORDINATED mode, apply the threat cross-reference procedure (from Phase 3A) to every architecture finding before writing it to disk. Architecture findings can match threat model threats too -- for example, a missing-bulkhead pattern finding may correspond to a threat about cascading failure. Same `confirms` / `partial` / `unanticipated` semantics apply.
+In COORDINATED mode, note in `architecture_review.md` where an observation corresponds to a threat in the model -- a missing-bulkhead pattern may correspond to a threat about cascading failure, and saying so is useful to a reader. Do NOT run the threat cross-reference procedure and do NOT populate `threat_id` or `threat_match`: those are finding fields, and this phase produces no findings.
 
 ANALYZE:
 - coupling/cohesion
@@ -572,12 +570,8 @@ ANALYZE:
 - operational fragility
 
 OUTPUT FILES:
-- audit_state/workers/<partition_id>/architecture_review.md
-- audit_state/workers/<partition_id>/findings.md
-- audit_state/workers/<partition_id>/attack_paths.md
+- audit_state/workers/<partition_id>/architecture_review.md (the SOLE home for this phase's observations)
 - audit_state/workers/<partition_id>/evidence_index.md (updated with architecture evidence -- READ before WRITE; do not overwrite the Phase 3A entries)
-- audit_state/findings_registry.md
-- audit_state/attack_paths.md
 - audit_state/partition_status.md (this partition set to done)
 
 Before printing the banner, perform both state updates:
@@ -690,7 +684,8 @@ OUTPUT:
 5. Top Attack Paths (3-5)
 6. Shared Component Risk Summary
 7. Evidence Gaps
-8. Optional Patch Set
+8. Architecture and Operability Observations -- drawn from each partition's architecture_review.md and presented AS OBSERVATIONS: no severity, no risk score, no finding IDs, and not counted in any finding total. They are a separate class of output with a separate audience, and mixing them into the findings table is what made an earlier run report 53 findings of which only 22 were security issues. Order them by consequence in prose. If there are none, say so in one line.
+9. Optional Patch Set
 
 Do NOT produce an overall security score, security grade, architecture score, architecture grade, or any aggregate letter-grade or numeric rating for the application as a whole. Aggregate scores and grades do not meaningfully reflect application security posture and are explicitly excluded. Per-finding severity and per-finding risk scores ARE retained (see RISK SCORING) -- the exclusion applies only to rolled-up overall scores and grades.
 

@@ -1,4 +1,4 @@
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1012-1198 sha256=2e6c0b868ed0ea856b10dc21fbb0e76ef9c8ff57a024d630721e22d400bd5014 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1007-1193 sha256=2e6c0b868ed0ea856b10dc21fbb0e76ef9c8ff57a024d630721e22d400bd5014 -->
 FINDING SCHEMA (COMPACT)
 Use this compact schema for findings_registry.md and worker findings:
 

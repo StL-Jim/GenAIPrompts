@@ -118,7 +118,7 @@ tests from the threat-modeling prompt.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=425-540 sha256=59941e42a7764454715737aeae912b24e579dff5c0def776590c9e493e9157ac -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=425-535 sha256=a3265010dc235fc731075c1771334968360f757de9c04bdd5579c3b4c32e1083 -->
 ### PHASE 3A -- WORKER SECURITY REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -164,38 +164,38 @@ For each new finding the worker produces in this partition:
 
 The `unanticipated` and `contradicts-exclusion` findings are the most important output for stakeholders. They represent code defects the threat model did not anticipate (or wrongly judged mitigated). Flag them clearly in worker findings files.
 
-ANALYZE (mapped to OWASP Top Ten 2021 and NIST 800-53r5):
-- **A01:2021 - Broken Access Control** (NIST: AC-*, IA-*)
+ANALYZE (mapped to OWASP Top Ten 2021):
+- **A01:2021 - Broken Access Control**
   - auth/authz patterns
   - IDOR vulnerabilities
   - privilege escalation
-- **A02:2021 - Cryptographic Failures** (NIST: SC-8, SC-12, SC-13, SC-28)
+- **A02:2021 - Cryptographic Failures**
   - secrets management + crypto
   - sensitive data exposure
   - insecure transmission
-- **A03:2021 - Injection** (NIST: SI-10, SI-11)
+- **A03:2021 - Injection**
   - SQL, NoSQL, OS command, LDAP injection
   - XSS, template injection
-- **A04:2021 - Insecure Design** (NIST: PL-8, SA-8, RA-3)
+- **A04:2021 - Insecure Design**
   - missing security controls
   - threat modeling gaps
-- **A05:2021 - Security Misconfiguration** (NIST: CM-6, CM-7, CM-8)
+- **A05:2021 - Security Misconfiguration**
   - config integrity
   - default credentials
   - unnecessary features enabled
-- **A06:2021 - Vulnerable and Outdated Components** (NIST: RA-5, SI-2)
+- **A06:2021 - Vulnerable and Outdated Components**
   - supply-chain-visible risks
   - dependency vulnerabilities
-- **A07:2021 - Identification and Authentication Failures** (NIST: IA-2, IA-5, IA-8)
+- **A07:2021 - Identification and Authentication Failures**
   - session management
   - credential management
-- **A08:2021 - Software and Data Integrity Failures** (NIST: SI-7, SA-10, SA-15)
+- **A08:2021 - Software and Data Integrity Failures**
   - deserialization vulnerabilities
   - insecure CI/CD
-- **A09:2021 - Security Logging and Monitoring Failures** (NIST: AU-2, AU-3, AU-6, AU-12)
+- **A09:2021 - Security Logging and Monitoring Failures**
   - logging and audit
   - incident detection
-- **A10:2021 - Server-Side Request Forgery (SSRF)** (NIST: SC-7, SI-10)
+- **A10:2021 - Server-Side Request Forgery (SSRF)**
   - SSRF / outbound calls
   - URL validation
 
@@ -203,11 +203,6 @@ Additional analysis:
 - validation patterns
 - error handling
 - race conditions
-
-**COMPLIANCE FRAMEWORK:**
-- Map all findings to NIST 800-53 Rev 5 controls
-- Document control family (AC, IA, SC, SI, AU, CM, etc.)
-- Identify control failures and recommended control enhancements
 
 OUTPUT FILES:
 - audit_state/workers/<partition_id>/security_review.md

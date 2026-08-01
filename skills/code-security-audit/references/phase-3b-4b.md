@@ -84,7 +84,7 @@ it.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=602-637 sha256=8e52437edb83f1c53a5bba791b3a1b238414917d0d0961eecdc4a94f002758a5 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=596-631 sha256=8e52437edb83f1c53a5bba791b3a1b238414917d0d0961eecdc4a94f002758a5 -->
 ### PHASE 3B / 4B -- SHARED COMPONENT REVIEW
 INPUT:
 - audit_state/coordination_mode.md

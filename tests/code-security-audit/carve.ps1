@@ -95,16 +95,14 @@ function Invoke-Transforms {
 $Carves = @(
   @{ File = 'phase-1-discovery.md'; Start = 276;  End = 381;  Anchor = '^### PHASE 1 -- GLOBAL DISCOVERY' }
   @{ File = 'phase-2.md';           Start = 384;  End = 422;  Anchor = '^### PHASE 2 -- GLOBAL RISK PRIORITIZATION' }
-  @{ File = 'phase-3a.md';          Start = 425;  End = 540;  Anchor = '^### PHASE 3A -- WORKER SECURITY REVIEW' }
-  @{ File = 'phase-4a.md';          Start = 543;  End = 599;  Anchor = '^### PHASE 4A -- WORKER ARCHITECTURE \+ FUNCTIONAL REVIEW' }
-  @{ File = 'phase-3b-4b.md';       Start = 602;  End = 637;  Anchor = '^### PHASE 3B / 4B -- SHARED COMPONENT REVIEW' }
-  @{ File = 'phase-5.md';           Start = 640;  End = 913;  Anchor = '^### PHASE 5 -- CONSOLIDATION' }
-  @{ File = 'phase-6.md';           Start = 916;  End = 1008; Anchor = '^### PHASE 6 -- COMPARISON HTML RENDER' }
-  # Shared schema and rule blocks. Workers need these, so they are carved into
-  # common.md rather than duplicated into every phase file.
-  @{ File = 'schemas.md';           Start = 1012; End = 1198; Anchor = '^FINDING SCHEMA \(COMPACT\)' }
+  @{ File = 'phase-3a.md';          Start = 425;  End = 535;  Anchor = '^### PHASE 3A -- WORKER SECURITY REVIEW' }
+  @{ File = 'phase-4a.md';          Start = 538;  End = 593;  Anchor = '^### PHASE 4A -- WORKER ARCHITECTURE \+ FUNCTIONAL REVIEW' }
+  @{ File = 'phase-3b-4b.md';       Start = 596;  End = 631;  Anchor = '^### PHASE 3B / 4B -- SHARED COMPONENT REVIEW' }
+  @{ File = 'phase-5.md';           Start = 634;  End = 908;  Anchor = '^### PHASE 5 -- CONSOLIDATION' }
+  @{ File = 'phase-6.md';           Start = 911;  End = 1004; Anchor = '^### PHASE 6 -- COMPARISON HTML RENDER' }
+  @{ File = 'schemas.md';           Start = 1007; End = 1193; Anchor = '^FINDING SCHEMA \(COMPACT\)' }
   @{ File = 'global-rules.md';      Start = 65;   End = 150;  Anchor = '^GLOBAL RULES' }
-  @{ File = 'tool-usage.md';        Start = 1199; End = 1243; Anchor = '^TOOL USAGE' }
+  @{ File = 'tool-usage.md';        Start = 1194; End = 1238; Anchor = '^TOOL USAGE' }
 )
 
 $BeginRe = '<!-- BEGIN VERBATIM CARVE src=(?<src>\S+) lines=(?<start>\d+)-(?<end>\d+) sha256=(?<sha>[0-9a-f]{64}) -->'
@@ -249,8 +247,8 @@ $Absorbed = @(
 )
 $Filler = @(
   @{ Start = 274; End = 275 }, @{ Start = 382; End = 383 }, @{ Start = 423; End = 424 }
-  @{ Start = 541; End = 542 }, @{ Start = 600; End = 601 }, @{ Start = 638; End = 639 }
-  @{ Start = 914; End = 915 }, @{ Start = 1009; End = 1011 }
+  @{ Start = 536; End = 537 }, @{ Start = 594; End = 595 }, @{ Start = 632; End = 633 }
+  @{ Start = 909; End = 910 }, @{ Start = 1005; End = 1006 }
 )
 
 $covered = @{}

@@ -14,54 +14,86 @@ Read `common.md`, `global-rules.md` and `schemas.md` first.
 | `<partition_id>` | your briefing -- YOUR partition, and only yours |
 | `{PROJECT_NAME}` | your briefing |
 | `MODE` | `audit_state/coordination_mode.md` -- read it FIRST |
-| finding ID block | your briefing -- a range DISJOINT from your Phase 3A predecessor's |
+
+**You are NOT given a finding ID block, because you do not produce findings.** If your briefing
+contains one, it is stale -- ignore it and say so in your summary.
 
 Your file list is `audit_state/partitions/<partition_id>.txt`. Read it uncapped (rule R).
+
+## You produce OBSERVATIONS, not findings
+
+This is the change that matters most in this file, and the carved text below now says it too.
+
+Architecture output is a different product from security output. It has a different evidence
+standard, a different audience, and a different remedy -- refactor rather than patch. Forcing it
+onto the security severity scale, whose two anchors are "complete system compromise, RCE" and
+"privilege escalation, auth bypass", produced inflated severities rather than information: the only
+way to keep a real observation about coupling was to call it High, and it then competed with SQL
+injection in one ranked list. A field run emitted 53 findings of which only 22 were security
+issues, largely for this reason.
+
+So:
+
+- Write your observations to `audit_state/workers/<partition_id>/architecture_review.md`. That is
+  their SOLE home.
+- No finding ID. No `sev`. No `score`. No `cat: ARCH`. No entry in `findings.md`, and none in the
+  global `findings_registry.md`.
+- Record what it is, where it is, why it matters operationally, and the evidence. Order them by
+  consequence in your own prose.
+- The Critical/High floor does not apply to you. It has no meaning for coupling or operational
+  fragility, and applying it is what caused the inflation.
+
+Phase 5 gives these their own section, so nothing you write here is discarded -- it is delivered
+separately from the security findings instead of competing with them.
+
+## If you find a real code defect, that IS a security finding
+
+Reviewing architecture sometimes turns up an actual exploitable defect. When it does, it is a
+Phase 3A finding, not an observation. Record it in
+`audit_state/workers/<partition_id>/findings.md` with everything Phase 3A requires -- bare field
+lines, quoted evidence, and an id. Take the id from the block your PARTITION'S Phase 3A worker was
+given, continuing after its highest used id, and say in your summary which ids you used so the
+orchestrator can update the allocation table.
+
+This should be uncommon. If most of your output is landing in `findings.md`, you are doing Phase 3A
+again rather than Phase 4A.
 
 ## Read your partition's Phase 3A output first
 
 `audit_state/workers/<partition_id>/security_review.md` and `findings.md` already exist for your
-partition. Read them. Architecture findings that restate a security finding already recorded there are
-duplicates, and an architecture review that ignores what the security pass found will produce them.
-
-## ARCH findings do not need an OWASP category
-
-Architecture findings frequently have no meaningful OWASP mapping -- coupling, resilience, operational
-fragility. Set `cat: ARCH` and use a descriptive `sub` (for example `Tight Coupling`,
-`Missing Bulkhead`, `Single Point of Failure`). Do not force-fit an OWASP category onto a
-non-security architecture finding just to fill the field.
-
-Severity scope still binds: Critical and High only.
+partition. Read them. An observation that restates a security finding already recorded there is a
+duplicate, and a review that ignores what the security pass found will produce them.
 
 ## Write ONLY your own directory, and do not clobber your predecessor
 
-Everything goes under `audit_state/workers/<partition_id>/`:
+Under `audit_state/workers/<partition_id>/`:
 
-- `architecture_review.md` -- new, yours
-- `findings.md` -- **APPEND to the existing file.** Phase 3A wrote findings here. Read before write.
-  Overwriting it destroys your partition's security findings.
-- `attack_paths.md` -- append, same reasoning
-- `evidence_index.md` -- append; the methodology is explicit that Phase 3A's entries must survive
+- `architecture_review.md` -- new, yours, and the only file you normally write
+- `evidence_index.md` -- **APPEND.** Phase 3A wrote entries here; the methodology is explicit that
+  they must survive. READ before WRITE.
+- `findings.md` -- touch ONLY for the code-defect case above, and then APPEND. Phase 3A's findings
+  are in this file and overwriting it destroys them.
 
-The methodology lists the GLOBAL `audit_state/findings_registry.md` and `audit_state/attack_paths.md`
-among this phase's outputs. **Do not write them** -- see `common.md` rule W-p. Your siblings are
-running now, and the orchestrator merges afterwards.
+Rule W names the Write tool first and says it overwrites. For these two files that is the wrong
+tool: read the existing content, add yours, write the whole thing back -- or use Edit. The merge's
+size check compares the merged result against its inputs, so it CANNOT detect that an input was
+halved before merging.
 
-## You cannot see other partitions' findings
-
-Same as Phase 3A: the global registry does not exist yet. Scope `rel:` to your own partition. Phase
-3B/4B and Phase 5 establish cross-partition relationships.
+The methodology no longer lists the global `findings_registry.md` or `attack_paths.md` as your
+outputs. Do not write them regardless (`common.md` rule W-p).
 
 ## Overrides of the carved methodology below
 
 - **Its STOP and "type proceed" banner:** no user to prompt. Write your files, verify each write
   (rule W-d), return the completion banner verbatim, end your turn.
-- **STATE.md and partition_status.md:** orchestrator-owned. Do NOT mark your partition `done`; report
-  it and the orchestrator records it.
-
+- **STATE.md and partition_status.md:** orchestrator-owned. Do NOT mark your partition `done`;
+  report it and the orchestrator records it.
+- **COORDINATED mode:** note in prose where an observation lines up with a threat in the model. Do
+  NOT populate `threat_id` or `threat_match` -- those are finding fields and you produce no
+  findings.
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=543-599 sha256=75bd885c893823b0f291be8f91a58b744c1af9129ce2ffff8b5e92abaffa3c7f -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=538-593 sha256=30a16a0190330ce192b56801ca2730526e364084985dc69690b9495a5e5ef44f -->
 ### PHASE 4A -- WORKER ARCHITECTURE + FUNCTIONAL REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -76,11 +108,14 @@ INPUT:
 SCOPE:
 - one partition only
 - plus directly relevant shared or trust-boundary files
-- Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
+- This phase does NOT produce security findings. It produces ARCHITECTURE OBSERVATIONS, and they belong in `architecture_review.md` only. They get no finding ID, no severity, no risk score, and no entry in `findings.md` or `findings_registry.md`.
+- The Critical/High severity floor does not apply here, because it does not mean anything here. Coupling, resilience and operational fragility do not sit on a scale whose two anchors are "complete system compromise, data breach, RCE" and "significant data exposure, privilege escalation, auth bypass". Forcing them onto it yields inflated severities rather than information: the only way to keep a real architecture observation was to call it High, and it then competed with SQL injection in the same ranked list.
+- Record each observation with what it is, where it is, why it matters operationally, and the evidence for it. Order them by consequence in your own words. Do not borrow the security severity vocabulary to do that.
+- If, while reviewing architecture, you find an actual exploitable CODE DEFECT, that is a Phase 3A finding. Record it as one, in `findings.md`, with everything Phase 3A requires.
 
 MODE-DEPENDENT BEHAVIOR:
 
-Same pattern as Phase 3A. In COORDINATED mode, apply the threat cross-reference procedure (from Phase 3A) to every architecture finding before writing it to disk. Architecture findings can match threat model threats too -- for example, a missing-bulkhead pattern finding may correspond to a threat about cascading failure. Same `confirms` / `partial` / `unanticipated` semantics apply.
+In COORDINATED mode, note in `architecture_review.md` where an observation corresponds to a threat in the model -- a missing-bulkhead pattern may correspond to a threat about cascading failure, and saying so is useful to a reader. Do NOT run the threat cross-reference procedure and do NOT populate `threat_id` or `threat_match`: those are finding fields, and this phase produces no findings.
 
 ANALYZE:
 - coupling/cohesion
@@ -94,12 +129,8 @@ ANALYZE:
 - operational fragility
 
 OUTPUT FILES:
-- audit_state/workers/<partition_id>/architecture_review.md
-- audit_state/workers/<partition_id>/findings.md
-- audit_state/workers/<partition_id>/attack_paths.md
+- audit_state/workers/<partition_id>/architecture_review.md (the SOLE home for this phase's observations)
 - audit_state/workers/<partition_id>/evidence_index.md (updated with architecture evidence -- READ before WRITE; do not overwrite the Phase 3A entries)
-- audit_state/findings_registry.md
-- audit_state/attack_paths.md
 - audit_state/partition_status.md (this partition set to done)
 
 Before printing the banner, perform both state updates:

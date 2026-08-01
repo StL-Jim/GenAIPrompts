@@ -134,8 +134,10 @@ that survives a session restart, and without it you are allocating from memory a
 where memory does not exist. A field run produced overlapping blocks for exactly this reason: a
 partition was restarted, and nothing recorded that another partition already owned that range.
 
-- **You need 2N+1 blocks, not N.** Phase 3A and Phase 4A are separate dispatches and each needs
-  its own block, plus one for the shared-component worker. Five partitions is eleven blocks.
+- **You need N+1 blocks: one per partition, plus one for the shared-component worker.** Phase 4A
+  gets NO block, because it produces architecture observations rather than findings. If a Phase 4A
+  worker does turn up a genuine code defect, it continues its own partition's 3A block and reports
+  which ids it used -- update the allocation table then.
 - **Size a block generously.** 50 ids per worker costs nothing; a worker that exhausts its block
   has no legal id left and will either collide or stop.
 - **A RESTARTED worker REUSES its original block.** Do not issue a new one. Its previous findings

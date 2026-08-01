@@ -69,6 +69,43 @@ $script:sinkRe = 'eval\(|exec\(|execSync|system\(|popen|subprocess|Runtime\.getR
   'AllowAnonymous|\[Authorize|@PreAuthorize|@RolesAllowed|login_required|is_?admin|is_?superuser|' +
   'setuid|chmod|0777|pickle|marshal|Deserialize'
 
+# ---------------------------------------------------------------------------
+# FILE-TYPE-AWARE SINKS
+#
+# The default pattern above assumes a file written in a general-purpose language, where finding
+# raw SQL or raw HTML output is itself the signal. Inside a file whose ENTIRE PURPOSE is SQL or
+# HTML, that same match means nothing -- it is the language, not a risk.
+#
+# Measured on a real 1,479-file application: `\bSELECT\b.{0,80}\bFROM\b` put 378 of 380 .sql
+# files into the must-read floor, a floor of 567 against a per-worker capacity of 60. The audit
+# could not run. Every one of those matches was a stored procedure containing SQL.
+#
+# So for these extensions the default is REPLACED, not extended. What matters in a .sql file is
+# SQL built as a string, reach outside the database, and privilege change. What matters in a
+# view is output written without escaping. Files that match nothing are not dropped -- they land
+# in the deferred list with a mechanical reason, same as quiet app-source.
+$script:sinkByExt = @{
+  # Dynamic SQL, OS/external reach, privilege grants, weak crypto.
+  '.sql' =
+    'sp_executesql|EXEC(UTE)?\s*[\(@]|EXECUTE\s+IMMEDIATE|@\w*(sql|query|stmt|cmd)\w*\s*=|' +
+    'xp_cmdshell|sp_OA[A-Za-z]+|xp_reg[a-z]+|OPENROWSET|OPENDATASOURCE|OPENQUERY|BULK\s+INSERT|' +
+    'GRANT\s+|EXECUTE\s+AS|IMPERSONATE|TRUSTWORTHY|sp_add(srv)?rolemember|ALTER\s+ROLE|' +
+    'CREATE\s+(LOGIN|USER)|MD5|SHA1\b|PWDENCRYPT|ENCRYPTBY|DECRYPTBY'
+  # Razor/WebForms views: unescaped output is the whole risk surface.
+  '.cshtml'  = 'Html\.Raw|MvcHtmlString|HtmlString|WriteLiteral|innerHTML|document\.write|Url\.Content\s*\(\s*Request'
+  '.vbhtml'  = 'Html\.Raw|MvcHtmlString|HtmlString|WriteLiteral|innerHTML|document\.write'
+  '.razor'   = 'MarkupString|Html\.Raw|innerHTML|document\.write'
+  '.aspx'    = '<%=|Response\.Write|innerHTML|document\.write'
+  '.ascx'    = '<%=|Response\.Write|innerHTML|document\.write'
+}
+
+function Get-SinkPattern {
+  param([string]$RelPath)
+  $ext = [System.IO.Path]::GetExtension($RelPath)
+  if ($ext -and $script:sinkByExt.ContainsKey($ext.ToLower())) { return $script:sinkByExt[$ext.ToLower()] }
+  return $script:sinkRe
+}
+
 $script:FloorClasses = @('authz','entry-route','data-access','ext-call','config-iac','dep-manifest','app-source')
 $script:AllClasses   = @('authz','entry-route','data-access','ext-call','config-iac','dep-manifest','app-source','docs','test','excluded')
 
@@ -87,11 +124,12 @@ function Get-AuditClass {
   return $null
 }
 
-function Test-Sink {
+function Test-SinkShared {
   param([string]$Workspace, [string]$RelPath)
   $full = Join-Path $Workspace ($RelPath -replace '/','\')
   if (-not (Test-Path -LiteralPath $full)) { return $true }   # cannot check -> keep (err toward reading)
-  try { return [bool](Select-String -LiteralPath $full -Pattern $script:sinkRe -List -ErrorAction SilentlyContinue) }
+  $pattern = Get-SinkPattern -RelPath $RelPath
+  try { return [bool](Select-String -LiteralPath $full -Pattern $pattern -List -ErrorAction SilentlyContinue) }
   catch { return $true }
 }
 
@@ -102,6 +140,6 @@ function Test-Auditable {
   $c = Get-AuditClass -Path $RelPath
   if (-not $c) { return $false }
   if ($script:FloorClasses -notcontains $c) { return $false }
-  if ($c -eq 'app-source') { return (Test-Sink -Workspace $Workspace -RelPath $RelPath) }
+  if ($c -eq 'app-source') { return (Test-SinkShared -Workspace $Workspace -RelPath $RelPath) }
   return $true
 }

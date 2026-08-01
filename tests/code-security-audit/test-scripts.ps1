@@ -394,6 +394,49 @@ $refNames = @($refNames | Sort-Object -Unique)
 $missingRefs = @($refNames | Where-Object { -not (Test-Path (Join-Path $SkillDir "references\$_")) })
 Check 'every reference file named in SKILL.md exists' ($missingRefs.Count -eq 0) ($missingRefs -join ', ')
 
+# ------------------------------------------- file-type-aware sink patterns ---
+#
+# Regression cover for a defect measured on a real 1,479-file application: the default sink
+# pattern contains `\bSELECT\b.{0,80}\bFROM\b`, which matches EVERY .sql file, because SQL is
+# what a .sql file contains. It put 378 of 380 stored procedures into the mandatory read floor
+# and made the repository impossible to audit -- a floor of 567 against a capacity of 60.
+#
+# These assert the DISCRIMINATION, not just that a pattern exists: an ordinary procedure must be
+# deferred and a dynamic one floored. A test that only checked "some .sql files are excluded"
+# would pass against a rule that dropped all of them, which is the opposite failure.
+. (Join-Path $scripts 'lib-classify.ps1')
+
+$sinkTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("sinktest-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path $sinkTmp | Out-Null
+try {
+  $cases = @(
+    @{ F = 'plain.sql';    C = "CREATE PROC dbo.G AS BEGIN`n SELECT Id, Name FROM dbo.Thing WHERE Id=@Id;`nEND"; Sink = $false; Why = 'ordinary stored procedure -- SELECT/FROM is the language, not a signal' }
+    @{ F = 'dynamic.sql';  C = "DECLARE @sql NVARCHAR(MAX); EXEC sp_executesql @sql;";  Sink = $true;  Why = 'sp_executesql builds SQL as a string' }
+    @{ F = 'shell.sql';    C = "EXEC xp_cmdshell 'dir';";                               Sink = $true;  Why = 'xp_cmdshell reaches outside the database' }
+    @{ F = 'grant.sql';    C = "GRANT EXECUTE ON SCHEMA::dbo TO PublicRole;";           Sink = $true;  Why = 'privilege change' }
+    @{ F = 'safe.cshtml';  C = "<h1>@Model.Title</h1>";                                 Sink = $false; Why = 'Razor escapes @Model by default' }
+    @{ F = 'raw.cshtml';   C = "<div>@Html.Raw(Model.Body)</div>";                      Sink = $true;  Why = 'Html.Raw writes unescaped output' }
+    # The default pattern must still apply to general-purpose languages: raw SQL inside C# IS
+    # the signal there, and narrowing .sql must not narrow .cs with it.
+    @{ F = 'repo.cs';      C = 'var q = "SELECT * FROM Users WHERE n=" + name;';        Sink = $true;  Why = 'hand-built SQL in application code' }
+    @{ F = 'quiet.cs';     C = 'public int Add(int a, int b) { return a + b; }';        Sink = $false; Why = 'no dangerous API' }
+  )
+  foreach ($c in $cases) {
+    Set-Content -LiteralPath (Join-Path $sinkTmp $c.F) -Value $c.C -Encoding UTF8
+    $got = Test-SinkShared -Workspace $sinkTmp -RelPath $c.F
+    $verb = if ($c.Sink) { 'IS a sink' } else { 'is NOT a sink' }
+    Check "sink: $($c.F) $verb" ($got -eq $c.Sink) $c.Why
+  }
+} finally { Remove-Item -Recurse -Force -LiteralPath $sinkTmp -ErrorAction SilentlyContinue }
+
+# readplan.ps1 must not carry its own copy of the sink test. It did, and the copy read $sinkRe
+# directly -- so a fix to the shared rule would silently not apply in the one script whose whole
+# job is deciding what gets read.
+$readplanSrc = Get-Content -LiteralPath (Join-Path $scripts 'readplan.ps1') -Raw
+Check 'readplan.ps1 delegates the sink test to lib-classify' `
+  ($readplanSrc -match 'Test-SinkShared' -and $readplanSrc -notmatch 'Select-String[^\n]*\$sinkRe') `
+  'a private copy of the sink test drifts from the shared one without any test failing'
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

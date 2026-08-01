@@ -85,11 +85,15 @@ if ($PartitionId) {
 if ($partFiles.Count -eq 0) { Write-Error "No partition lists found under $partDir."; exit 1 }
 if ($Verify -and -not $PartitionId) { Write-Error "-Verify needs -PartitionId: coverage is verified one worker at a time."; exit 1 }
 
+# Thin adapter over lib-classify's Test-Sink, which is dot-sourced above.
+#
+# This was a full COPY of that function until a field run showed why that is dangerous: the copy
+# read $sinkRe directly, so a fix to the shared sink logic silently did not apply here -- in the
+# one script whose whole job is deciding what must be read. partition-plan.ps1 already shares the
+# classifier for exactly this reason ("a partition sized here is verified against the same rule
+# later"); the sink test has to share it too or the two drift apart without any test failing.
 function Test-Sink([string]$rel) {
-  $full = Join-Path $WORKSPACE ($rel -replace '/','\')
-  if (-not (Test-Path -LiteralPath $full)) { return $true }   # cannot check -> keep it (err toward reading)
-  try { return [bool](Select-String -LiteralPath $full -Pattern $sinkRe -List -ErrorAction SilentlyContinue) }
-  catch { return $true }
+  return (Test-SinkShared -Workspace $WORKSPACE -RelPath $rel)
 }
 
 # ===========================================================================

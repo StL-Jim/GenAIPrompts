@@ -84,26 +84,67 @@ $script:sinkRe = 'eval\(|exec\(|execSync|system\(|popen|subprocess|Runtime\.getR
 # SQL built as a string, reach outside the database, and privilege change. What matters in a
 # view is output written without escaping. Files that match nothing are not dropped -- they land
 # in the deferred list with a mechanical reason, same as quiet app-source.
-$script:sinkByExt = @{
-  # Dynamic SQL, OS/external reach, privilege grants, weak crypto.
-  '.sql' =
-    'sp_executesql|EXEC(UTE)?\s*[\(@]|EXECUTE\s+IMMEDIATE|@\w*(sql|query|stmt|cmd)\w*\s*=|' +
-    'xp_cmdshell|sp_OA[A-Za-z]+|xp_reg[a-z]+|OPENROWSET|OPENDATASOURCE|OPENQUERY|BULK\s+INSERT|' +
-    'GRANT\s+|EXECUTE\s+AS|IMPERSONATE|TRUSTWORTHY|sp_add(srv)?rolemember|ALTER\s+ROLE|' +
-    'CREATE\s+(LOGIN|USER)|MD5|SHA1\b|PWDENCRYPT|ENCRYPTBY|DECRYPTBY'
-  # Razor/WebForms views: unescaped output is the whole risk surface.
-  '.cshtml'  = 'Html\.Raw|MvcHtmlString|HtmlString|WriteLiteral|innerHTML|document\.write|Url\.Content\s*\(\s*Request'
-  '.vbhtml'  = 'Html\.Raw|MvcHtmlString|HtmlString|WriteLiteral|innerHTML|document\.write'
-  '.razor'   = 'MarkupString|Html\.Raw|innerHTML|document\.write'
-  '.aspx'    = '<%=|Response\.Write|innerHTML|document\.write'
-  '.ascx'    = '<%=|Response\.Write|innerHTML|document\.write'
+# Held as NAMED GROUPS rather than one string so a match can be ATTRIBUTED. A single pattern can
+# only report that a file is in the floor; it cannot say which idea put it there, and without
+# that the only way to tune an over-matching rule is to guess and re-measure. The first cut of
+# the .sql rule took the floor from 378 files to 189 -- a real improvement and still four times
+# too many -- and nothing in the output said which of the four ideas was responsible.
+$script:sinkGroupsByExt = @{
+  '.sql' = @(
+    @{ Name = 'dynamic-sql'; Re = 'sp_executesql|EXEC(UTE)?\s*[\(@]|EXECUTE\s+IMMEDIATE|@\w*(sql|query|stmt|cmd)\w*\s*=' }
+    @{ Name = 'os-reach';    Re = 'xp_cmdshell|sp_OA[A-Za-z]+|xp_reg[a-z]+|OPENROWSET|OPENDATASOURCE|OPENQUERY|BULK\s+INSERT' }
+    @{ Name = 'privilege';   Re = 'GRANT\s+|EXECUTE\s+AS|IMPERSONATE|TRUSTWORTHY|sp_add(srv)?rolemember|ALTER\s+ROLE|CREATE\s+(LOGIN|USER)' }
+    @{ Name = 'crypto';      Re = 'MD5|SHA1\b|PWDENCRYPT|ENCRYPTBY|DECRYPTBY' }
+  )
+  # Razor/WebForms views: unescaped output is the whole risk surface. Split the same way as .sql
+  # so an over-matching alternative can be identified instead of guessed at -- the first cut took
+  # 47 views to 22, which is either a lot of genuine Html.Raw or one bad alternative, and the
+  # counts are the only way to tell which.
+  '.cshtml' = @(
+    @{ Name = 'razor-raw'; Re = 'Html\.Raw|MvcHtmlString|new\s+HtmlString' }
+    @{ Name = 'js-dom';    Re = 'innerHTML|outerHTML|document\.write' }
+    @{ Name = 'writelit';  Re = 'WriteLiteral|Url\.Content\s*\(\s*Request' }
+  )
+  '.vbhtml' = @(
+    @{ Name = 'razor-raw'; Re = 'Html\.Raw|MvcHtmlString|new\s+HtmlString' }
+    @{ Name = 'js-dom';    Re = 'innerHTML|outerHTML|document\.write' }
+  )
+  '.razor'  = @( @{ Name = 'raw-output'; Re = 'MarkupString|Html\.Raw|innerHTML|document\.write' } )
+  '.aspx'   = @( @{ Name = 'raw-output'; Re = '<%=|Response\.Write|innerHTML|document\.write' } )
+  '.ascx'   = @( @{ Name = 'raw-output'; Re = '<%=|Response\.Write|innerHTML|document\.write' } )
 }
 
 function Get-SinkPattern {
   param([string]$RelPath)
   $ext = [System.IO.Path]::GetExtension($RelPath)
-  if ($ext -and $script:sinkByExt.ContainsKey($ext.ToLower())) { return $script:sinkByExt[$ext.ToLower()] }
+  if ($ext) { $ext = $ext.ToLower() }
+  if ($ext -and $script:sinkGroupsByExt.ContainsKey($ext)) {
+    return (($script:sinkGroupsByExt[$ext] | ForEach-Object { $_.Re }) -join '|')
+  }
   return $script:sinkRe
+}
+
+# WHICH idea put this file in the floor. Returns the first matching group name, 'default' for a
+# file matched by the general pattern, or $null when nothing matched -- which means the file was
+# floored by its ROLE without any sink test, because its class sat under -BulkClassThreshold.
+# That distinction matters: an over-large floor caused by a bad pattern and one caused by an
+# unfiltered small class need opposite fixes.
+function Get-SinkReason {
+  param([string]$Workspace, [string]$RelPath)
+  $full = Join-Path $Workspace ($RelPath -replace '/','\')
+  if (-not (Test-Path -LiteralPath $full)) { return 'unreadable' }
+  $ext = [System.IO.Path]::GetExtension($RelPath)
+  if ($ext) { $ext = $ext.ToLower() }
+  try {
+    if ($ext -and $script:sinkGroupsByExt.ContainsKey($ext)) {
+      foreach ($g in $script:sinkGroupsByExt[$ext]) {
+        if (Select-String -LiteralPath $full -Pattern $g.Re -List -ErrorAction SilentlyContinue) { return $g.Name }
+      }
+      return $null
+    }
+    if (Select-String -LiteralPath $full -Pattern $script:sinkRe -List -ErrorAction SilentlyContinue) { return 'default' }
+    return $null
+  } catch { return 'unreadable' }
 }
 
 $script:FloorClasses = @('authz','entry-route','data-access','ext-call','config-iac','dep-manifest','app-source')

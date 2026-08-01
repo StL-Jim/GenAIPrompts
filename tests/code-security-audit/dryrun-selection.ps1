@@ -126,6 +126,22 @@ foreach ($rs in $readsets) {
 $topExt = @($extCount.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 6 |
            ForEach-Object { "$($_.Key)=$($_.Value)" })
 
+# WHY each floored file is in the floor. Without this the only way to tune an over-matching rule
+# is to change it, ship it, and ask the owner to re-run -- which is exactly the loop that just
+# cost a round trip and still left .sql four times too large.
+. (Join-Path $scripts 'lib-classify.ps1')
+$reasonCount = @{}
+foreach ($rs in $readsets) {
+  foreach ($r in @(Get-Content -LiteralPath $rs.FullName | Where-Object { $_.Trim() -ne '' })) {
+    $p = ($r -split "`t")[-1]
+    $why = Get-SinkReason -Workspace $Repo -RelPath $p
+    if (-not $why) { $why = 'role-only(no-sink-test)' }
+    if ($reasonCount.ContainsKey($why)) { $reasonCount[$why]++ } else { $reasonCount[$why] = 1 }
+  }
+}
+$topWhy = @($reasonCount.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 6 |
+           ForEach-Object { "$($_.Key)=$($_.Value)" })
+
 $splitHit = @($script:captured | Where-Object { $_ -match 'SPLIT REQUIRED' })
 $split = if ($splitHit.Count -gt 0) { 'YES' } else { 'no' }
 
@@ -138,6 +154,7 @@ $split = if ($splitHit.Count -gt 0) { 'YES' } else { 'no' }
 "files=$manifestTotal auditable=$auditTotal workers=$($readsets.Count) split=$split"
 "floor: $($floors -join ' ')"
 "ext: $($topExt -join ' ')"
+"why: $($topWhy -join ' ')"
 "---8<---"
 ""
 "That is the whole report. You are not expected to judge which numbers matter -- these are"

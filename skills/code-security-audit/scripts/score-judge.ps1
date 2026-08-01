@@ -44,6 +44,7 @@ if (-not (Test-Path -LiteralPath $progressPath)) {
 # --- judge rulings: bare field blocks, bullets tolerated (see merge-findings.ps1) ----------
 $rulingText = (Get-Content -LiteralPath $rulingsPath -Raw) -replace "`r`n", "`n"
 $rulings = @{}
+$routes  = @{}
 foreach ($m in [regex]::Matches($rulingText, '(?m)^\s*[-*]?\s*id:\s*(F-\d+)\s*$')) {
   $id = $m.Groups[1].Value
   $blockEnd = $rulingText.IndexOf("`n`n", $m.Index)
@@ -51,6 +52,8 @@ foreach ($m in [regex]::Matches($rulingText, '(?m)^\s*[-*]?\s*id:\s*(F-\d+)\s*$'
   $block = $rulingText.Substring($m.Index, $blockEnd - $m.Index)
   $r = [regex]::Match($block, '(?m)^\s*[-*]?\s*ruling:\s*(\w+)')
   if ($r.Success) { $rulings[$id] = $r.Groups[1].Value.ToLower() }
+  $rt = [regex]::Match($block, '(?m)^\s*[-*]?\s*route:\s*(\w+)')
+  if ($rt.Success) { $routes[$id] = $rt.Groups[1].Value.ToLower() }
 }
 
 # --- owner decisions: gate2_progress.md rows | F-012 | not real | words | timestamp | ------
@@ -77,12 +80,21 @@ function Get-OwnerVerdict([string]$call) {
 }
 
 $agreeKeep = @(); $agreeDrop = @(); $judgeThrewAwayReal = @(); $judgeLetJunkThrough = @()
-$unresolvedKept = @(); $unresolvedDropped = @(); $abstained = @(); $unscored = @()
+$unresolvedKept = @(); $unresolvedDropped = @(); $abstained = @(); $unscored = @(); $routedDev = @()
 
 foreach ($id in ($rulings.Keys | Sort-Object)) {
+  $j = $rulings[$id]
+  $rt = if ($routes.ContainsKey($id)) { $routes[$id] } else { '(none)' }
+
+  # Route FIRST, before anything about the owner's call. A developer-routed question is not his
+  # to answer, so 'unsure' is the correct response to it -- and an abstain check placed ahead of
+  # this would make exactly those items disappear from the count. Found by an end-to-end run:
+  # the judge routed one to a developer, the owner sensibly said 'unsure', and the scorecard
+  # reported zero developer-routed items.
+  if ($j -eq 'unresolved' -and $rt -eq 'developer') { $routedDev += $id; continue }
+
   if (-not $ownerCalls.ContainsKey($id)) { $unscored += $id; continue }
   $owner = Get-OwnerVerdict $ownerCalls[$id]
-  $j = $rulings[$id]
   if ($owner -eq 'abstain') { $abstained += $id; continue }
   switch ($j) {
     'uphold'     { if ($owner -eq 'kept') { $agreeKeep += $id } else { $judgeLetJunkThrough += $id } }
@@ -112,8 +124,13 @@ if ($judgeThrewAwayReal.Count -gt 0) { "        $($judgeThrewAwayReal -join ', '
 if ($judgeLetJunkThrough.Count -gt 0) { "        $($judgeLetJunkThrough -join ', ')" }
 ""
 $unresolvedTotal = $unresolvedKept.Count + $unresolvedDropped.Count
-"  UNRESOLVED (routed to the owner): $unresolvedTotal"
-if ($unresolvedTotal -gt 0) { "    owner kept $($unresolvedKept.Count), dropped $($unresolvedDropped.Count) -- these are the disputes only he could settle" }
+"  UNRESOLVED (route: owner): $unresolvedTotal"
+if ($unresolvedTotal -gt 0) { "    owner kept $($unresolvedKept.Count), dropped $($unresolvedDropped.Count) -- disputes only he could settle" }
+"  UNRESOLVED (route: developer): $($routedDev.Count)  -- questions for a developer, not scored against the owner"
+$missingRoute = @($rulings.Keys | Where-Object { $rulings[$_] -eq 'unresolved' -and -not $routes.ContainsKey($_) })
+if ($missingRoute.Count -gt 0) {
+  Write-Warning "$($missingRoute.Count) unresolved ruling(s) carry no route: $($missingRoute -join ', '). An unresolved ruling with no route is a question addressed to nobody -- it reaches neither the owner nor a developer."
+}
 
 # Calibration read. Deliberately conservative: this decides whether findings reach a development
 # team without him reading them first.

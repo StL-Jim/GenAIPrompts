@@ -708,7 +708,8 @@ OUTPUT:
 6. Shared Component Risk Summary
 7. Evidence Gaps
 8. Architecture and Operability Observations -- drawn from each partition's architecture_review.md and presented AS OBSERVATIONS: no severity, no risk score, no finding IDs, and not counted in any finding total. They are a separate class of output with a separate audience, and mixing them into the findings table is what made an earlier run report 53 findings of which only 22 were security issues. Order them by consequence in prose. If there are none, say so in one line.
-9. Optional Patch Set
+9. CONFIRM THIS -- open questions for a developer. Drawn from judge rulings of `unresolved` with `route: developer`: candidates where the code question could not be settled statically. Each entry carries the candidate, what was already checked, and ONE precise question. These are NOT findings and must not be counted as findings, listed in the findings table, or described as vulnerabilities -- they are requests for a fact the audit could not establish. Present them as a short list a developer can answer without re-reading the whole finding. If there are none, say so in one line.
+10. Optional Patch Set
 
 Do NOT produce an overall security score, security grade, architecture score, architecture grade, or any aggregate letter-grade or numeric rating for the application as a whole. Aggregate scores and grades do not meaningfully reflect application security posture and are explicitly excluded. Per-finding severity and per-finding risk scores ARE retained (see RISK SCORING) -- the exclusion applies only to rolled-up overall scores and grades.
 

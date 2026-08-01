@@ -95,9 +95,17 @@ Present findings the judge REJECTED too, in their own short section with the rul
 the superior judge and can overturn any of them. Never let a rejection disappear -- a filter whose
 output he cannot see is the thing he was worried about when he reviewed all 53 by hand.
 
-Findings the judge ruled `unresolved` come FIRST, before anything else. Those are the ones where the
-repository genuinely could not answer the question and only he can -- "is the /reports/export
-endpoint still live in production?" They are the highest-value minutes in the whole gate.
+Findings the judge ruled `unresolved` with **`route: owner`** come FIRST, before anything else.
+Those are the ones the repository genuinely could not answer and only he can -- "is the
+/reports/export endpoint still live in production?" They are the highest-value minutes in the whole
+gate, and each should be answerable in a sentence without reading code.
+
+Findings ruled `unresolved` with **`route: developer`** are NOT his to settle and must not be put to
+him as questions. Report the count in one line and move on -- they flow to the CONFIRM THIS section
+of the Phase 5 report, where a developer answers them. If he asks, show them; do not walk them.
+
+If a `route: developer` item's question looks like something he could answer, the judge routed it
+wrongly. Say so rather than quietly asking him anyway.
 
 In COORDINATED mode, if `threat_match` is `contradicts-exclusion`, lead with that and quote the
 ledger row it disproves.

@@ -98,11 +98,11 @@ $Carves = @(
   @{ File = 'phase-3a.md';          Start = 425;  End = 556;  Anchor = '^### PHASE 3A -- WORKER SECURITY REVIEW' }
   @{ File = 'phase-4a.md';          Start = 559;  End = 614;  Anchor = '^### PHASE 4A -- WORKER ARCHITECTURE \+ FUNCTIONAL REVIEW' }
   @{ File = 'phase-3b-4b.md';       Start = 617;  End = 654;  Anchor = '^### PHASE 3B / 4B -- SHARED COMPONENT REVIEW' }
-  @{ File = 'phase-5.md';           Start = 657;  End = 931;  Anchor = '^### PHASE 5 -- CONSOLIDATION' }
-  @{ File = 'phase-6.md';           Start = 934;  End = 1027; Anchor = '^### PHASE 6 -- COMPARISON HTML RENDER' }
-  @{ File = 'schemas.md';           Start = 1030; End = 1219; Anchor = '^FINDING SCHEMA \(COMPACT\)' }
+  @{ File = 'phase-5.md';           Start = 657;  End = 932;  Anchor = '^### PHASE 5 -- CONSOLIDATION' }
+  @{ File = 'phase-6.md';           Start = 935;  End = 1028; Anchor = '^### PHASE 6 -- COMPARISON HTML RENDER' }
+  @{ File = 'schemas.md';           Start = 1031; End = 1220; Anchor = '^FINDING SCHEMA \(COMPACT\)' }
   @{ File = 'global-rules.md';      Start = 65;   End = 150;  Anchor = '^GLOBAL RULES' }
-  @{ File = 'tool-usage.md';        Start = 1220; End = 1264; Anchor = '^TOOL USAGE' }
+  @{ File = 'tool-usage.md';        Start = 1221; End = 1265; Anchor = '^TOOL USAGE' }
 )
 
 $BeginRe = '<!-- BEGIN VERBATIM CARVE src=(?<src>\S+) lines=(?<start>\d+)-(?<end>\d+) sha256=(?<sha>[0-9a-f]{64}) -->'
@@ -248,7 +248,7 @@ $Absorbed = @(
 $Filler = @(
   @{ Start = 274; End = 275 }, @{ Start = 382; End = 383 }, @{ Start = 423; End = 424 }
   @{ Start = 557; End = 558 }, @{ Start = 615; End = 616 }, @{ Start = 655; End = 656 }
-  @{ Start = 932; End = 933 }, @{ Start = 1028; End = 1029 }
+  @{ Start = 933; End = 934 }, @{ Start = 1029; End = 1030 }
 )
 
 $covered = @{}

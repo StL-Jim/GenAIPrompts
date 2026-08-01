@@ -67,7 +67,7 @@ threat model examined this exact concern and concluded it was handled, and the a
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=934-1027 sha256=a39f4fa9bfacfab8f7a12dfb6809612b44090f41bdd9848dabd9cc9eb8d2a856 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=935-1028 sha256=a39f4fa9bfacfab8f7a12dfb6809612b44090f41bdd9848dabd9cc9eb8d2a856 -->
 ### PHASE 6 -- COMPARISON HTML RENDER (COORDINATED mode only)
 
 In STANDALONE mode, Phase 6 is SKIPPED entirely. The audit ends at Phase 5.

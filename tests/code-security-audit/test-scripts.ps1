@@ -145,19 +145,31 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Set-Content -LiteralPath (Join-Path $state 'judge_rulings.md') -Encoding ASCII -Value @(
     'id: F-001','ruling: uphold','reason: unchallenged','',
     'id: F-002','ruling: reject','grounds: precondition','reason: not reachable here','',
-    'id: F-003','ruling: unresolved','reason: is that endpoint still live?','',
-    'id: F-004','ruling: reject','grounds: not-security','reason: no attacker gain','')
+    'id: F-003','ruling: unresolved','route: owner','reason: is that endpoint still live?','',
+    'id: F-004','ruling: reject','grounds: not-security','reason: no attacker gain','',
+    'id: F-005','ruling: unresolved','route: developer','reason: grepped 18 callers, dispatch via registry. QUESTION: reachable unauthenticated?','',
+    'id: F-006','ruling: unresolved','reason: no route given','')
   Set-Content -LiteralPath (Join-Path $state 'gate2_progress.md') -Encoding ASCII -Value @(
     '| F-001 | keep | real | judge:uphold | t |',
     '| F-002 | not real | agreed | judge:reject | t |',
     '| F-003 | keep | still live | judge:unresolved | t |',
-    '| F-004 | keep | this one IS real | judge:reject | t |')
+    '| F-004 | keep | this one IS real | judge:reject | t |',
+    # 'unsure' is the CORRECT owner response to a developer-routed question -- it is not his to
+    # answer. An abstain check placed ahead of the route check made exactly these items vanish
+    # from the count, which an end-to-end run caught and this row now guards.
+    '| F-005 | unsure | developer question, not mine | judge:unresolved | t |',
+    '| F-006 | unsure | no idea | judge:unresolved | t |')
   $r = Invoke-Script 'score-judge.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] score-judge exits 0" ($r.Code -eq 0) "exit $($r.Code)"
   Check "[$mode] scorecard names the dangerous error" ($r.Output -match 'JUDGE REJECTED, OWNER KEPT\s*:\s*1')
   Check "[$mode] scorecard names the permissive error" ($r.Output -match 'JUDGE UPHELD, OWNER DROPPED\s*:\s*0')
   Check "[$mode] scorecard says keep reviewing after a dangerous error" ($r.Output -match 'Keep reviewing every')
-  Check "[$mode] unresolved routed to owner is counted separately" ($r.Output -match 'UNRESOLVED \(routed to the owner\): 1')
+  Check "[$mode] route:owner counted separately" ($r.Output -match 'UNRESOLVED \(route: owner\): 1')
+  # A developer-routed question is not the owner's to answer, so scoring his call against it would
+  # penalise the judge for correctly declining to send it to him.
+  Check "[$mode] route:developer not scored against the owner" ($r.Output -match 'UNRESOLVED \(route: developer\): 1')
+  # An unresolved ruling with no route reaches nobody -- neither the owner nor a developer.
+  Check "[$mode] unresolved with no route is flagged" ($r.Output -match 'carry no route')
 
   # Fails closed when the owner's decisions are absent -- there is nothing to score against.
   Remove-Item -LiteralPath (Join-Path $state 'gate2_progress.md') -Force

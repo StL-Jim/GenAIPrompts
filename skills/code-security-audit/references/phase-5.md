@@ -81,6 +81,26 @@ findings: they appear, but compactly and separately, and they do not inflate the
 - Never silently drop a suppressed finding. The suppression and its reason are part of the audit
   record, and a reader must be able to see what was set aside and on whose word.
 
+## The CONFIRM THIS section, and why it is not a findings section
+
+Section 9 of the consolidated report comes from `audit_state/judge_rulings.md` -- every ruling of
+`unresolved` with `route: developer`. These are candidates where a code question could not be
+settled statically: dynamic dispatch, convention-based routing, a call graph too tangled to trace.
+
+Each entry carries the candidate, WHAT WAS ALREADY CHECKED, and ONE precise question. Reproduce the
+judge's reason -- it names the files and symbols it looked at, and that is most of the value. A
+developer answering "is `parse()` reachable from an unauthenticated route?" spends two minutes; a
+developer handed a vague finding spends an hour deciding whether it is real.
+
+**Do not count these as findings.** Not in the findings table, not in any total, not described as
+vulnerabilities. They are requests for a fact the audit could not establish. Presenting an
+unconfirmed candidate as a confirmed finding is the exact failure this pipeline exists to prevent:
+the owner reviewed 53 findings by hand precisely because he feared the development team would lose
+confidence in the tool.
+
+Rulings with `route: owner` do NOT appear here. Those are questions only the owner can answer and
+he settles them at GATE 2, before this phase runs.
+
 ## Prohibitions worth surfacing before you start
 
 Both are in the carved text and both are easy to violate by habit:
@@ -104,7 +124,7 @@ Both are in the carved text and both are easy to violate by habit:
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=657-931 sha256=e5fb492360f542837f71f07c54ba0fa9d8f8c07bf1199a94590f6311a2c8f755 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=657-932 sha256=3ba245ebcb4249e31600a89469034946bd5d8674ff5d57bcdd181cb60c55d120 -->
 ### PHASE 5 -- CONSOLIDATION
 
 CRITICAL execution discipline for this phase: produce the consolidated outputs with minimal preamble. Do NOT write extensive planning notes, do NOT describe what the final report will contain in prose before producing it, do NOT enumerate which findings will appear before generating the actual content. Acknowledge in one short line that all required state files are present, then go directly to producing the output files.
@@ -159,7 +179,8 @@ OUTPUT:
 6. Shared Component Risk Summary
 7. Evidence Gaps
 8. Architecture and Operability Observations -- drawn from each partition's architecture_review.md and presented AS OBSERVATIONS: no severity, no risk score, no finding IDs, and not counted in any finding total. They are a separate class of output with a separate audience, and mixing them into the findings table is what made an earlier run report 53 findings of which only 22 were security issues. Order them by consequence in prose. If there are none, say so in one line.
-9. Optional Patch Set
+9. CONFIRM THIS -- open questions for a developer. Drawn from judge rulings of `unresolved` with `route: developer`: candidates where the code question could not be settled statically. Each entry carries the candidate, what was already checked, and ONE precise question. These are NOT findings and must not be counted as findings, listed in the findings table, or described as vulnerabilities -- they are requests for a fact the audit could not establish. Present them as a short list a developer can answer without re-reading the whole finding. If there are none, say so in one line.
+10. Optional Patch Set
 
 Do NOT produce an overall security score, security grade, architecture score, architecture grade, or any aggregate letter-grade or numeric rating for the application as a whole. Aggregate scores and grades do not meaningfully reflect application security posture and are explicitly excluded. Per-finding severity and per-finding risk scores ARE retained (see RISK SCORING) -- the exclusion applies only to rolled-up overall scores and grades.
 

@@ -285,6 +285,26 @@ worker does not author and cannot pad.
   paths** in its briefing. That is a bounded worklist, not "read more". If a second pass is still
   short, record the residual and raise it at GATE 2 -- a visible, counted gap beats a met number
   nobody can trust.
+
+### What re-running a worker costs downstream
+
+A SHORT verdict will be common, so decide this before you dispatch rather than mid-cascade. Re-run
+ONLY what the new findings touch:
+
+| If the re-dispatched worker... | Then |
+|---|---|
+| finds nothing new | coverage improves, `-Verify` goes green, **nothing downstream changes** |
+| finds new findings | critic and judge run on the NEW findings ONLY -- the existing ones' rulings rest on content that has not changed, and re-running them wastes tokens and invites different answers to the same question |
+| finds new findings | GATE 2 re-opens for those findings alone. Do not re-walk what he has already dispositioned; `gate2_progress.md` holds those decisions |
+| finds new findings | ALL Phase 5 deliverables regenerate, because the consolidated report must contain every finding and it no longer does |
+
+So the real cost of a re-dispatch is not one worker -- it is one worker plus a possible full
+regeneration of the reports. Weigh that against what the unread files plausibly hold. Near-duplicate
+pages already covered by a sibling file are worth less than an unread auth module.
+
+If you decline a re-dispatch, RECORD THE SHORTFALL in STATE.md with the unread paths and the
+reason. An accepted gap that is written down is a different thing from one nobody noticed, and the
+owner needs to be able to tell them apart when he reads the findings.
 - `CLAIMED-NOT-OBSERVED` -> the worker's own read log names a file its transcript shows it never
   opened. That is an integrity signal, not a coverage one. Raise it at GATE 2 regardless of the
   verdict.

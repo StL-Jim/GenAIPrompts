@@ -213,6 +213,21 @@ if ($dupes.Count -gt 0) {
 if ($notDone.Count -gt 0) {
   $fatal += "PARTITIONS NOT DONE: $($notDone -join ', '). A worker did not finish. Merging anyway would produce a registry that looks complete."
 }
+# FIELD VALUES, not just field presence. A block can carry a valid `id:` and `sev:` -- so it
+# counts as a finding and passes every guard above -- while other fields hold nonsense. Field run:
+# a worker emitted CSV whose header declared 22 columns and one row supplied 21, so every value
+# from `verify` onward shifted left and `status` ended up holding the `rel` value `F-001;F-002`.
+# Well-formed block, meaningless contents, and nothing detected it. Check the closed enums.
+$statuses = @([regex]::Matches($allFindingText, '(?m)^\s*[-*]?\s*status:\s*(\S+)\s*$') | ForEach-Object { $_.Groups[1].Value })
+$badStatus = @($statuses | Where-Object { $_ -notin @('open','mitigated','accepted','false_positive') } | Sort-Object -Unique)
+if ($badStatus.Count -gt 0) {
+  $fatal += "INVALID status VALUE(S): $($badStatus -join ', '). Allowed: open, mitigated, accepted, false_positive. A value outside the enum usually means a worker's fields are misaligned -- the block will look well-formed and its other fields will be wrong too. Check the whole finding, not just this line."
+}
+$badClass = @($clss | Where-Object { $_ -notin @('Confirmed','Suspected','Not Assessable') } | Sort-Object -Unique)
+if ($badClass.Count -gt 0) {
+  $fatal += "INVALID class VALUE(S): $($badClass -join ', '). Allowed: Confirmed, Suspected, Not Assessable."
+}
+
 $badSev = @($sevs | Where-Object { $_ -notin @('Critical','High') })
 if ($badSev.Count -gt 0) {
   $fatal += "SEVERITY SCOPE VIOLATION: $($badSev.Count) finding(s) carry severity outside Critical/High ($(($badSev | Sort-Object -Unique) -join ', ')). The audit never emits these -- a worker kept a finding that did not reach the bar."

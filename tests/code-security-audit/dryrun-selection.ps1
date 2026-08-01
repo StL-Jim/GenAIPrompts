@@ -28,12 +28,15 @@ $name = Split-Path -Leaf $Repo
 $scripts = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'skills\code-security-audit\scripts'
 if (-not (Test-Path -LiteralPath $scripts)) { Write-Error "Cannot locate skill scripts at $scripts"; exit 1 }
 
+$script:captured = @()
+
 function Step($label, $file, $argv) {
   ""
   "=============================================================================="
   "  $label"
   "=============================================================================="
-  & (Join-Path $scripts $file) @argv
+  & (Join-Path $scripts $file) @argv | Tee-Object -Variable out
+  $script:captured += @($out)
   if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
     Write-Error "$file exited $LASTEXITCODE -- stopping."
     exit 1
@@ -81,6 +84,65 @@ measured selection only.
 "@
 
 $stateDir = Join-Path $Repo 'audit_state'
+
+# ---------------------------------------------------------------------------
+# REPORT BACK
+#
+# Everything above is diagnostic prose. This block is the deliverable: the few numbers that
+# actually decide whether the selection stage can cover a repository of this size, arranged so
+# that reporting them requires no interpretation from the person running it. Deciding which
+# output "looks important" is a judgement, and asking a non-developer to make it on a wall of
+# script output is how the useful number gets left out.
+#
+# Read from DISK, not from the console text above -- the files are stable, the prose is not.
+# ---------------------------------------------------------------------------
+$manifestTotal = 0
+$manifestFile = Join-Path $stateDir '00-file-manifest.txt'
+if (Test-Path -LiteralPath $manifestFile) {
+  $manifestTotal = @(Get-Content -LiteralPath $manifestFile | Where-Object { $_.Trim() -ne '' }).Count
+}
+
+$auditTotal = 0
+$planFile = Join-Path $stateDir 'partition_plan.md'
+if (Test-Path -LiteralPath $planFile) {
+  foreach ($row in [regex]::Matches((Get-Content -LiteralPath $planFile -Raw), '(?m)^\|\s*([^|\s][^|]*?)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|')) {
+    $auditTotal += [int]$row.Groups[3].Value
+  }
+}
+
+$readsets = @(Get-ChildItem -LiteralPath (Join-Path $stateDir 'partitions') -Filter '*.readset.txt' -ErrorAction SilentlyContinue)
+$floors = @()
+$extCount = @{}
+foreach ($rs in $readsets) {
+  $rows = @(Get-Content -LiteralPath $rs.FullName | Where-Object { $_.Trim() -ne '' })
+  $floors += "$($rs.Name -replace '\.readset\.txt$','')=$($rows.Count)"
+  foreach ($r in $rows) {
+    $p = ($r -split "`t")[-1]
+    $e = [System.IO.Path]::GetExtension($p)
+    if ([string]::IsNullOrWhiteSpace($e)) { $e = '(none)' }
+    if ($extCount.ContainsKey($e)) { $extCount[$e]++ } else { $extCount[$e] = 1 }
+  }
+}
+$topExt = @($extCount.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 6 |
+           ForEach-Object { "$($_.Key)=$($_.Value)" })
+
+$splitHit = @($script:captured | Where-Object { $_ -match 'SPLIT REQUIRED' })
+$split = if ($splitHit.Count -gt 0) { 'YES' } else { 'no' }
+
+""
+"=============================================================================="
+"  REPORT BACK -- copy the lines between the markers, nothing else"
+"=============================================================================="
+"---8<---"
+"repo=$name"
+"files=$manifestTotal auditable=$auditTotal workers=$($readsets.Count) split=$split"
+"floor: $($floors -join ' ')"
+"ext: $($topExt -join ' ')"
+"---8<---"
+""
+"That is the whole report. You are not expected to judge which numbers matter -- these are"
+"the ones that do, and 'split=YES' on a large repository is an expected result, not a fault."
+
 ""
 if ($Clean) {
   Remove-Item -Recurse -Force -LiteralPath $stateDir

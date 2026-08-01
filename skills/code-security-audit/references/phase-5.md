@@ -104,7 +104,7 @@ Both are in the carved text and both are easy to violate by habit:
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=634-908 sha256=e5fb492360f542837f71f07c54ba0fa9d8f8c07bf1199a94590f6311a2c8f755 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=657-931 sha256=e5fb492360f542837f71f07c54ba0fa9d8f8c07bf1199a94590f6311a2c8f755 -->
 ### PHASE 5 -- CONSOLIDATION
 
 CRITICAL execution discipline for this phase: produce the consolidated outputs with minimal preamble. Do NOT write extensive planning notes, do NOT describe what the final report will contain in prose before producing it, do NOT enumerate which findings will appear before generating the actual content. Acknowledge in one short line that all required state files are present, then go directly to producing the output files.

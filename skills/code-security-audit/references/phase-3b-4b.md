@@ -84,7 +84,7 @@ it.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=596-631 sha256=8e52437edb83f1c53a5bba791b3a1b238414917d0d0961eecdc4a94f002758a5 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=617-654 sha256=b1c3419d11e379e9f18e03be3b805cba4813862bcb53f3540bbe401ba5924ed3 -->
 ### PHASE 3B / 4B -- SHARED COMPONENT REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -98,6 +98,8 @@ SCOPE:
 - only security-critical or architecture-critical shared components
 - plus directly affected trust-boundary files
 - Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
+
+The PRECONDITION TEST and the EXCLUDED CANDIDATES list defined in Phase 3A apply here unchanged. Shared components are reached through the services that use them, so state the position an attacker occupies in one of those services, not merely that the shared code is called from several places.
 
 MODE-DEPENDENT BEHAVIOR:
 

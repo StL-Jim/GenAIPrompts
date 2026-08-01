@@ -93,7 +93,7 @@ outputs. Do not write them regardless (`common.md` rule W-p).
   findings.
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=538-593 sha256=30a16a0190330ce192b56801ca2730526e364084985dc69690b9495a5e5ef44f -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=559-614 sha256=30a16a0190330ce192b56801ca2730526e364084985dc69690b9495a5e5ef44f -->
 ### PHASE 4A -- WORKER ARCHITECTURE + FUNCTIONAL REVIEW
 INPUT:
 - audit_state/coordination_mode.md

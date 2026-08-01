@@ -190,8 +190,18 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   $doneRows += ($partitionIds | ForEach-Object { "| $_ | 1 | done |" })
   Set-Content -LiteralPath (Join-Path $state 'partition_status.md') -Encoding ASCII -Value $doneRows
 
+  # The excluded ledger. It is what makes the precondition test checkable instead of merely
+  # trusted, so its absence must be visible: a filter whose rejections leave no trace turns a
+  # wrongly-dropped finding into something indistinguishable from code nobody examined.
+  Set-Content -LiteralPath (Join-Path $state "workers\$($partitionIds[0])\excluded_candidates.md") -Encoding ASCII -Value @(
+    'a/b.py:1 | A02 | intercepted on private WAN | Precondition not reachable: attacker on the wire',
+    'a/c.py:2 | A10 | DNS hijack | Precondition not reachable: org runs that resolver',
+    'a/d.py:3 | A09 | missing audit log | Below severity floor')
+
   $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] merge exits 0 on clean input" ($r.Code -eq 0) "exit $($r.Code)"
+  Check "[$mode] excluded ledger merged" (Test-Path (Join-Path $state 'excluded_candidates.md'))
+  Check "[$mode] exclusion profile reported by reason" ($r.Output -match 'Excluded candidates: 3' -and $r.Output -match 'Precondition not reachable: 2')
   Check "[$mode] findings_registry.md written" (Test-Path (Join-Path $state 'findings_registry.md'))
   Check "[$mode] global attack_paths.md written" (Test-Path (Join-Path $state 'attack_paths.md'))
   Check "[$mode] evidence_index.md written" (Test-Path (Join-Path $state 'evidence_index.md'))

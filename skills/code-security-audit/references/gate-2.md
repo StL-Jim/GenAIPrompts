@@ -34,6 +34,19 @@ Report: total findings; the split by severity and by class; the per-partition br
 COORDINATED mode the `threat_match` counts, calling out `contradicts-exclusion` specifically --
 those are findings where the threat model examined the same concern and judged it handled.
 
+**Then one line for what was excluded**, straight from the merge output:
+
+> 11 candidates excluded: 7 precondition not reachable, 3 below severity, 1 duplicate.
+
+That is the whole surface. Do not summarise the excluded candidates, do not walk them, and do not
+put them in any report. Their only purpose is that the precondition test CAN BE WRONG -- a worker
+may mis-state a precondition and drop a real finding, and without this line that finding is
+indistinguishable from code nobody looked at.
+
+If he asks to see them, show the one-line entries for the reason he named and stop. If the count is
+zero when the finding count is large, say so plainly: it may mean the workers did not keep the list,
+which is worth knowing before he trusts what survived.
+
 **Do not re-run `merge-findings.ps1` once triage has begun.** See Step 5: the registry is a
 generated file and re-running it discards every decision made so far. If you need a count
 mid-triage, read it from `gate2_progress.md`.

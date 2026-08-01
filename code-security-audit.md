@@ -438,6 +438,26 @@ SCOPE:
 - plus directly relevant shared or trust-boundary files
 - Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
 
+PRECONDITION TEST.
+
+Every finding rests on a position the attacker must already occupy before the defect matters: unauthenticated on the internet, a valid login, a shell on the host, control of a name server, write access to the build pipeline. Name it in the finding's `issue` field as `[Precondition: ...]`, writing `none` when anyone who can reach the application can reach the defect. A finding whose precondition you cannot name is one you have not finished analysing.
+
+Then answer the question that decides whether it belongs here: can that position be reached in the environment recorded in `coordination_mode.md`? Reachable means some path in this repository, this deployment, or this application's own trust boundaries gets an attacker there. If reaching it requires a position on a network this application does not own, control of infrastructure operated by someone else, or the prior compromise of a system this repository does not build or deploy, the precondition is NOT reachable -- record the candidate in `excluded_candidates.md` with reason `Precondition not reachable` and the position you could not get the attacker into, and move on without creating a finding.
+
+This is the line between a defect and a scenario. A defect is something wrong in the code, and its precondition is a position someone can occupy. A scenario assumes the position and then narrates what follows; it describes what compromising some other system would mean, not anything wrong with this one. Worked examples, deliberately not all excluded:
+- Traffic on the customer's private wide-area network is intercepted to read a plaintext credential -> NOT REACHABLE. Nothing in this repository puts an attacker on that network; the finding assumes the position it needs.
+- DNS for a third-party integration is hijacked to impersonate the endpoint -> NOT REACHABLE, unless this repository resolves that name without verifying the certificate, in which case the defect is the missing verification, the precondition is ordinary network adjacency, and THAT is the finding to write.
+- A malicious build step is injected via write access to CI/CD -> NOT REACHABLE, unless the pipeline definition lives in this repository and you can show how an ordinary contributor reaches it.
+- A logged-in user changes an identifier and reads another user's record -> REACHABLE. A login is a position the application itself hands out.
+- A shell in the container reads an environment variable holding a credential that also opens the production database -> REACHABLE. Say how the shell is obtained if you can; if you cannot, this is still a defect about credential scope -- write it with the precondition stated plainly and let the Exploitability rating carry the difficulty.
+- A database password committed in source -> REACHABLE. Seeing the repository, or unpacking the deployed artifact, is a position people occupy routinely.
+
+The precondition is what the Exploitability scale in RISK SCORING has always been asking about ("requires specific conditions or insider access", "requires multiple preconditions"); stating it turns that rating into a reading rather than an estimate. It is NOT a severity filter and NOT a difficulty filter -- difficulty lowers the Exploitability score and the finding still ships. A weakness reachable from a position an ordinary user or an internet client can occupy is this audit's core business no matter how many other controls stand behind it; defence in depth is what this audit is for. The test removes findings that ASSUME a position. It does not remove findings that make one less valuable.
+
+EXCLUDED CANDIDATES.
+
+While reviewing, keep a compact working list of every candidate you considered and did NOT write up as a finding. One line each: `file:line | OWASP category | short title | exclusion reason`, where the reason begins with one of `Precondition not reachable`, `Below severity floor`, `Fully mitigated`, or `Duplicate of F-NNN`. For a `Precondition not reachable` row, name the position you could not get the attacker into. Write it to `audit_state/workers/<partition_id>/excluded_candidates.md`. Do not expand these into finding write-ups -- one line is the whole point. This list is how a reviewer distinguishes "the audit looked at this and rejected it" from "the audit never looked", which is the difference between a filter that can be checked and one that has to be trusted.
+
 MODE-DEPENDENT BEHAVIOR:
 
 Read `coordination_mode.md` first. The MODE value determines what additional work this phase performs:
@@ -510,6 +530,7 @@ Additional analysis:
 OUTPUT FILES:
 - audit_state/workers/<partition_id>/security_review.md
 - audit_state/workers/<partition_id>/findings.md
+- audit_state/workers/<partition_id>/excluded_candidates.md (candidates considered and not written up -- see PRECONDITION TEST)
 - audit_state/workers/<partition_id>/attack_paths.md
 - audit_state/workers/<partition_id>/evidence_index.md
 - audit_state/findings_registry.md
@@ -606,6 +627,8 @@ SCOPE:
 - only security-critical or architecture-critical shared components
 - plus directly affected trust-boundary files
 - Critical and High severity findings ONLY (see SEVERITY SCOPE in GLOBAL RULES). If an issue you find is Medium, Low, or Info severity, do not write it up -- move on without creating a finding.
+
+The PRECONDITION TEST and the EXCLUDED CANDIDATES list defined in Phase 3A apply here unchanged. Shared components are reached through the services that use them, so state the position an attacker occupies in one of those services, not merely that the shared code is called from several places.
 
 MODE-DEPENDENT BEHAVIOR:
 
@@ -1158,7 +1181,8 @@ Base ratings (assuming internet-facing exposure):
 - Easy (auth required, but straightforward exploit) = 7
 - Moderate (requires specific conditions or insider access) = 4
 - Difficult (requires multiple preconditions, deep system knowledge) = 2
-- Theoretical (no known exploit path) = 1
+
+There is no band below Difficult. A defect with no reachable exploit path does not get a low exploitability score -- it does not get a finding. It goes to `excluded_candidates.md` per the PRECONDITION TEST in Phase 3A. Scoring unexploitability as a 1 and multiplying it through is what let findings survive that no attacker could ever start: severity, confidence and blast radius stayed high, the product stayed above nothing in particular, and the finding shipped.
 
 Deployment exposure modifiers (multiply base rating):
 - Internet-facing: x 1.0 (base ratings apply directly)
@@ -1169,6 +1193,8 @@ Deployment exposure modifiers (multiply base rating):
 Example: A `Trivial` exploit (unauthenticated public-facing SQL injection) is 10 in an internet-facing application. The same code pattern in an internal-only application is 10 x 0.6 = 6, because exploitation requires the attacker to already be inside the corporate network.
 
 The internal-network modifier is NOT a license to deprioritize defects. Insider threats, compromised workstations, and lateral movement after initial access are all realistic attack paths in internal environments. The modifier reflects relative likelihood, not absolute safety.
+
+It is equally not a license to assume any position an attacker might theoretically occupy. An insider, or a workstation already compromised, is a realistic starting point on an internal network. Sitting on the wire between two internal hosts, controlling the organization's DNS or its certificate authority, or having already taken over its build system are not -- not unless something in this repository shows that position is reachable. Where the position IS the whole exploit and the position is not available, there is no finding; see the PRECONDITION TEST in Phase 3A.
 
 EXAMPLE CALCULATION:
 Finding: SQL injection in public-facing user search endpoint

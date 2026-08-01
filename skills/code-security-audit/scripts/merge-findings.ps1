@@ -58,9 +58,13 @@ if (Test-Path -LiteralPath $statusPath) {
 # MERGE
 # ---------------------------------------------------------------------------
 $sources = @(
-  @{ Name = 'findings.md';       Target = 'findings_registry.md'; Heading = 'Findings Registry' }
-  @{ Name = 'attack_paths.md';   Target = 'attack_paths.md';      Heading = 'Attack Paths' }
-  @{ Name = 'evidence_index.md'; Target = 'evidence_index.md';    Heading = 'Evidence Index' }
+  @{ Name = 'findings.md';           Target = 'findings_registry.md';   Heading = 'Findings Registry' }
+  @{ Name = 'attack_paths.md';       Target = 'attack_paths.md';        Heading = 'Attack Paths' }
+  @{ Name = 'evidence_index.md';     Target = 'evidence_index.md';      Heading = 'Evidence Index' }
+  # Candidates workers considered and rejected. This is what makes the precondition test
+  # checkable rather than merely trusted: without it, a wrongly-rejected finding looks exactly
+  # like code nobody examined. Surfaced at GATE 2 as a count by reason, never as a deliverable.
+  @{ Name = 'excluded_candidates.md'; Target = 'excluded_candidates.md'; Heading = 'Excluded Candidates' }
 )
 
 $mergeReport = New-Object System.Collections.Generic.List[string]
@@ -103,7 +107,9 @@ foreach ($s in $sources) {
   }
   $mergeReport.Add("$($s.Target): $($chk.Length) bytes from $present/$($partitionDirs.Count) partitions (inputs $inputBytes bytes)")
   if ($s.Target -eq 'findings_registry.md') { $allFindingText = (Get-Content -LiteralPath $targetPath -Raw) }
+  if ($s.Target -eq 'excluded_candidates.md') { $allExcludedText = (Get-Content -LiteralPath $targetPath -Raw) }
 }
+if (-not (Test-Path Variable:allExcludedText)) { $allExcludedText = '' }
 
 # ---------------------------------------------------------------------------
 # GATE 2 COUNTS
@@ -144,6 +150,16 @@ if ($realTms.Count -gt 0) {
     "        that exact concern and judged it handled. Lead with these at GATE 2."
   }
 }
+# The exclusion profile. One line at GATE 2 unless a number looks wrong, at which point the
+# candidates behind any reason are one file away.
+$exReasons = @([regex]::Matches($allExcludedText, '(?m)\|\s*(Precondition not reachable|Below severity floor|Fully mitigated|Duplicate of F-\d+)') |
+  ForEach-Object { $_.Groups[1].Value -replace 'Duplicate of F-\d+', 'Duplicate' })
+"  Excluded candidates: $($exReasons.Count)"
+if ($exReasons.Count -gt 0) {
+  $exReasons | Group-Object | Sort-Object Count -Descending | ForEach-Object { "    $($_.Name): $($_.Count)" }
+  "    (full list: audit_state/excluded_candidates.md -- not a deliverable, read it only if a count looks wrong)"
+}
+
 "  Findings per partition:"
 $unparseable = @()
 foreach ($pd in $partitionDirs) {

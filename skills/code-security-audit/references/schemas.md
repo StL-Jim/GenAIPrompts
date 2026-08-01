@@ -1,4 +1,4 @@
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1007-1193 sha256=2e6c0b868ed0ea856b10dc21fbb0e76ef9c8ff57a024d630721e22d400bd5014 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1030-1219 sha256=bd371de2a76de49463dcf42c8df1e1253c1f4dae877dff573dec048ed84c79f2 -->
 FINDING SCHEMA (COMPACT)
 Use this compact schema for findings_registry.md and worker findings:
 
@@ -153,7 +153,8 @@ Base ratings (assuming internet-facing exposure):
 - Easy (auth required, but straightforward exploit) = 7
 - Moderate (requires specific conditions or insider access) = 4
 - Difficult (requires multiple preconditions, deep system knowledge) = 2
-- Theoretical (no known exploit path) = 1
+
+There is no band below Difficult. A defect with no reachable exploit path does not get a low exploitability score -- it does not get a finding. It goes to `excluded_candidates.md` per the PRECONDITION TEST in Phase 3A. Scoring unexploitability as a 1 and multiplying it through is what let findings survive that no attacker could ever start: severity, confidence and blast radius stayed high, the product stayed above nothing in particular, and the finding shipped.
 
 Deployment exposure modifiers (multiply base rating):
 - Internet-facing: x 1.0 (base ratings apply directly)
@@ -164,6 +165,8 @@ Deployment exposure modifiers (multiply base rating):
 Example: A `Trivial` exploit (unauthenticated public-facing SQL injection) is 10 in an internet-facing application. The same code pattern in an internal-only application is 10 x 0.6 = 6, because exploitation requires the attacker to already be inside the corporate network.
 
 The internal-network modifier is NOT a license to deprioritize defects. Insider threats, compromised workstations, and lateral movement after initial access are all realistic attack paths in internal environments. The modifier reflects relative likelihood, not absolute safety.
+
+It is equally not a license to assume any position an attacker might theoretically occupy. An insider, or a workstation already compromised, is a realistic starting point on an internal network. Sitting on the wire between two internal hosts, controlling the organization's DNS or its certificate authority, or having already taken over its build system are not -- not unless something in this repository shows that position is reachable. Where the position IS the whole exploit and the position is not available, there is no finding; see the PRECONDITION TEST in Phase 3A.
 
 EXAMPLE CALCULATION:
 Finding: SQL injection in public-facing user search endpoint

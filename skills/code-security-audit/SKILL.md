@@ -192,6 +192,7 @@ audit -- the precise outcome it exists to prevent.
 | GATE 2 | YOU | `gate-2.md` | Review findings BEFORE anything derives from them |
 | renumber-findings | YOU (script) | -- | After GATE 2, before Phase 5. Contiguous ids for the report |
 | Phase 5 | 1 subagent PER deliverable | `phase-5.md` | Fresh output budget each |
+| verify-deliverables | YOU (script) | -- | After Phase 5, BEFORE showing him anything |
 | Phase 6 | 1 subagent | `phase-6.md` | COORDINATED only |
 
 ## Worker count is DERIVED, not chosen
@@ -245,6 +246,27 @@ Run it after GATE 2. It compares the judge's rulings against the decisions he ac
 This exists because he wants to stop reading every finding before forwarding it to a development
 team, and that has to be earned by measurement across several runs rather than decided. Report the
 scorecard to him in plain language; never ask him to run it (rule V).
+
+## Verify the deliverables before showing him any of them
+
+```
+scripts/verify-deliverables.ps1 -Workspace <WS> -ProjectName <PN>
+```
+
+Phase 5's carved text requires every registry finding to appear in the consolidated report, and
+documents the failure that rule exists to prevent: an agent exhausts its output budget mid-report
+and silently degrades detailed findings into bullet points. **The report still looks finished.**
+Nothing about it reveals the loss, which is why this counts rather than reads.
+
+- `SHORT` names the missing ids. Re-dispatch that ONE Phase 5 subagent with a fresh budget. Do not
+  patch the file by hand -- the findings are missing from its reasoning, not just its text.
+- Deliverables absent entirely is a FAILURE, not a pass. Absence is not completeness.
+- The executive briefing is selective by design and is never completeness-checked; it is only
+  asserted to name at least one finding when open Criticals exist.
+
+This is the third guard of the same species in this pipeline -- a worker wrote `findings.csv`, a
+merge reported zero findings and exited 0, and both were silent. Any hand-off where content can
+quietly shrink gets an arithmetic check across it.
 
 ## Verify coverage after every worker, yourself
 

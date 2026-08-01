@@ -188,6 +188,35 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   $r = Invoke-Script 'score-judge.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] score-judge fails closed with no owner decisions" ($r.Code -ne 0) "exit $($r.Code)"
 
+  # ------------------------------------------------ verify-deliverables ---
+  # phase-5.md requires every registry finding to appear in the consolidated report, and the
+  # carved text documents why: an agent exhausts its output budget mid-report and silently
+  # degrades findings into bullet points. The report still LOOKS finished. Only counting catches
+  # it, and until this script nothing counted.
+  # Self-contained registry rather than depending on where the merge runs in this file -- an
+  # ordering dependency between tests is a test that breaks for reasons unrelated to its subject.
+  Set-Content -LiteralPath (Join-Path $state 'findings_registry.md') -Encoding ASCII -Value @(
+    'id: F-901','sev: Critical','status: open','',
+    'id: F-902','sev: High','status: open','',
+    'id: F-903','sev: High','status: false_positive','sup: owner says decommissioned','')
+  $regIds = @('F-901','F-902','F-903')
+  Set-Content -LiteralPath (Join-Path $state '05_consolidated_report.html') -Encoding ASCII -Value (@('<html><body>') + ($regIds | ForEach-Object { "$_ full detail" }) + @('</body></html>'))
+  Set-Content -LiteralPath (Join-Path $state 'executive_briefing.html') -Encoding ASCII -Value @('<html><body>', "Critical findings: $($regIds[0]).", '</body></html>')
+  $r = Invoke-Script 'verify-deliverables.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] verify-deliverables passes on a complete report" ($r.Code -eq 0) "exit $($r.Code)"
+
+  # Truncated report: the exact budget-exhaustion shape.
+  Set-Content -LiteralPath (Join-Path $state '05_consolidated_report.html') -Encoding ASCII -Value @('<html><body>', "$($regIds[0]) full detail", '... and more findings', '</body></html>')
+  $r = Invoke-Script 'verify-deliverables.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] FAIL-CLOSED on a truncated report" ($r.Code -ne 0) "exit $($r.Code)"
+  Check "[$mode] truncation names the missing findings" ($r.Output -match 'MISSING: F-')
+
+  # No deliverables at all must never read as a pass -- absence is not completeness.
+  Remove-Item -LiteralPath (Join-Path $state '05_consolidated_report.html') -Force
+  Remove-Item -LiteralPath (Join-Path $state 'executive_briefing.html') -Force
+  $r = Invoke-Script 'verify-deliverables.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] absent deliverables do not count as verified" (($r.Code -ne 0) -and ($r.Output -match 'not a pass'))
+
   # ------------------------------------------------------------- readplan ---
   $r = Invoke-Script 'readplan.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] readplan exits 0" ($r.Code -eq 0) "exit $($r.Code)"

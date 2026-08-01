@@ -101,6 +101,23 @@ confidence in the tool.
 Rulings with `route: owner` do NOT appear here. Those are questions only the owner can answer and
 he settles them at GATE 2, before this phase runs.
 
+## Your output is COUNTED after you finish
+
+`scripts/verify-deliverables.ps1` compares the finding ids in your file against the registry and
+fails the run if any are missing. This is not a formality aimed at someone else: the failure it
+catches is yours.
+
+The carved text below describes it exactly -- an agent reads a registry of N findings, writes
+planning prose, runs out of response budget mid-report, and produces a summarised list rather than
+a complete one. Findings that were detailed in the registry become bullet points or get cut. That
+narrowing is a budget artifact, not a decision, and nothing in the finished document reveals it.
+
+So: no planning prose, no preamble, no enumerating what the report will contain before writing it.
+Go straight to producing the file, and spend the budget on findings rather than on describing them.
+
+If you run short, say so in your summary rather than compressing the tail. A named shortfall gets
+you re-dispatched with a fresh budget; a quietly truncated report ships.
+
 ## Prohibitions worth surfacing before you start
 
 Both are in the carved text and both are easy to violate by habit:

@@ -413,7 +413,14 @@ try {
     @{ F = 'plain.sql';    C = "CREATE PROC dbo.G AS BEGIN`n SELECT Id, Name FROM dbo.Thing WHERE Id=@Id;`nEND"; Sink = $false; Why = 'ordinary stored procedure -- SELECT/FROM is the language, not a signal' }
     @{ F = 'dynamic.sql';  C = "DECLARE @sql NVARCHAR(MAX); EXEC sp_executesql @sql;";  Sink = $true;  Why = 'sp_executesql builds SQL as a string' }
     @{ F = 'shell.sql';    C = "EXEC xp_cmdshell 'dir';";                               Sink = $true;  Why = 'xp_cmdshell reaches outside the database' }
-    @{ F = 'grant.sql';    C = "GRANT EXECUTE ON SCHEMA::dbo TO PublicRole;";           Sink = $true;  Why = 'privilege change' }
+    # GRANT discrimination. Measured on a real application: a bare GRANT floored 187 of 189 .sql
+    # files, because shipping a procedure with its EXECUTE grant is how the database is wired.
+    # These four assert the line holds in BOTH directions -- a rule that floored none of them
+    # would be as wrong as one that floored all four.
+    @{ F = 'grant-routine.sql'; C = "CREATE PROC dbo.P AS SELECT 1;`nGO`nGRANT EXECUTE ON dbo.P TO AppRole;"; Sink = $false; Why = 'routine EXECUTE grant to a named application role is deployment, not defect' }
+    @{ F = 'grant-public.sql';  C = "GRANT EXECUTE ON SCHEMA::dbo TO public;";          Sink = $true;  Why = 'grant to a broad principal' }
+    @{ F = 'grant-control.sql'; C = "GRANT CONTROL ON DATABASE::App TO AppRole;";       Sink = $true;  Why = 'sweeping permission regardless of principal' }
+    @{ F = 'impersonate.sql';   C = "CREATE PROC dbo.P WITH EXECUTE AS LOGIN = 'sa' AS SELECT 1;"; Sink = $true; Why = 'impersonates a named privileged principal' }
     @{ F = 'safe.cshtml';  C = "<h1>@Model.Title</h1>";                                 Sink = $false; Why = 'Razor escapes @Model by default' }
     @{ F = 'raw.cshtml';   C = "<div>@Html.Raw(Model.Body)</div>";                      Sink = $true;  Why = 'Html.Raw writes unescaped output' }
     # The default pattern must still apply to general-purpose languages: raw SQL inside C# IS

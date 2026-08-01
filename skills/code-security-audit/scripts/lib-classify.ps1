@@ -93,7 +93,24 @@ $script:sinkGroupsByExt = @{
   '.sql' = @(
     @{ Name = 'dynamic-sql'; Re = 'sp_executesql|EXEC(UTE)?\s*[\(@]|EXECUTE\s+IMMEDIATE|@\w*(sql|query|stmt|cmd)\w*\s*=' }
     @{ Name = 'os-reach';    Re = 'xp_cmdshell|sp_OA[A-Za-z]+|xp_reg[a-z]+|OPENROWSET|OPENDATASOURCE|OPENQUERY|BULK\s+INSERT' }
-    @{ Name = 'privilege';   Re = 'GRANT\s+|EXECUTE\s+AS|IMPERSONATE|TRUSTWORTHY|sp_add(srv)?rolemember|ALTER\s+ROLE|CREATE\s+(LOGIN|USER)' }
+    # A bare GRANT was tried first and measured: on a real application it floored 187 of 189 .sql
+    # files. Shipping a stored procedure alongside `GRANT EXECUTE ON dbo.P TO AppRole` is how a
+    # SQL Server database is SUPPOSED to be wired -- the permission is the deployment, not a
+    # defect, and a rule matching it carries no information.
+    #
+    # The narrowing is a security statement that stands on its own, NOT an accommodation of one
+    # codebase's convention: a grant to a broad principal (public/guest), a grant of a sweeping
+    # permission (CONTROL, ALTER ANY, IMPERSONATE, UNSAFE ASSEMBLY), delegation via WITH GRANT
+    # OPTION, impersonation of a NAMED principal, and server-role escalation are each worth
+    # reading in any codebase. Routine EXECUTE to a named application role is not, in any codebase.
+    @{ Name = 'privilege';   Re =
+        'GRANT\b[^\r\n]*\bTO\s+\[?"?(public|guest|everyone)\b|' +
+        'GRANT\s+(ALL|CONTROL|ALTER\s+ANY|IMPERSONATE|TAKE\s+OWNERSHIP|VIEW\s+DEFINITION|UNSAFE\s+ASSEMBLY|EXTERNAL\s+ACCESS)\b|' +
+        'WITH\s+GRANT\s+OPTION|' +
+        'EXECUTE\s+AS\s+(LOGIN|USER|[''"])|' +
+        'IMPERSONATE|TRUSTWORTHY\s+ON|ALTER\s+SERVER\s+ROLE|' +
+        'sp_addsrvrolemember|sp_addrolemember\b[^\r\n]*(db_owner|db_securityadmin|db_accessadmin|sysadmin)|' +
+        'CREATE\s+(LOGIN|USER)\b' }
     @{ Name = 'crypto';      Re = 'MD5|SHA1\b|PWDENCRYPT|ENCRYPTBY|DECRYPTBY' }
   )
   # Razor/WebForms views: unescaped output is the whole risk surface. Split the same way as .sql

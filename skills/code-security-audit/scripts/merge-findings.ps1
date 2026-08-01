@@ -162,6 +162,7 @@ if ($exReasons.Count -gt 0) {
 
 "  Findings per partition:"
 $unparseable = @()
+$missingFindings = @()
 foreach ($pd in $partitionDirs) {
   $f = Join-Path $pd.FullName 'findings.md'
   $n = 0
@@ -174,6 +175,23 @@ foreach ($pd in $partitionDirs) {
     # Other schema fields present WITHOUT any id is the decisive signal: the worker wrote
     # findings, and this script cannot see them.
     $otherFields = @([regex]::Matches($raw, '(?m)^\s*[-*]?\s*(sev|class|src|impact|fix):\s*\S')).Count
+  } else {
+    # NO findings.md AT ALL. A worker that ran and produced other output but no findings file
+    # has not necessarily found nothing -- it may have written the findings somewhere this
+    # script does not read. Field case: a worker wrote findings.csv, and this merge reported
+    # "web: 0" and exited 0 while five findings, three of them Critical, were dropped.
+    #
+    # A stray findings.* is the loud version of the same signal, so name it if present.
+    $stray = @(Get-ChildItem -LiteralPath $pd.FullName -File -Filter 'findings.*' -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -ne 'findings.md' })
+    $others = @(Get-ChildItem -LiteralPath $pd.FullName -File -ErrorAction SilentlyContinue)
+    if ($stray.Count -gt 0) {
+      $missingFindings += "$($pd.Name) (no findings.md, but found $(($stray.Name) -join ', ') -- wrong extension)"
+    } elseif ($others.Count -gt 0) {
+      $missingFindings += "$($pd.Name) (no findings.md; the directory holds $($others.Count) other file(s), so the worker ran)"
+    }
+    # A completely empty partition directory is not flagged here -- the partition_status gate
+    # above already catches a worker that never finished.
   }
   "    $($pd.Name): $n"
   # ZERO parseable findings in a file that plainly CONTAINS findings is not "this partition
@@ -198,6 +216,9 @@ if ($notDone.Count -gt 0) {
 $badSev = @($sevs | Where-Object { $_ -notin @('Critical','High') })
 if ($badSev.Count -gt 0) {
   $fatal += "SEVERITY SCOPE VIOLATION: $($badSev.Count) finding(s) carry severity outside Critical/High ($(($badSev | Sort-Object -Unique) -join ', ')). The audit never emits these -- a worker kept a finding that did not reach the bar."
+}
+if ($missingFindings.Count -gt 0) {
+  $fatal += "NO findings.md IN: $($missingFindings -join '; '). The worker produced output but this merge found no findings file to read, so whatever it found is invisible to the registry and to GATE 2. Do NOT treat this as 'the partition found nothing'. Fix the filename or re-create findings.md per references/schemas.md, then re-run."
 }
 if ($unparseable.Count -gt 0) {
   $fatal += "UNPARSEABLE FINDINGS: $($unparseable -join '; '). The file has substantial content but no line matching 'id: F-NNN', so every finding in it is invisible to this merge and to GATE 2. Do NOT treat this as 'the partition found nothing'. Open the file, check the schema shape against references/schemas.md, and re-dispatch or correct the format before proceeding."

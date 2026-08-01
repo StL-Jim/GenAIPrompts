@@ -292,6 +292,17 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Check "[$mode] FAIL-CLOSED on unparseable findings file" (($r.Code -ne 0) -and ($r.Output -match 'UNPARSEABLE')) "exit $($r.Code)"
   Set-Content -LiteralPath $ff -Encoding ASCII -NoNewline -Value $backup
 
+  # 4b. findings written under the WRONG FILENAME. A real orchestrator run produced this: a
+  #     worker wrote findings.csv, merge read only findings.md, and five findings -- three of
+  #     them Critical, about unauthenticated access to real personal data -- were dropped while
+  #     the merge exited 0. The unparseable guard could not catch it: a MISSING file has zero
+  #     bytes and zero schema fields, so it slipped past every condition.
+  Rename-Item -LiteralPath $ff -NewName 'findings.csv'
+  $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
+  Check "[$mode] FAIL-CLOSED when findings.md is missing entirely" (($r.Code -ne 0) -and ($r.Output -match 'NO findings.md')) "exit $($r.Code)"
+  Check "[$mode] names the stray file so the cause is obvious" ($r.Output -match 'findings\.csv')
+  Rename-Item -LiteralPath (Join-Path (Split-Path $ff) 'findings.csv') -NewName 'findings.md'
+
   # 5. back to green, so the failures above were the injected faults and not something sticky
   $r = Invoke-Script 'merge-findings.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] recovers to green after faults removed" ($r.Code -eq 0) "exit $($r.Code)"

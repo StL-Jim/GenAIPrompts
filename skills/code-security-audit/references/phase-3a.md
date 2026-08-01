@@ -91,6 +91,12 @@ it.
 Do NOT render them as a markdown bullet list (`- id: F-001`), and do not wrap them in a table.
 Prose headings BETWEEN findings are fine; the field lines themselves must be bare.
 
+**The filename is `findings.md`, with that exact extension.** The schema is called COMPACT, which
+reads like an invitation to serialise it as CSV -- a real worker wrote `findings.csv` with the
+fields as columns, and every one of its five findings, three of them Critical, was dropped. The
+merge now fails loudly on a missing `findings.md` instead of reporting success, but write the right
+filename and the right shape and neither guard has to fire.
+
 This is not stylistic. A field worker rendered the schema as a bullet list -- a fair reading of a
 "compact schema" -- and the merge step matched nothing, reported `Total findings: 0`, and exited
 successfully on a run that had found a leaked API key. The merge now tolerates both shapes and

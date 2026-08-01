@@ -50,7 +50,9 @@ foreach ($m in [regex]::Matches($rulingText, '(?m)^\s*[-*]?\s*id:\s*(F-\d+)\s*$'
   $blockEnd = $rulingText.IndexOf("`n`n", $m.Index)
   if ($blockEnd -lt 0) { $blockEnd = $rulingText.Length }
   $block = $rulingText.Substring($m.Index, $blockEnd - $m.Index)
-  $r = [regex]::Match($block, '(?m)^\s*[-*]?\s*ruling:\s*(\w+)')
+  # [\w-] not \w: 'uphold-corrected' would otherwise capture as 'uphold' and the correction
+  # would never be reported -- silently turning a flagged ruling into an unflagged one.
+  $r = [regex]::Match($block, '(?m)^\s*[-*]?\s*ruling:\s*([\w-]+)')
   if ($r.Success) { $rulings[$id] = $r.Groups[1].Value.ToLower() }
   $rt = [regex]::Match($block, '(?m)^\s*[-*]?\s*route:\s*(\w+)')
   if ($rt.Success) { $routes[$id] = $rt.Groups[1].Value.ToLower() }
@@ -71,6 +73,12 @@ if ($ownerCalls.Count -eq 0) { Write-Error "Parsed no decisions from gate2_progr
 function Get-OwnerVerdict([string]$call) {
   switch -Regex ($call) {
     '^keep'          { return 'kept' }
+    # ACCEPTED counts as AGREEING with an uphold. The owner is saying the finding is VALID and
+    # he is choosing not to act on it -- a decision about effort, not about correctness. The
+    # judge rules on validity, so scoring 'accepted' as an abstention would quietly withhold
+    # credit for a call the judge got right. Found on the first real run, where an accepted
+    # finding fell through to the default branch and vanished from the comparison.
+    '^accepted'      { return 'kept' }
     '^not security'  { return 'dropped' }
     '^not real'      { return 'dropped' }
     '^duplicate'     { return 'dropped' }
@@ -97,7 +105,9 @@ foreach ($id in ($rulings.Keys | Sort-Object)) {
   $owner = Get-OwnerVerdict $ownerCalls[$id]
   if ($owner -eq 'abstain') { $abstained += $id; continue }
   switch ($j) {
-    'uphold'     { if ($owner -eq 'kept') { $agreeKeep += $id } else { $judgeLetJunkThrough += $id } }
+    # uphold-corrected is an uphold for scoring: the judge kept the finding, having fixed
+    # something the finder stated wrongly. The correction is reported separately below.
+    { $_ -in @('uphold','uphold-corrected') } { if ($owner -eq 'kept') { $agreeKeep += $id } else { $judgeLetJunkThrough += $id } }
     'reject'     { if ($owner -eq 'dropped') { $agreeDrop += $id } else { $judgeThrewAwayReal += $id } }
     'unresolved' { if ($owner -eq 'kept') { $unresolvedKept += $id } else { $unresolvedDropped += $id } }
   }
@@ -124,6 +134,9 @@ if ($judgeThrewAwayReal.Count -gt 0) { "        $($judgeThrewAwayReal -join ', '
 if ($judgeLetJunkThrough.Count -gt 0) { "        $($judgeLetJunkThrough -join ', ')" }
 ""
 $unresolvedTotal = $unresolvedKept.Count + $unresolvedDropped.Count
+$corrected = @($rulings.Keys | Where-Object { $rulings[$_] -eq 'uphold-corrected' })
+"  UPHELD WITH A CORRECTION: $($corrected.Count)$(if ($corrected.Count -gt 0) { "  ($($corrected -join ', '))" })"
+if ($corrected.Count -gt 0) { "    the finding was real but something it stated was wrong -- worth reading, the judge changed it" }
 "  UNRESOLVED (route: owner): $unresolvedTotal"
 if ($unresolvedTotal -gt 0) { "    owner kept $($unresolvedKept.Count), dropped $($unresolvedDropped.Count) -- disputes only he could settle" }
 "  UNRESOLVED (route: developer): $($routedDev.Count)  -- questions for a developer, not scored against the owner"

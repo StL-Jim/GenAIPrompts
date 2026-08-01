@@ -51,17 +51,28 @@ which is worth knowing before he trusts what survived.
 generated file and re-running it discards every decision made so far. If you need a count
 mid-triage, read it from `gate2_progress.md`.
 
-## Step 2 -- offer the pace, and say how long it will take
+## Step 2 -- offer the pace, THEN STOP AND WAIT
 
 Offer, with the real number attached:
 
-- **Triage all Critical and High** -- one at a time. ALWAYS available at any count.
-- **Triage Criticals only**, Highs as a grouped table.
+- **One at a time** -- you show a finding, he answers, you show the next. ALWAYS available at any
+  count.
+- **Criticals one at a time**, Highs as a grouped table.
 - **Summary only**, with any finding available by id on request.
 
 If the count is large enough that a full pass risks becoming a rubber stamp, say so *with the
 number* ("that is 53 findings, roughly 25 minutes at a quick pace") and let him choose anyway. You
 may flag the risk. You may not remove the option, cap the pass, or steer him off it.
+
+**Do not show a single finding until he has answered this.** In a real run the gate reported the
+counts, then presented all eight findings, then asked for decisions -- and he could not tell whether
+he was meant to answer in bulk, one at a time, or only about the one that was flagged. Showing
+findings and asking for calls in the same message collapses two different modes into an ambiguous
+one.
+
+**Never ask him to reply with a comma-separated list of ids and verdicts.** He hand-types
+everything onto an air-gapped machine. A bulk reply that costs him a paragraph of typing is worse
+than the walk it was meant to save.
 
 ## Step 3 -- present each finding for a belonging judgement
 
@@ -110,16 +121,47 @@ wrongly. Say so rather than quietly asking him anyway.
 In COORDINATED mode, if `threat_match` is `contradicts-exclusion`, lead with that and quote the
 ledger row it disproves.
 
-Then the options, spelled out in words every time. Not abbreviations -- he could not tell `ok`
-from `skip` in the previous version, and `dev` meant nothing to him:
+Then the options, spelled out in words EVERY time, each with its meaning attached. Not
+abbreviations, and not bare labels -- in a real run he had to ask mid-walk what two of six meant:
 
-> **keep** -- looks like a real security issue, leave it in
-> **not security** -- may be a valid observation, but it is not a security finding
-> **not real** -- wrong about the system, or the attack could not happen here
+> **keep** -- real, and it should get fixed
+> **accepted** -- real, but not worth acting on; you are choosing to live with it
+> **not security** -- valid observation, but not a security issue; goes to the architecture output
+> **not real** -- the audit got this wrong; it cannot happen here
 > **duplicate** -- same as another finding
-> **unsure** -- cannot tell, leave it in and move on
+> **unsure** -- cannot judge it; leave it and move on
+> **stop** -- end the walk here; everything unanswered stays untouched
 >
-> Or just tell me what you think and I will work out which it is.
+> Or just tell me what you think and I will work out which it is -- or ask me about it.
+
+**`keep` and `accepted` both mean the finding is CORRECT.** The difference is what happens next:
+`keep` puts it on the list a developer works, `accepted` records his decision not to act. Neither
+says the audit was wrong -- that is `not real`, and only `not real` should ever read as the tool
+having erred. Recording a real-but-unlikely finding as `not real` corrupts the judge scorecard and
+buries a risk that should be revisited if exposure changes.
+
+**`stop` must be offered on every finding**, not just mentioned once at the start. He can end the
+walk at any point; unanswered findings stay `open` and untouched, and `gate2_progress.md` lets him
+resume exactly where he left off.
+
+## He may ask you about a finding, and you answer properly
+
+This gate is a DISCUSSION, not a form. He has said he often asks what the reviewer thinks before
+deciding, and for code-level questions he is relying on that answer.
+
+When he asks:
+
+- **Go and look.** Re-read the cited files, grep for the call sites, check the claim. Do not defend
+  a finding from memory and do not restate its own description in different words -- restating the
+  row is the failure this gate exists to catch, because the row is the thing under question.
+- **Give a real opinion**, including when it weakens the finding. "Critical is generous here, its
+  strongest justification is the chain into F-052, and the finding does not make that argument" is
+  useful. "This is a serious issue that should be addressed" is not.
+- **Say what you are uncertain about**, and say which parts are his call rather than yours.
+- If answering needs a fact only he has -- is that service deployed, does anyone else have host
+  access -- ask him plainly rather than guessing.
+
+A question is not a delay in the walk. It is the walk working.
 
 `unsure` is a first-class answer and must read as one. Most findings may get `keep` or `unsure`,
 and that is the gate working. Never ask "are you sure?" after one, never re-raise a finding he has
@@ -162,9 +204,13 @@ complete do you apply the outcomes to the registry, using fields the schema alre
 | Answer | Registry change |
 |---|---|
 | `keep`, `unsure` | none -- `status` stays `open` |
+| `accepted` | `status: accepted`, `sup:` = his reasoning, attributed. The finding is CORRECT; this records a decision not to act, and the schema has this value for exactly that |
 | `not security` | `status: false_positive`, `sup:` = his words, attributed, plus `routed to architecture observations` |
 | `not real` | `status: false_positive`, `sup:` = his words, attributed |
 | `duplicate` | `status: false_positive`, `sup:` = "duplicate of F-NNN", and add that id to `rel:` |
+
+Note that `accepted` and `false_positive` are different schema values carrying different meanings,
+and the schema already required `sup:` on both. Do not collapse them.
 
 If `merge-findings.ps1` is ever re-run after triage, re-apply from `gate2_progress.md` rather than
 asking him again. State plainly that you are doing so.

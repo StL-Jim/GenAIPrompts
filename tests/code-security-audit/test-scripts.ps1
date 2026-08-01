@@ -148,7 +148,12 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
     'id: F-003','ruling: unresolved','route: owner','reason: is that endpoint still live?','',
     'id: F-004','ruling: reject','grounds: not-security','reason: no attacker gain','',
     'id: F-005','ruling: unresolved','route: developer','reason: grepped 18 callers, dispatch via registry. QUESTION: reachable unauthenticated?','',
-    'id: F-006','ruling: unresolved','reason: no route given','')
+    'id: F-006','ruling: unresolved','reason: no route given','',
+    # uphold-corrected: the defect is real but the finder stated something wrong about it. Its
+    # absence caused a real failure -- a judge with only uphold/reject substituted an invented
+    # justification into an uphold and nobody checked it. The hyphen also matters: a \w+ capture
+    # would read this as plain 'uphold' and the correction would never be reported.
+    'id: F-007','ruling: uphold-corrected','corrected: [Precondition: filesystem access]','reason: finder said web-reachable; checked and it is not. Defect real, precondition corrected.','')
   Set-Content -LiteralPath (Join-Path $state 'gate2_progress.md') -Encoding ASCII -Value @(
     '| F-001 | keep | real | judge:uphold | t |',
     '| F-002 | not real | agreed | judge:reject | t |',
@@ -158,7 +163,8 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
     # answer. An abstain check placed ahead of the route check made exactly these items vanish
     # from the count, which an end-to-end run caught and this row now guards.
     '| F-005 | unsure | developer question, not mine | judge:unresolved | t |',
-    '| F-006 | unsure | no idea | judge:unresolved | t |')
+    '| F-006 | unsure | no idea | judge:unresolved | t |',
+    '| F-007 | accepted | real, choosing not to act | judge:uphold-corrected | t |')
   $r = Invoke-Script 'score-judge.ps1' @('-Workspace', $fx, '-ProjectName', $proj)
   Check "[$mode] score-judge exits 0" ($r.Code -eq 0) "exit $($r.Code)"
   Check "[$mode] scorecard names the dangerous error" ($r.Output -match 'JUDGE REJECTED, OWNER KEPT\s*:\s*1')
@@ -170,6 +176,12 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Check "[$mode] route:developer not scored against the owner" ($r.Output -match 'UNRESOLVED \(route: developer\): 1')
   # An unresolved ruling with no route reaches nobody -- neither the owner nor a developer.
   Check "[$mode] unresolved with no route is flagged" ($r.Output -match 'carry no route')
+  # uphold-corrected must parse whole (the hyphen) and be reported separately, so a finding the
+  # judge silently rewrote is visible rather than looking like a plain uphold.
+  Check "[$mode] uphold-corrected reported separately" ($r.Output -match 'UPHELD WITH A CORRECTION: 1')
+  # 'accepted' means the finding is CORRECT and the owner chose not to act. Scoring it as an
+  # abstention would withhold credit for a call the judge got right -- found on the first real run.
+  Check "[$mode] accepted counts as agreement, not abstention" ($r.Output -match "both kept\s*:\s*2")
 
   # Fails closed when the owner's decisions are absent -- there is nothing to score against.
   Remove-Item -LiteralPath (Join-Path $state 'gate2_progress.md') -Force

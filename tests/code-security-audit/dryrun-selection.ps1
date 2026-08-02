@@ -13,7 +13,10 @@
 # Remove it afterwards with:  Remove-Item -Recurse -Force <repo>\audit_state
 param(
   [Parameter(Mandatory=$true)][string]$Repo,
-  [int]$FloorPerWorker = 60,
+  # Must match partition-plan.ps1's defaults, or the dry run answers a question the real run
+  # is not asking.
+  [int]$SliceKB = 300,
+  [int]$SliceFiles = 40,
   # Deletes audit_state\ on the way out. Off by default so the outputs stay readable.
   [switch]$Clean
 )
@@ -55,41 +58,48 @@ function Step($label, $file, $argv) {
 "FILE SELECTION DRY RUN"
 "  repo   : $Repo"
 "  project: $name"
-"  floor  : $FloorPerWorker auditable files per worker"
+"  slice  : ~$SliceKB KB / $SliceFiles files per subagent"
 
 Step 'STEP 1/4  workspace' 'init-workspace.ps1' @{ Workspace = $Repo; ProjectName = $name; Mode = 'STANDALONE' }
 Step 'STEP 2/4  manifest -- what exists, and what counts as auditable source' 'manifest.ps1' @{ Workspace = $Repo; ProjectName = $name }
-Step 'STEP 3/4  partitions -- how the work would be divided among workers' 'partition-plan.ps1' @{ Workspace = $Repo; ProjectName = $name; FloorPerWorker = $FloorPerWorker }
-Step 'STEP 4/4  read floor -- what each worker would be REQUIRED to read in full' 'readplan.ps1' @{ Workspace = $Repo; ProjectName = $name; FloorPerWorker = $FloorPerWorker }
+Step 'STEP 3/4  slices -- how the work would be divided among subagents' 'partition-plan.ps1' @{ Workspace = $Repo; ProjectName = $name; SliceKB = $SliceKB; SliceFiles = $SliceFiles }
+Step 'STEP 4/4  read list -- what each subagent would read' 'readplan.ps1' @{ Workspace = $Repo; ProjectName = $name; FloorKBPerWorker = $SliceKB; Quiet = $true }
 
 ""
 "=============================================================================="
 "  HOW TO READ THIS"
 "=============================================================================="
 @"
-The three numbers that matter, in order:
+This is the ENTIRE partitioning decision, and it runs without an agent. Phase 1 in a real run
+takes ~20 minutes because a subagent is reading the repository to build the inventory and the
+entry-point index -- but none of that changes how the work is divided. That is decided here, by
+script, in under a second. So you can see and judge the plan before spending the 20 minutes.
 
-  AUDITABLE files (step 2)   Total files is noise -- vendored code, images, lock files and
-                             build output are excluded. Auditable is the real denominator.
-                             If this is close to the total on a big repo, the exclusions are
-                             not catching something and that is a defect worth reporting.
+  AUDITABLE (step 2)   The real denominator. Vendored code, images, lock files and build output
+                       are gone. Close to the total on a big repo means the exclusions missed
+                       something for your stack -- worth reporting.
 
-  PARTITION shape (step 3)   How many workers, and whether any partition holds source that
-                             does not belong together. A partition with almost no auditable
-                             files is wasted; one holding most of them is the bottleneck.
+  SLICES (step 3)      How the work divides. Each slice is one subagent. Read two lines here:
 
-  READ FLOOR (step 4)        The files a worker MUST read in full. This is the number that
-                             has never been tested at scale. If it says SPLIT REQUIRED, the
-                             floor exceeds what one worker can hold and the selection stage
-                             is telling you it cannot cover the repository as partitioned.
+                         CROSS-LAYER FEATURES KEPT TOGETHER -- features whose controller,
+                         service and repository live in different directories and were kept in
+                         ONE slice anyway. This is the line that matters most: splitting those
+                         is what made a worker report it could not validate a finding because
+                         the file it needed was in another partition.
 
-SPLIT REQUIRED on a large repository is an EXPECTED result, not a failure. It is the known
-gap: selection currently ranks a file as must-read if it holds a dangerous API call, without
-requiring that untrusted input reach it. On a large codebase that over-selects. Seeing how
-badly, on real code, is the point of this run.
+                         CONNECTING FILES PULLED IN -- quiet siblings (a service that only
+                         forwards a parameter) with no dangerous API of their own, included
+                         because they are the middle of the path.
 
-Nothing here read file contents for security purposes and no finding was produced. This
-measured selection only.
+  WAVES (step 3)       Slices divided by how many subagents run at once. Two waves is normal on
+                       a large codebase, not a degraded result.
+
+Also watch for files over the single-file limit. Slicing divides BETWEEN files and never within
+one, so a file larger than a subagent's whole budget defeats it entirely. Those are named, and
+they need reading by hand or in named regions.
+
+Nothing here read file contents for security purposes and no finding was produced. This measured
+selection only.
 "@
 
 $stateDir = Join-Path $Repo 'audit_state'

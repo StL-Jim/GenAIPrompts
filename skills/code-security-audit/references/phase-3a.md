@@ -131,6 +131,41 @@ indistinguishable from code nobody looked at, and the owner is asked to trust a 
 check. Do not skip it because a partition produced few exclusions -- a short list is a fine result,
 an absent one is a gap.
 
+## When the answer is in another slice, RECORD THE LEAD. Never just drop it.
+
+A field run surfaced the failure this prevents: a worker reviewed a partition, could not resolve a
+question that depended on code outside its slice, and returned **no findings at all**. It behaved
+correctly at every step and the audit lost a real vulnerability anyway.
+
+That is inherent to reviewing in slices. Most vulnerabilities span two places -- where untrusted
+input ENTERS and where it does DAMAGE -- and those are routinely in different slices:
+
+- You see `BuildQuery(string filter)` concatenating `filter` into SQL. Is `filter` attacker
+  controlled? The caller is not in your slice.
+- You see `_repo.BuildQuery(model.Filter)`. Is that dangerous? The repository is not in your slice.
+
+Each of you sees half of one SQL injection. The precondition rule correctly stops you filing what
+you cannot ground -- so without somewhere to put the half you DID establish, it evaporates.
+
+**First, try to resolve it.** Read `audit_state/entry_points.md`: every route and public entry
+point in the repository with its signature. If it shows a reachable path into the code you are
+looking at, the precondition is grounded and you write an ordinary finding.
+
+**If that is not enough, write one line** to
+`audit_state/workers/<partition_id>/cross_partition_leads.md`:
+
+```
+file:line | what you established | the exact question you could not answer | what would answer it
+src/Repositories/OrderRepo.cs:88 | builds SQL by concatenating parameter 'filter' | is 'filter' ever attacker-controlled? | the callers of BuildQuery, outside this slice
+```
+
+Phase 3B reads every partition and resolves these. A lead that turns out real becomes a finding
+there, credited to your half of the work.
+
+Write the lead even when you suspect it is nothing. The cost of a wrong lead is one line Phase 3B
+closes; the cost of a dropped one is a live vulnerability reported as "no findings in this
+partition". **A half-established vulnerability is a result. Silence is not.**
+
 ## STOP EARLY AND WRITE ONCE. Do not review until you run out.
 
 You may run out of context, and when you do there is no warning: the turn simply ends, anything

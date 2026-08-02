@@ -432,6 +432,18 @@ Do NOT respond by shrinking the slice for everyone or by re-running the worker o
 The estimate being wrong for one area is not evidence it is wrong everywhere, and re-running from
 the start throws away findings that are already correct.
 
+**Phase 3B is NOT optional when cross-partition leads exist.** It used to run only if
+`shared_components.md` listed something. It now also runs whenever any worker wrote
+`cross_partition_leads.md` -- a lead is half of a possible finding that one worker could not
+ground because the other half was in a different slice, and Phase 3B is the only agent that reads
+across boundaries. Skipping it with leads outstanding discards the one category of vulnerability
+that slicing is structurally blind to. `merge-findings.ps1` reports the count; if it is non-zero
+and Phase 3B has not run, the run is not finished no matter what else is complete.
+
+Every worker's briefing must point at `audit_state/entry_points.md` (written in Phase 1). It is
+how a worker settles "is this input attacker-controlled" without reading another slice, and it is
+the difference between a grounded finding and a lead somebody else has to chase.
+
 The run is finished when the bucket is empty AND no `unreviewed.txt` holds any path. Check that
 before Phase 3B -- "all workers returned" is not the same as "everything was reviewed", and the
 difference is exactly what an INCOMPLETE banner exists to make visible.

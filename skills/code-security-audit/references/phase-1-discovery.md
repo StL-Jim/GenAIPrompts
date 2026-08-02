@@ -62,6 +62,42 @@ scripts exist to REMOVE clerical work from you so that more of your attention go
 code, not less. If you notice yourself producing tables instead of reading source, that is the
 failure mode -- go read.
 
+## ALSO write audit_state/entry_points.md -- every worker depends on it
+
+An output the carved list does not name, added because a field run showed what its absence costs.
+
+Reviewing in slices splits most vulnerabilities in half: untrusted input ENTERS in one slice and
+does DAMAGE in another. A worker looking at `BuildQuery(string filter)` concatenating into SQL
+cannot tell whether `filter` is attacker-controlled, because the caller is in someone else's
+slice. It correctly declines to file an ungrounded finding, and a real injection is reported as
+"no findings in this partition".
+
+This file is the cheap half of the fix: a single index every worker reads, so most of those
+questions answer themselves without anyone reading another slice.
+
+Write `audit_state/entry_points.md` -- **signatures only, never bodies.** It must stay small
+enough that every worker can hold it alongside its own source; a few hundred lines, not a map of
+the codebase:
+
+```markdown
+| entry point | kind | signature | reached code |
+|---|---|---|---|
+| POST /api/orders/search | http route | OrderController.Search(string q, int page) | OrderService.Search -> OrderRepo.BuildQuery |
+| (cli) reindex | console command | ReindexCommand.Run(string[] args) | SearchIndexer.Rebuild |
+| nightly-job | scheduled | NightlyJobController.Trigger() [AllowAnonymous] | BillingService.RunNightly |
+```
+
+Include HTTP routes and controller actions, message/queue consumers, scheduled jobs and timers,
+CLI entry points, webhook receivers, and any public API surface. Mark authentication attributes
+you can see (`[Authorize]`, `[AllowAnonymous]`, filters) -- whether an entry point is
+authenticated is often the whole precondition question a worker needs settled.
+
+The `reached code` column is a lead, not a call graph: name what the entry point obviously calls
+without tracing exhaustively. A worker with a partial chain is far better off than one with none.
+
+Keep it factual. This file is read by every worker in the run, so a guess here is a guess
+multiplied by twenty.
+
 ## Overrides of the carved methodology below
 
 The methodology is reproduced verbatim from a prompt written for a single human-driven IDE session.

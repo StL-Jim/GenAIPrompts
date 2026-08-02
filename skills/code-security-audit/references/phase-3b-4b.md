@@ -16,8 +16,42 @@ Read `common.md`, `global-rules.md` and `schemas.md` first.
 | `{PROJECT_NAME}` | your briefing |
 | finding ID block | your briefing -- a range disjoint from every worker's |
 
-Your scope is `audit_state/shared_components.md`. If it lists no critical shared components, this
-phase does not run at all -- say so and return; the orchestrator marks it `not_applicable`.
+You have TWO scopes, and the second is now the more important one:
+
+1. `audit_state/shared_components.md` -- shared code reviewed as one thing rather than N symptoms.
+2. **Every `audit_state/workers/*/cross_partition_leads.md`** -- questions the 3A workers could
+   establish only half of, because the other half was in a different slice.
+
+**This phase runs if EITHER has content.** It is skipped only when there are no critical shared
+components AND no cross-partition leads. Skipping it while leads are outstanding discards the one
+category of vulnerability the slicing method is structurally blind to.
+
+## Resolving cross-partition leads is your first job, before shared components
+
+A field run lost a real vulnerability exactly here. A 3A worker found code building SQL from a
+parameter, could not determine whether that parameter was attacker-controlled because the caller
+lived in another slice, correctly declined to file an ungrounded finding, and returned no findings
+at all. Every step was right and the audit still missed it.
+
+You are the only agent that can close that gap: you read across partitions.
+
+For each lead, in order:
+
+1. Read the line. It names what was established, the question, and what would answer it.
+2. **Go and read that other code.** This is the whole point of your phase -- you are not
+   re-reviewing a partition, you are answering ONE question with the file the asker could not open.
+3. Resolve it to exactly one of:
+   - **Confirmed** -- write it as a finding in your own ID block. Cite the originating partition
+     and the file on BOTH sides; the attack path crosses a boundary and the write-up must show it.
+   - **Refuted** -- the input is not attacker-controlled, or the sink is parameterised after all.
+     Record it in `excluded_candidates.md` with the reason and what you read to establish it.
+   - **Unresolved** -- you could not settle it either. Say so explicitly and carry it into your
+     output with what is still missing. Never leave a lead silently unanswered.
+4. Every lead ends in one of those three states. A lead you did not look at is the original failure
+   happening a second time, with less excuse.
+
+A confirmed cross-partition finding is among the most valuable things this audit produces: it is
+precisely what a single-file scanner and a per-slice reviewer both structurally cannot see.
 
 ## You MAY read every worker directory -- and you are the reason to
 

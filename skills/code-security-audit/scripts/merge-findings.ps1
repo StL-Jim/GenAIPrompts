@@ -65,6 +65,13 @@ $sources = @(
   # checkable rather than merely trusted: without it, a wrongly-rejected finding looks exactly
   # like code nobody examined. Surfaced at GATE 2 as a count by reason, never as a deliverable.
   @{ Name = 'excluded_candidates.md'; Target = 'excluded_candidates.md'; Heading = 'Excluded Candidates' }
+  # Questions a worker could establish only half of, because the other half was in a different
+  # slice. A field run lost a real vulnerability here: the worker found code building SQL from a
+  # parameter, could not tell whether that parameter was attacker-controlled because the caller was
+  # outside its slice, correctly declined to file an ungrounded finding, and returned NOTHING.
+  # Every step was right and the finding evaporated. Phase 3B resolves these; merging them means
+  # an unresolved one is visible instead of sitting in a worker directory nobody opens.
+  @{ Name = 'cross_partition_leads.md'; Target = 'cross_partition_leads.md'; Heading = 'Cross-Partition Leads' }
 )
 
 $mergeReport = New-Object System.Collections.Generic.List[string]
@@ -153,6 +160,20 @@ $unreviewedFiles = @($unreviewedFiles | Sort-Object -Unique)
 
 "=== GATE 2 COUNTS (computed -- quote these, do not restate from memory) ==="
 "  Total findings: $($ids.Count)"
+# Cross-partition leads that Phase 3B has not yet resolved. A lead is a HALF-ESTABLISHED
+# vulnerability -- the most dangerous thing to leave sitting quietly in a worker directory,
+# because "no findings in that partition" is exactly how it reads if nobody counts it.
+$leadPath = Join-Path $outDir 'cross_partition_leads.md'
+$leadCount = 0
+if (Test-Path -LiteralPath $leadPath) {
+  $leadCount = @(Get-Content -LiteralPath $leadPath | Where-Object { $_ -match '^\s*\S+:\d+\s*\|' }).Count
+}
+if ($leadCount -gt 0) {
+  "  CROSS-PARTITION LEADS: $leadCount -- each is half of a possible finding that one worker"
+  "    could not ground because the other half was in a different slice. Phase 3B must resolve"
+  "    every one to confirmed, refuted, or explicitly unresolved. If Phase 3B has not run, these"
+  "    are NOT 'no findings' -- they are findings nobody finished checking."
+}
 if ($unreviewedFiles.Count -gt 0) {
   "  NEVER REVIEWED: $($unreviewedFiles.Count) file(s) -- one or more workers ran short of room."
   "    These are listed in audit_state/workers/*/unreviewed.txt and can be picked up by another"

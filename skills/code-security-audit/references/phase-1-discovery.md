@@ -101,7 +101,7 @@ Three dispatch details differ here. Nothing about WHAT to analyse changes.
 
 ## Methodology (verbatim -- do not edit inside the markers)
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=276-381 sha256=57fcbf24d53e3d9098032491e3670684807e134323d115d3690841cd87c178e6 -->
+<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=276-381 sha256=e3dc8d4011701c28d40e6f89b4f04c9455b0c5059e7c125a6809ae27bba909d2 -->
 ### PHASE 1 -- GLOBAL DISCOVERY
 INPUT:
 - audit_state/00_workspace_context.md (if present)
@@ -172,7 +172,7 @@ ACTIONS (after mode detection):
   - trust boundaries
   - high-risk zones
   - unknowns
-- In COORDINATED mode, the inventory built here should reference the threat model's inventory rather than duplicating it. Components, data stores, trust boundaries, and external integrations from `{PROJECT_NAME}-threat-model/01-inventory.md` are authoritative -- the audit's discovery confirms and extends rather than rebuilds.
+- In COORDINATED mode, build the inventory from the code exactly as in STANDALONE mode, then RECONCILE it against `{PROJECT_NAME}-threat-model/01-inventory.md` and record the differences both ways: components, data stores, trust boundaries and external integrations the audit found that the model does not list, and those the model lists that the audit could not locate in code. Neither side is authoritative. A divergence is a finding about COVERAGE -- and it is only visible if the two were derived independently, so do not let the model's inventory seed this discovery.
 - If repository is large or multi-service, create audit partitions
   - Create partitions if:
     - Repository has >10,000 SLOC (source lines of code)

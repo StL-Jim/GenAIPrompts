@@ -343,7 +343,7 @@ ACTIONS (after mode detection):
   - trust boundaries
   - high-risk zones
   - unknowns
-- In COORDINATED mode, the inventory built here should reference the threat model's inventory rather than duplicating it. Components, data stores, trust boundaries, and external integrations from `{PROJECT_NAME}-threat-model/01-inventory.md` are authoritative -- the audit's discovery confirms and extends rather than rebuilds.
+- In COORDINATED mode, build the inventory from the code exactly as in STANDALONE mode, then RECONCILE it against `{PROJECT_NAME}-threat-model/01-inventory.md` and record the differences both ways: components, data stores, trust boundaries and external integrations the audit found that the model does not list, and those the model lists that the audit could not locate in code. Neither side is authoritative. A divergence is a finding about COVERAGE -- and it is only visible if the two were derived independently, so do not let the model's inventory seed this discovery.
 - If repository is large or multi-service, create audit partitions
   - Create partitions if:
     - Repository has >10,000 SLOC (source lines of code)

@@ -32,6 +32,43 @@ Then ask whether the partitioning is right, and wait. Do not dispatch workers un
 A wrong partition wastes every worker downstream and costs almost nothing to fix at this point. That
 asymmetry is the entire reason this gate exists.
 
+### GATE 1 ASKS ONE QUESTION. Everything else you resolve or you record.
+
+A real run reached this gate and asked the owner whether test controllers were excluded from
+production builds, whether they sat behind extra authentication, and how three `[AllowAnonymous]`
+endpoints were protected. He answered: "I HAVE NO IDEA." He is not a developer, he cannot read
+those answers out of the code, and he had already told you so.
+
+The prohibition further down was already there and did not hold, because a prohibition with no
+outlet does not survive contact with genuine uncertainty -- the agent has a real question, no
+sanctioned place to put it, and asks anyway. So there are places to put it. Every uncertainty at
+this gate goes to ONE of these, and none of them is a question to the owner:
+
+1. **READ IT.** If the repository can answer it, the answer is your job, not his. Is a controller
+   in production builds? `.csproj` conditions, `#if DEBUG`, route registration, area
+   configuration. Is an endpoint authenticated? The filter, the attribute, the middleware
+   pipeline. You have the code and the budget; go and look. "I did not check" is not a question.
+
+2. **RECORD IT AS AN ASSUMPTION.** If the answer lives outside the repository -- a deployment
+   pipeline, a WAF rule, an environment you cannot see -- write it to
+   `audit_state/assumptions.md` as one line: what you assumed, why, and which findings depend on
+   it. State the worst-case reading and carry on. An `[AllowAnonymous]` endpoint is assumed
+   reachable unauthenticated unless the repository proves otherwise.
+
+3. **MAKE IT A FINDING.** "Test controllers ship in the production area tree" IS the finding.
+   Write it with `route: owner`, and it reaches him at GATE 2 with the evidence attached and a
+   disposition he can actually give. That gate is built for this; this one is not.
+
+Never stack questions. If you have three uncertainties, you have three assumption lines or three
+findings, not a numbered interrogation.
+
+The ONE question is whether the partitioning is right. Coverage shortfalls are stated as facts you
+are proceeding on, not as menus -- say what you will do and let him redirect you if he disagrees.
+Close with exactly this, and nothing after it:
+
+> Partitions and coverage above. I'll start the workers on this plan unless you want something
+> grouped differently or left out.
+
 ### What to ask, and what not to
 
 Ask the user about SCOPE and REALITY -- what he alone knows:

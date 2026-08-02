@@ -396,7 +396,18 @@ foreach ($line in $skillLines) {
     $refNames.Add($m.Groups[1].Value)
   }
 }
-$refNames = @($refNames | Sort-Object -Unique)
+# SKILL.md legitimately names RUN ARTEFACTS as well as reference files -- things the audit
+# produces under audit_state/ rather than instructions it reads. They are not expected in
+# references/ and flagging them is a false positive, which is worse than no check: it trains
+# whoever sees it to ignore this test.
+$runArtefacts = @(
+  'findings.md','findings_registry.md','attack_paths.md','evidence_index.md','excluded_candidates.md',
+  'partition_plan.md','partition_status.md','coordination_mode.md','gate2_progress.md',
+  'judge_rulings.md','critic_review.md','security_review.md','architecture_review.md',
+  'shared_components.md','assumptions.md','threat_audit_comparison.md',
+  'security_architecture_audit.md','STATE.md','CHANGELOG.md'
+)
+$refNames = @($refNames | Sort-Object -Unique | Where-Object { $runArtefacts -notcontains $_ })
 $missingRefs = @($refNames | Where-Object { -not (Test-Path (Join-Path $SkillDir "references\$_")) })
 Check 'every reference file named in SKILL.md exists' ($missingRefs.Count -eq 0) ($missingRefs -join ', ')
 

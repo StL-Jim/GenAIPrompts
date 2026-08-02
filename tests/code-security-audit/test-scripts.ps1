@@ -649,6 +649,65 @@ try {
     'this is the whole point -- without it a worker sees a sink and cannot tell if its input is attacker-controlled'
 } finally { Remove-Item -Recurse -Force -LiteralPath $featTmp -ErrorAction SilentlyContinue }
 
+# ------------- grouping follows REFERENCES, not filenames -------------------
+#
+# Filenames are only a PROXY for structure. They work when naming is disciplined
+# (OrderController/OrderService/OrderRepository) and fail the moment it is not -- and the owner
+# pushed on exactly that: "I still don't understand how 'smart' partitioning will work w/out
+# getting to know the application first."
+#
+# So this fixture is built to DEFEAT name-based grouping: CheckoutController calls BasketService
+# calls BasketRepository. No shared stem, three different directories. Only the code's own
+# references can group them, which is the whole claim being tested.
+$refTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("ref-" + [guid]::NewGuid().ToString('N'))
+try {
+  foreach ($d in @('src\Areas\API\Controllers','src\Services','src\Repositories')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $refTmp $d) | Out-Null
+  }
+  $pairs = @{ 'Checkout' = 'Basket'; 'Profile' = 'Account' }
+  foreach ($ctrl in $pairs.Keys) {
+    $svc = $pairs[$ctrl]
+    Set-Content -LiteralPath (Join-Path $refTmp "src\Areas\API\Controllers\${ctrl}Controller.cs") -Value "public class ${ctrl}Controller { [Authorize] public void Go(string q) { new ${svc}Service().Find(q); } }" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $refTmp "src\Services\${svc}Service.cs")                   -Value "public class ${svc}Service { public void Find(string q) { new ${svc}Repository().Search(q); } }" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $refTmp "src\Repositories\${svc}Repository.cs")            -Value "public class ${svc}Repository { public void Search(string n) { var q = `"SELECT * FROM T WHERE n=`" + n; } }" -Encoding UTF8
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $refTmp, '-ProjectName', 'reftest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $refTmp, '-ProjectName', 'reftest')
+  $rp   = Invoke-Script 'partition-plan.ps1' @('-Workspace', $refTmp, '-ProjectName', 'reftest')
+
+  Check 'a reference graph is built from the code' ($rp.Output -match 'REFERENCE GRAPH: \d+ declared types, [1-9]\d* file-to-file references') `
+    'zero references means grouping fell back to filenames, which this fixture is built to defeat'
+
+  # Decisive: the whole call path in one slice, with names that share nothing.
+  $sl = @{}
+  foreach ($pf in @(Get-ChildItem -Path (Join-Path $refTmp 'audit_state\partitions') -Filter '*.txt' | Where-Object { $_.Name -notlike '*readset*' })) {
+    $sl[$pf.BaseName] = @(Get-Content -LiteralPath $pf.FullName)
+  }
+  $pathTogether = $false
+  foreach ($k in $sl.Keys) {
+    $f = $sl[$k]
+    if (($f -match 'CheckoutController') -and ($f -match 'BasketService') -and ($f -match 'BasketRepository')) { $pathTogether = $true }
+  }
+  Check 'a call path with UNRELATED names lands in one slice' $pathTogether `
+    'CheckoutController -> BasketService -> BasketRepository share no stem; if these are split, a worker sees the sink and cannot tell whether its input is attacker-controlled'
+} finally { Remove-Item -Recurse -Force -LiteralPath $refTmp -ErrorAction SilentlyContinue }
+
+# A sparse graph must not make things WORSE. Creating one slice per seed was the first cut, and on
+# files with no detected references it produced one subagent per FILE -- 20 files, 20 slices.
+$sparseTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("sparse-" + [guid]::NewGuid().ToString('N'))
+try {
+  New-Item -ItemType Directory -Force -Path (Join-Path $sparseTmp 'src') | Out-Null
+  1..12 | ForEach-Object {
+    Set-Content -LiteralPath (Join-Path $sparseTmp "src\Iso$_.cs") -Value "public class Iso$_ { var q = `"SELECT * FROM T WHERE n=`" + n; }" -Encoding UTF8
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $sparseTmp, '-ProjectName', 'sparsetest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $sparseTmp, '-ProjectName', 'sparsetest')
+  $null = Invoke-Script 'partition-plan.ps1' @('-Workspace', $sparseTmp, '-ProjectName', 'sparsetest')
+  $sparseSlices = @(Get-ChildItem -Path (Join-Path $sparseTmp 'audit_state\partitions') -Filter '*.txt' | Where-Object { $_.Name -notlike '*readset*' })
+  Check 'unrelated files still pack into few slices' ($sparseSlices.Count -le 2) `
+    "12 tiny unconnected files produced $($sparseSlices.Count) slice(s) -- the graph must improve grouping where it exists and never worsen it where it does not"
+} finally { Remove-Item -Recurse -Force -LiteralPath $sparseTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

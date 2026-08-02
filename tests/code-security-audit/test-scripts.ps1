@@ -552,6 +552,44 @@ try {
   Check 'manifest excludes a bare threat-model dir'     ($mf -notmatch '(^|/)threat-model/') 'name convention varies; the role does not'
 } finally { Remove-Item -Recurse -Force -LiteralPath $selfTmp -ErrorAction SilentlyContinue }
 
+# ------------------- oversized partitions split by functional area ---------
+#
+# A service root used to be atomic: roots merged into fewer workers, but one root was never
+# divided. A real application handed a single worker 351 auditable files and 5,377 KB -- about
+# seven context windows -- and the owner asked the obvious question: "Is it not possible to take
+# 351 source files and split those to subagents?" It is. Nothing prevented it except this script
+# never trying.
+#
+# The split must be by DIRECTORY, not by file order: a worker holding src/Areas/API reasons about
+# a coherent surface, one holding every seventh file does not. These assert that, plus the
+# reconciliation -- a split that loses or duplicates a file is worse than no split.
+$splitTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("split-" + [guid]::NewGuid().ToString('N'))
+try {
+  $pad = ('    // filler' + [Environment]::NewLine) * 700     # ~10 KB per file
+  foreach ($sub in @('Areas\API','Areas\Public','Auth','Services')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $splitTmp "src\$sub") | Out-Null
+    1..20 | ForEach-Object {
+      Set-Content -LiteralPath (Join-Path $splitTmp "src\$sub\C$_.cs") -Value "public class C$_ { var q = `"SELECT * FROM U WHERE n=`" + n;`r`n$pad }" -Encoding UTF8
+    }
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $splitTmp, '-ProjectName', 'splittest')
+  $pp = Invoke-Script 'partition-plan.ps1'   @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-FloorKBPerWorker', '120')
+
+  $ids = @(Get-ChildItem -Path (Join-Path $splitTmp 'audit_state\partitions') -Filter '*.txt' |
+           Where-Object { $_.Name -notlike '*readset*' } | ForEach-Object { $_.BaseName })
+
+  Check 'an oversized root is split into several workers' ($ids.Count -gt 1) "one root, 800 KB, produced $($ids.Count) worker(s) -- a single worker cannot hold it"
+  Check 'workers are named after the functional area they hold' `
+    (@($ids | Where-Object { $_ -match 'areas|auth|services' }).Count -ge 3) `
+    "ids were: $($ids -join ', ') -- a name that does not say what the worker covers is unjudgeable at GATE 1"
+  Check 'splitting preserves the reconciliation' ($pp.Output -match 'Reconciliation: OK') 'a split that loses or duplicates a file is worse than no split at all'
+
+  # And every resulting partition must actually fit, or the split achieved nothing.
+  $rp = Invoke-Script 'readplan.ps1' @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-FloorKBPerWorker', '120')
+  Check 'every split partition fits inside one worker budget' ($rp.Output -notmatch 'PARTIAL COVERAGE') 'if the pieces still overflow, the split solved nothing'
+} finally { Remove-Item -Recurse -Force -LiteralPath $splitTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

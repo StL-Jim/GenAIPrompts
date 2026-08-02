@@ -338,6 +338,30 @@ Three consequences you must enforce, because the carved text assumes serializati
 There is no per-partition review gate. Considered and declined 2026-07-30: run the tool a few times
 first and let field experience say whether more gates are needed.
 
+### DISPATCH IN WAVES when there are more partitions than you can run at once
+
+`partition-plan.ps1` splits oversized partitions along functional-area boundaries, so a large
+application legitimately produces more workers than the root count -- a real one produced 15 for a
+5.5 MB source tree. Do NOT treat that as a reason to shrink the plan.
+
+Dispatch at most **10 workers at a time**. Wait for the wave to complete, run
+`readplan.ps1 -Verify -PartitionId <id>` for each returned worker, update `partition_status.md`, then
+dispatch the next wave. Repeat until every partition is `complete`.
+
+Waves are safe by construction and need no extra bookkeeping:
+
+- **ID blocks are allocated per partition up front**, for every partition, not per wave. A worker in
+  wave 2 uses the block it was assigned at GATE 1.
+- **Workers write only their own directory** (rule W-p), so nothing a later wave does can overwrite
+  an earlier one's output.
+- **Workers never see siblings' findings** in any case, so a worker in wave 1 and one in wave 3 are
+  in exactly the same position with respect to each other.
+
+Report waves to the owner as progress, not as a problem: "wave 2 of 3 complete, 10 of 15 partitions
+done." A run spread over several waves is the correct handling of a large codebase, not a degraded
+one -- the alternative is a single worker holding seven context windows and quietly reading a
+fraction of them.
+
 ## Briefing a worker
 
 Every worker briefing states: partition_id, its file list path

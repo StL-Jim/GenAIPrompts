@@ -407,6 +407,27 @@ is wrong the worker reports how far it got and writes the remainder to
    finding-ID blocks for them exactly as at GATE 1.
 4. Tell the owner plainly: "3 of 10 workers ran short; 47 files re-queued into wave 4."
 
+**A worker may also return NOTHING** -- no banner, no summary, an empty or truncated result. That
+is context exhaustion, and it is not the same as a clean run that found nothing. Never record it
+as `security_complete`. Reconstruct from disk instead, because workers write as they go:
+
+| on disk | what it means | what you do |
+|---|---|---|
+| `findings.md` has entries | Critical findings written immediately, before it died | keep every one, they are valid |
+| `findings.md` absent or empty | it died before its single end-of-slice write | re-queue the whole slice |
+
+Workers deliberately do NOT checkpoint continuously -- every write costs the owner a manual
+approval, so they stop at two-thirds context and write once. The cost of that choice is exactly
+this case: a worker that dies anyway leaves little behind, and the slice is re-reviewed rather
+than resumed. Accept that and re-queue it whole; do not try to reconstruct partial progress that
+was never recorded.
+
+Record the partition `security_partial` and say so plainly: "the `src-areas-3` worker ran out of
+context; its slice is re-queued whole for wave 3."
+
+If this happens more than once in a run, the slices are too big for this codebase. Re-slice the
+REMAINDER at a smaller `-SliceKB` (say 200) rather than re-running the same size and hoping.
+
 Do NOT respond by shrinking the slice for everyone or by re-running the worker on the same slice.
 The estimate being wrong for one area is not evidence it is wrong everywhere, and re-running from
 the start throws away findings that are already correct.

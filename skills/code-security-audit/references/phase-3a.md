@@ -131,6 +131,37 @@ indistinguishable from code nobody looked at, and the owner is asked to trust a 
 check. Do not skip it because a partition produced few exclusions -- a short list is a fine result,
 an absent one is a gap.
 
+## STOP EARLY AND WRITE ONCE. Do not review until you run out.
+
+You may run out of context, and when you do there is no warning: the turn simply ends, anything
+only in your head is gone, and the orchestrator sees a worker that returned nothing -- which it
+cannot distinguish from one that reviewed everything and found nothing.
+
+The defence is a generous margin, not frequent saving. **Every write costs the owner a manual
+approval**, so a worker that checkpoints constantly is expensive across twenty slices. Your slice
+was sized so this should never be close: roughly 300 KB of source against a 200K window is about
+half of it, leaving ample room to read, reason, and write. Running short should be the exception.
+
+**Check your remaining room after each file.** The moment you judge yourself around two thirds
+full -- not three quarters, not nine tenths -- stop reviewing. Do not read one more file. Then:
+
+1. Write `findings.md` with everything you found.
+2. Write `excluded_candidates.md`.
+3. If files remain, write `unreviewed.txt` with their paths and print the INCOMPLETE banner.
+
+That is two or three writes for the whole slice, and the two-thirds trigger is deliberately early:
+the judgement that fails is exactly the one you make when nearly full, so the margin has to absorb
+being wrong about it. Stopping with a third of your room unused and a clean record is a GOOD
+outcome. Reading one more file and losing the partition's entire bookkeeping is not.
+
+**One exception, and only one: a Critical finding is written the moment you confirm it.** A leaked
+credential or an unauthenticated path to data is worth an immediate write on its own, and these
+are rare enough -- often none in a slice -- that the cost is negligible against losing one.
+
+If you are ever weighing "review one more file" against "record what I have", record what you have.
+An unreviewed file is picked up by the next wave automatically. A finding never written down is
+gone, and nothing downstream can tell it ever existed.
+
 ## Your summary to the orchestrator is the BANNER AND NOTHING ELSE
 
 Everything you learn goes in FILES. Your summary is not where findings live, and it is not a

@@ -155,6 +155,19 @@ if (-not $Verify) {
     }
 
     # ---------------------------------------------------------------------
+    # THE SLICE IS THE READ LIST.
+    #
+    # partition-plan.ps1 now builds one ordered bucket of auditable files and cuts it into
+    # subagent-sized slices, so selection and sizing have both already happened. Re-deriving a
+    # "floor" here would be a second, independent answer to a question already settled -- and two
+    # answers that can disagree is how the old design produced partitions sized against one rule
+    # and verified against another.
+    #
+    # Everything below that prioritised and cut is therefore inert: a slice is by construction
+    # within budget and contains only auditable files. It is kept as a SAFETY NET, not a filter --
+    # if a slice ever arrives over budget the cut still fires and still says so, rather than
+    # silently handing a worker more than it can hold.
+    #
     # PRIORITISE, THEN CUT AT THE BUDGET.
     #
     # The floor used to be a MANDATE: every qualifying file read in full, and if that exceeded

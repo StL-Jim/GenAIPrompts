@@ -128,10 +128,16 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   # deliberately. Coverage is therefore assigned + non-auditable == manifest, and the plan must
   # SAY which roots got no worker -- a silently absent directory is indistinguishable from one
   # nobody thought to look at.
+  # THREE categories now, not two. Slices hold only auditable files, so a doc or test file sitting
+  # beside real source inside an audited root belongs to no slice -- it is not lost, it is simply
+  # not something a worker would review. Counting only two categories lost 2 files on this
+  # 17-file fixture, which is exactly the arithmetic this check exists to catch.
   $assigned = @($partFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName })
   $nonAudit = 0
   if ($plan -match '(?m)^Files in non-auditable roots:\s+(\d+)') { $nonAudit = [int]$Matches[1] }
-  Check "[$mode] assigned + non-auditable == manifest" (($assigned.Count + $nonAudit) -eq $manifest.Count) "assigned $($assigned.Count) + nonaudit $nonAudit vs manifest $($manifest.Count)"
+  $inRoot = 0
+  if ($plan -match '(?m)^Non-auditable files inside audited roots:\s+(\d+)') { $inRoot = [int]$Matches[1] }
+  Check "[$mode] sliced + non-auditable == manifest" (($assigned.Count + $nonAudit + $inRoot) -eq $manifest.Count) "sliced $($assigned.Count) + nonaudit-roots $nonAudit + nonaudit-in-root $inRoot vs manifest $($manifest.Count)"
   Check "[$mode] plan names the roots given no worker" ($plan -match 'Not assigned to any worker')
   $dupeAssign = @($assigned | Group-Object | Where-Object { $_.Count -gt 1 })
   Check "[$mode] no file in two partitions" ($dupeAssign.Count -eq 0)
@@ -486,41 +492,6 @@ try {
   Check 'no coverage warning when both budgets are ample' ($loose.Output -notmatch 'PARTIAL COVERAGE') 'the size rule must discriminate, not fire unconditionally'
 } finally { Remove-Item -Recurse -Force -LiteralPath $kbTmp -ErrorAction SilentlyContinue }
 
-# ------------------------------------ worker count clamped by root count ---
-#
-# A service root is atomic in partition-plan.ps1: roots merge into fewer workers, but one root is
-# never split across two. So achievable parallelism is bounded by ROOT COUNT, not by surface --
-# on a real application 837 auditable files justified 14 workers and got 5, because the repo has
-# 5 auditable roots.
-#
-# The bug this covers is the message, not the clamp. The script printed "the surface is the
-# limit, not the parallelism" in BOTH cases. That sentence is true for a small repo and false for
-# a clamped one, and in the false case it tells the owner a short plan is the right plan.
-$clampTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("clamp-" + [guid]::NewGuid().ToString('N'))
-try {
-  foreach ($case in @(
-    @{ Dir = 'onlyroot'; N = 90; ExpectClamp = $true;  Label = 'one root holding more surface than one worker warns' }
-    @{ Dir = 'small';    N = 5;  ExpectClamp = $false; Label = 'a genuinely small surface still gets the reassuring note' }
-  )) {
-    $ws = Join-Path $clampTmp $case.Dir
-    New-Item -ItemType Directory -Force -Path (Join-Path $ws 'svc') | Out-Null
-    1..$case.N | ForEach-Object {
-      Set-Content -LiteralPath (Join-Path $ws "svc\C$_.cs") -Value "public class C$_ { var q = `"SELECT * FROM U WHERE n=`" + n; }" -Encoding UTF8
-    }
-    $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $ws, '-ProjectName', $case.Dir, '-Mode', 'STANDALONE')
-    $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $ws, '-ProjectName', $case.Dir)
-    $pp   = Invoke-Script 'partition-plan.ps1' @('-Workspace', $ws, '-ProjectName', $case.Dir)
-
-    if ($case.ExpectClamp) {
-      Check $case.Label ($pp.Output -match 'CLAMPED BY ROOT COUNT') 'the surface justifies more workers than there are roots -- that must be said, not smoothed over'
-      Check 'clamped plan does NOT claim the surface is the limit' ($pp.Output -notmatch 'the surface is the limit') 'that sentence is false when the root count did the clamping'
-    } else {
-      Check $case.Label ($pp.Output -match 'the surface is the limit') 'a small repo genuinely does not need more workers and should be told so'
-      Check 'small surface is not falsely reported as clamped' ($pp.Output -notmatch 'CLAMPED BY ROOT COUNT') 'a warning that always fires carries no information'
-    }
-  }
-} finally { Remove-Item -Recurse -Force -LiteralPath $clampTmp -ErrorAction SilentlyContinue }
-
 # ------------------------------ the audit must not audit itself ------------
 #
 # Raised by the owner: "are you checking any of the previous audit_state* or threat-model*
@@ -574,20 +545,23 @@ try {
   }
   $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-Mode', 'STANDALONE')
   $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $splitTmp, '-ProjectName', 'splittest')
-  $pp = Invoke-Script 'partition-plan.ps1'   @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-FloorKBPerWorker', '120')
+  $pp = Invoke-Script 'partition-plan.ps1'   @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-SliceKB', '120')
 
   $ids = @(Get-ChildItem -Path (Join-Path $splitTmp 'audit_state\partitions') -Filter '*.txt' |
            Where-Object { $_.Name -notlike '*readset*' } | ForEach-Object { $_.BaseName })
 
-  Check 'an oversized root is split into several workers' ($ids.Count -gt 1) "one root, 800 KB, produced $($ids.Count) worker(s) -- a single worker cannot hold it"
-  Check 'workers are named after the functional area they hold' `
+  Check 'a large root becomes several slices' ($ids.Count -gt 1) "one root, 800 KB, produced $($ids.Count) slice(s) -- a single subagent cannot hold it"
+  Check 'slices are named after the functional area they hold' `
     (@($ids | Where-Object { $_ -match 'areas|auth|services' }).Count -ge 3) `
-    "ids were: $($ids -join ', ') -- a name that does not say what the worker covers is unjudgeable at GATE 1"
-  Check 'splitting preserves the reconciliation' ($pp.Output -match 'Reconciliation: OK') 'a split that loses or duplicates a file is worse than no split at all'
+    "ids were: $($ids -join ', ') -- a name that does not say what the subagent covers is unjudgeable at GATE 1"
+  Check 'slicing preserves the reconciliation' ($pp.Output -match 'Reconciliation: OK') 'a slicing scheme that loses or duplicates a file is worse than none at all'
+  Check 'the plan states bucket, slices and waves' `
+    ($pp.Output -match 'BUCKET:' -and $pp.Output -match 'SLICES:' -and $pp.Output -match 'WAVES :') `
+    'the owner decides at GATE 1 how far down the queue to go -- he cannot without those three numbers'
 
-  # And every resulting partition must actually fit, or the split achieved nothing.
+  # And every slice must actually fit, or the slicing achieved nothing.
   $rp = Invoke-Script 'readplan.ps1' @('-Workspace', $splitTmp, '-ProjectName', 'splittest', '-FloorKBPerWorker', '120')
-  Check 'every split partition fits inside one worker budget' ($rp.Output -notmatch 'PARTIAL COVERAGE') 'if the pieces still overflow, the split solved nothing'
+  Check 'every slice fits inside one subagent budget' ($rp.Output -notmatch 'PARTIAL COVERAGE') 'if the pieces still overflow, the slicing solved nothing'
 } finally { Remove-Item -Recurse -Force -LiteralPath $splitTmp -ErrorAction SilentlyContinue }
 
 # ----------------------------------------------------------------- report ---

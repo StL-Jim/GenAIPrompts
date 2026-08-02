@@ -1,8 +1,8 @@
 # SKILL VERSION: v1-skill (2026-07-29a)
 # skills/code-security-audit/scripts/partition-plan.ps1
 #
-# Proposes the Phase 2 partition plan: groups the file manifest into at most -MaxPartitions
-# service-scoped partitions, writes a machine-readable file list per partition, and seeds
+# Proposes the Phase 2 partition plan: orders every auditable file into one bucket, cuts it into
+# subagent-sized slices, writes a machine-readable file list per slice, and seeds
 # partition_status.md.
 #
 # This is a PROPOSAL. GATE 1 exists so the owner approves it before N workers run against
@@ -14,15 +14,16 @@
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
   [Parameter(Mandatory=$true)][string]$ProjectName,
-  # Caps the ROOT grouping only. Oversized partitions are split below this, and that split is
-  # driven by the worker budget rather than by this number -- a repository whose source genuinely
-  # needs fourteen workers gets fourteen, dispatched in waves.
-  [ValidateRange(1,10)][int]$MaxPartitions = 10,
-  # One worker's source budget in KB. Must match readplan.ps1's -FloorKBPerWorker, which derives
-  # it from the context window; partitions sized here are verified against it there.
-  [int]$FloorKBPerWorker = 500,
-  # Auditable files one worker can read and still have budget to reason and write findings.
-  [int]$FloorPerWorker = 60
+  # How many subagents run AT ONCE. Not a cap on the work -- a repository needing 15 slices gets
+  # 15, dispatched in waves of this size. This number is about parallelism, nothing else; letting
+  # it decide how the work was divided is precisely the mistake this script no longer makes.
+  [ValidateRange(1,10)][int]$MaxParallel = 10,
+  # Slice size. An ESTIMATE of what one subagent can get through, not a guarantee: a worker that
+  # runs out reports where it stopped and the remainder is re-sliced. Derived from the 200K window
+  # (~14.7K instructions + reasoning and findings headroom leaves ~500 KB of source), but being
+  # wrong here costs one extra wave rather than blocking anything.
+  [int]$SliceKB = 500,
+  [int]$SliceFiles = 50
 )
 
 $ErrorActionPreference = 'Stop'
@@ -99,189 +100,135 @@ foreach ($k in $weights.Keys) { $totalWeight += $weights[$k] }
 $auditableRoots    = @($groups.Keys | Where-Object { $weights[$_] -gt 0 } | Sort-Object { $weights[$_] } -Descending)
 $nonAuditableRoots = @($groups.Keys | Where-Object { $weights[$_] -eq 0 } | Sort-Object)
 
-# N is derived from the auditable surface, not from how many directories exist. Most repos need
-# fewer workers than the cap allows; a repo justifying 8 needs a floor around 480 files.
-$surfaceN = [math]::Ceiling($totalWeight / [double]$FloorPerWorker)
-if ($surfaceN -lt 1) { $surfaceN = 1 }
-$targetN = $surfaceN
-if ($targetN -gt $MaxPartitions) { $targetN = $MaxPartitions }
-# A service root is ATOMIC here: roots can be merged into fewer workers but one root is never
-# split across two. So the achievable parallelism is bounded by how many auditable roots exist,
-# regardless of how much source any one of them holds. Remember WHY the clamp bound, because the
-# two reasons need opposite messages -- a small surface is fine, an unsplittable root is not.
-$clampedByRoots = ($targetN -gt $auditableRoots.Count -and $auditableRoots.Count -gt 0)
-if ($targetN -gt $auditableRoots.Count) { $targetN = [math]::Max(1, $auditableRoots.Count) }
-
-# Greedy first-fit-decreasing into $targetN bins. Service coherence is preserved -- a worker
-# reviewing one service reasons better than one reviewing a balanced but arbitrary slice -- and
-# only the WEIGHT changes, not the grouping principle.
-$bins = @()
-for ($i = 0; $i -lt $targetN; $i++) {
-  $bins += ,[pscustomobject]@{ Roots = New-Object System.Collections.Generic.List[string]; Weight = 0 }
-}
-foreach ($r in $auditableRoots) {
-  $lightest = $bins[0]
-  foreach ($b in $bins) { if ($b.Weight -lt $lightest.Weight) { $lightest = $b } }
-  $lightest.Roots.Add($r)
-  $lightest.Weight += $weights[$r]
-}
-
-$partitions = New-Object System.Collections.Generic.List[object]
-foreach ($b in $bins) {
-  if ($b.Roots.Count -eq 0) { continue }
-  $files = New-Object System.Collections.Generic.List[string]
-  foreach ($r in $b.Roots) { foreach ($x in $groups[$r]) { $files.Add($x) } }
-  # Name the partition after its heaviest root so the id stays meaningful.
-  $lead = $b.Roots[0]
-  $id = ($lead -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower()
-  if ($b.Roots.Count -gt 1) { $id = "$id-plus" }
-  $partitions.Add([pscustomobject]@{ Id = $id; Roots = @($b.Roots); Files = @($files); Weight = $b.Weight })
-}
-
 # ---------------------------------------------------------------------------
-# SPLIT PARTITIONS THAT ARE TOO BIG FOR ONE WORKER
+# ONE ORDERED BUCKET, CUT INTO SLICES
 #
-# Until now a service root was ATOMIC: roots could be merged into fewer workers but one root was
-# never divided. On a real application that produced a `src` partition of 351 auditable files and
-# 5,377 KB -- about seven context windows -- handed to a single worker. The owner put it plainly:
-# "Is it not possible to take 351 source files and split those to subagents?" It is. Nothing
-# prevented it except this script never trying.
+# What this replaced, and why: partitions used to be built from SERVICE ROOTS, one worker per
+# root, with a root treated as atomic. A 5,377 KB `src` tree therefore went to ONE worker that
+# could hold about a seventh of it, and the machinery grown to cope -- a read floor, a byte
+# budget, a recursive partition splitter, coverage arithmetic -- all existed to make that shape
+# work. It was solving a problem created by the shape itself.
 #
-# Splitting is along SUBDIRECTORY boundaries, not arbitrary slices. A worker reviewing
-# src/Areas/API reasons about a coherent surface; one handed every seventh file by alphabetical
-# order does not. Groups are packed by auditable BYTES, because bytes are what exhausts a context
-# window. A single subdirectory too large on its own is chunked as a last resort, and that is
-# reported rather than hidden.
+# The owner's model, and it is the right one: put every auditable file in ONE bucket, order it,
+# cut it into slices a subagent can finish, and keep dispatching until the bucket is empty.
 #
-# Non-auditable files travel with their directory so the reconciliation still accounts for every
-# manifest file.
-$budgetBytes = $FloorKBPerWorker * 1KB
+# Two properties matter more than any sizing arithmetic:
+#
+#   ORDER IS THE SELECTION. Nothing is ever excluded -- files are earlier or later. Stopping
+#   after three waves means the three most valuable waves were done, not a random third. That
+#   is why the old floor/deferred/SPLIT REQUIRED apparatus is gone rather than tuned: a queue
+#   with an end you may choose not to reach needs no coverage guarantee to be honest.
+#
+#   SLICE SIZE IS AN ESTIMATE, NOT A CONTRACT. A worker that runs out says where it stopped and
+#   the remainder returns to the queue. Being wrong costs one extra wave. The previous design
+#   made the estimate a precondition, so being wrong blocked the entire audit.
+#
+# Ordering is by AREA first (service root + its first subdirectory -- where functional areas
+# already live in any codebase), areas ranked by the most security-relevant class they contain,
+# then within an area by class and path. Sequential slices therefore fall along area boundaries
+# most of the time, which buys coherence without a splitter to manufacture it.
+$classRank = @{ 'authz' = 0; 'entry-route' = 1; 'config-iac' = 2; 'dep-manifest' = 3; 'ext-call' = 4; 'data-access' = 5; 'app-source' = 6 }
 
-function Get-AuditableBytes {
-  param([string[]]$Files)
-  $sum = 0
-  foreach ($f in $Files) {
-    if (-not (Test-Auditable -Workspace $WORKSPACE -RelPath $f)) { continue }
-    $fp = Join-Path $WORKSPACE ($f -replace '/','\')
-    if (Test-Path -LiteralPath $fp) { $sum += (Get-Item -LiteralPath $fp).Length }
-  }
-  return $sum
-}
-
-# The key a file is grouped by when splitting: the first $Depth path segments BELOW the root.
-#
-# Depth matters for coherence. At depth 1 `src/Areas` is one group holding both Areas/API and
-# Areas/Public, and if that group is oversized the only remaining move is to chop it by file
-# order -- which is exactly the arbitrary slice this split exists to avoid. Going deeper first
-# yields src-areas-api and src-areas-public: two workers each holding a surface that makes sense.
-function Get-SplitKey {
-  param([string]$Rel, [string]$Root, [int]$Depth = 1)
+function Get-AreaKey {
+  param([string]$Rel, [string]$Root)
   $tail = $Rel
   if ($Root -ne '_root' -and $Rel.StartsWith("$Root/")) { $tail = $Rel.Substring($Root.Length + 1) }
   $parts = @($tail -split '/')
-  if ($parts.Count -le 1) { return '(root files)' }
-  $take = [math]::Min($Depth, $parts.Count - 1)
-  return ($parts[0..($take - 1)] -join '/')
+  if ($parts.Count -le 1) { return $Root }
+  return "$Root/$($parts[0])"
 }
 
-$split = New-Object System.Collections.Generic.List[object]
-$splitReport = @()
-
-foreach ($p in $partitions) {
-  $pBytes = Get-AuditableBytes -Files $p.Files
-  if ($pBytes -le $budgetBytes -and $p.Weight -le $FloorPerWorker) { $split.Add($p); continue }
-
-  $lead = $p.Roots[0]
-
-  # Choose the DEEPEST directory level that still tells us something new. Deeper is better even
-  # when the resulting groups are themselves too large: chunking Areas/API is coherent, chunking
-  # Areas -- which holds both API and Public -- is not. The earlier version required every group
-  # at a depth to fit within budget before accepting it, which rejected depth 2 on a tree where
-  # Areas/API and Areas/Public were 1 MB each, and fell back to slicing Areas by file order.
-  $bestDepth = 1
-  $bestGroups = $null
-  foreach ($depth in 1..4) {
-    $g = @{}
-    foreach ($f in $p.Files) {
-      $k = Get-SplitKey -Rel $f -Root $lead -Depth $depth
-      if (-not $g.ContainsKey($k)) { $g[$k] = New-Object System.Collections.Generic.List[string] }
-      $g[$k].Add($f)
-    }
-    if ($null -eq $bestGroups -or $g.Keys.Count -gt $bestGroups.Keys.Count) { $bestGroups = $g; $bestDepth = $depth }
-    if (@($g.Keys | Where-Object { (Get-AuditableBytes -Files $g[$_]) -gt $budgetBytes }).Count -eq 0) {
-      $bestGroups = $g; $bestDepth = $depth; break
-    }
+# Every auditable file, with what ordering and sizing need.
+$items = New-Object System.Collections.Generic.List[object]
+foreach ($r in $auditableRoots) {
+  foreach ($rel in $groups[$r]) {
+    if (-not (Test-Auditable -Workspace $WORKSPACE -RelPath $rel)) { continue }
+    $cls = Get-AuditClass -Path $rel
+    $fp = Join-Path $WORKSPACE ($rel -replace '/','\')
+    $bytes = 0
+    if (Test-Path -LiteralPath $fp) { $bytes = (Get-Item -LiteralPath $fp).Length }
+    $rank = 9
+    if ($cls -and $classRank.ContainsKey($cls)) { $rank = $classRank[$cls] }
+    $items.Add([pscustomobject]@{
+      Path = $rel; Root = $r; Area = (Get-AreaKey -Rel $rel -Root $r); Class = $cls; Rank = $rank; Bytes = $bytes
+    })
   }
-  if ($bestDepth -gt 1) { $splitReport += "$($p.Id): grouped at directory depth $bestDepth ($($bestGroups.Keys.Count) groups)" }
+}
 
-  # Heaviest group first so packing is stable and the big directories land in their own workers.
-  $keyed = @($bestGroups.Keys | ForEach-Object {
-    [pscustomobject]@{ Key = $_; Files = @($bestGroups[$_]); Bytes = (Get-AuditableBytes -Files $bestGroups[$_]) }
-  } | Sort-Object -Property Bytes -Descending)
+# Rank each AREA by the most security-relevant file it holds, so auth and routing areas are
+# reviewed before plumbing. Ties break on size (smaller first covers more distinct areas early).
+$areaRank = @{}
+$areaBytes = @{}
+foreach ($it in $items) {
+  if (-not $areaRank.ContainsKey($it.Area) -or $it.Rank -lt $areaRank[$it.Area]) { $areaRank[$it.Area] = $it.Rank }
+  if (-not $areaBytes.ContainsKey($it.Area)) { $areaBytes[$it.Area] = 0 }
+  $areaBytes[$it.Area] += $it.Bytes
+}
+$ordered = @($items | Sort-Object `
+  @{ Expression = { $areaRank[$_.Area] } }, `
+  @{ Expression = { $areaBytes[$_.Area] } }, `
+  @{ Expression = { $_.Area } }, `
+  @{ Expression = { $_.Rank } }, `
+  @{ Expression = { $_.Path } })
 
-  # A group still larger than one worker is chunked by file order -- unavoidable once no finer
-  # directory boundary exists. Reported, because a worker holding half a directory is a real
-  # limit on how well it can reason, not a neutral implementation detail.
-  $units = New-Object System.Collections.Generic.List[object]
-  foreach ($g in $keyed) {
-    if ($g.Bytes -le $budgetBytes) { $units.Add($g); continue }
-    $nChunks = [math]::Ceiling($g.Bytes / [double]$budgetBytes)
-    $perChunk = [math]::Ceiling($g.Files.Count / [double]$nChunks)
-    for ($i = 0; $i -lt $g.Files.Count; $i += $perChunk) {
-      $slice = @($g.Files[$i..([math]::Min($i + $perChunk - 1, $g.Files.Count - 1))])
-      $units.Add([pscustomobject]@{ Key = $g.Key; Files = $slice; Bytes = (Get-AuditableBytes -Files $slice) })
-    }
-    $splitReport += "$($p.Id)/$($g.Key) is one directory larger than a worker; chunked into $nChunks by file order"
+# Cut. A slice closes when it would exceed either budget, or when the area changes and the slice
+# is already substantially full -- preferring an area boundary to a hard cut keeps each worker
+# looking at one coherent surface without stranding tiny slices.
+$sliceBytes = $SliceKB * 1KB
+$slices = New-Object System.Collections.Generic.List[object]
+$cur = $null
+$prevArea = $null
+foreach ($it in $ordered) {
+  $wouldExceed = $cur -and ((($cur.Bytes + $it.Bytes) -gt $sliceBytes) -or (($cur.Files.Count + 1) -gt $SliceFiles))
+  $areaBreak   = $cur -and $prevArea -and ($it.Area -ne $prevArea) -and ($cur.Bytes -ge ($sliceBytes * 0.6))
+  if (-not $cur -or $wouldExceed -or $areaBreak) {
+    $cur = [pscustomobject]@{ Areas = (New-Object System.Collections.Generic.List[string]); Files = (New-Object System.Collections.Generic.List[string]); Bytes = 0 }
+    $slices.Add($cur)
   }
+  if (-not $cur.Areas.Contains($it.Area)) { $cur.Areas.Add($it.Area) }
+  $cur.Files.Add($it.Path)
+  $cur.Bytes += $it.Bytes
+  $prevArea = $it.Area
+}
 
-  # Greedy first-fit into worker-sized bins.
-  $subBins = New-Object System.Collections.Generic.List[object]
-  foreach ($u in $units) {
-    $target = $null
-    foreach ($b in $subBins) {
-      if (($b.Bytes + $u.Bytes) -le $budgetBytes -and ($b.Count + @($u.Files | Where-Object { Test-Auditable -Workspace $WORKSPACE -RelPath $_ }).Count) -le $FloorPerWorker) { $target = $b; break }
-    }
-    if (-not $target) {
-      $target = [pscustomobject]@{ Keys = (New-Object System.Collections.Generic.List[string]); Files = (New-Object System.Collections.Generic.List[string]); Bytes = 0; Count = 0 }
-      $subBins.Add($target)
-    }
-    $target.Keys.Add($u.Key)
-    foreach ($f in $u.Files) { $target.Files.Add($f) }
-    $target.Bytes += $u.Bytes
-    $target.Count += @($u.Files | Where-Object { Test-Auditable -Workspace $WORKSPACE -RelPath $_ }).Count
-  }
-
-  # Name each worker after the directory it holds, and number sequentially WITHIN that directory.
-  # A global counter produced src-areas-api, src-areas-api-8, src-areas-api-9 -- three consecutive
-  # slices of one directory that do not look consecutive. This list is what the owner reads at
-  # GATE 1 to judge the plan; it should not be a puzzle.
-  $names = @($subBins | ForEach-Object {
-    $k = ($_.Keys[0] -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower()
-    if ([string]::IsNullOrWhiteSpace($k)) { $k = 'part' }
-    $k
+# Name each slice after the area it mostly holds, numbered within that area. This list is what
+# the owner reads at GATE 1; an id that does not say what the worker covers is unjudgeable.
+$rawNames = @($slices | ForEach-Object {
+  $n = ($_.Areas[0] -replace '[^A-Za-z0-9]+','-').Trim('-').ToLower()
+  if ([string]::IsNullOrWhiteSpace($n)) { $n = 'slice' }
+  $n
+})
+$seen = @{}
+$partitions = New-Object System.Collections.Generic.List[object]
+for ($i = 0; $i -lt $slices.Count; $i++) {
+  $nm = $rawNames[$i]
+  $total = @($rawNames | Where-Object { $_ -eq $nm }).Count
+  if (-not $seen.ContainsKey($nm)) { $seen[$nm] = 0 }
+  $seen[$nm]++
+  $id = if ($total -gt 1) { "$nm-$($seen[$nm])" } else { $nm }
+  $partitions.Add([pscustomobject]@{
+    Id = $id; Roots = @($slices[$i].Areas); Files = @($slices[$i].Files)
+    Weight = $slices[$i].Files.Count; Bytes = $slices[$i].Bytes
   })
-  $seen = @{}
-  for ($i = 0; $i -lt $subBins.Count; $i++) {
-    $k = $names[$i]
-    $total = @($names | Where-Object { $_ -eq $k }).Count
-    if (-not $seen.ContainsKey($k)) { $seen[$k] = 0 }
-    $seen[$k]++
-    $subId = if ($total -gt 1) { "$($p.Id)-$k-$($seen[$k])" } else { "$($p.Id)-$k" }
-    $split.Add([pscustomobject]@{ Id = $subId; Roots = @($p.Roots); Files = @($subBins[$i].Files); Weight = $subBins[$i].Count })
-  }
-  $splitReport += "$($p.Id): $([math]::Round($pBytes/1KB)) KB / $($p.Weight) auditable -> $($subBins.Count) workers"
 }
 
-$partitions = $split
-
-if ($splitReport.Count -gt 0) {
-  "SPLIT OVERSIZED PARTITIONS (budget $FloorKBPerWorker KB / $FloorPerWorker files per worker):"
-  $splitReport | ForEach-Object { "  $_" }
+# NON-AUDITABLE files inside auditable roots are not assigned to a slice -- they are not source
+# a worker would review -- but the reconciliation still has to see them.
+$unassigned = New-Object System.Collections.Generic.List[string]
+$assignedSet = @{}
+foreach ($p in $partitions) { foreach ($f in $p.Files) { $assignedSet[$f] = $true } }
+foreach ($r in $auditableRoots) {
+  foreach ($rel in $groups[$r]) { if (-not $assignedSet.ContainsKey($rel)) { $unassigned.Add($rel) } }
 }
-if ($partitions.Count -gt $MaxPartitions) {
-  Write-Warning "Splitting produced $($partitions.Count) partitions, above the -MaxPartitions cap of $MaxPartitions. The cap governs the ROOT grouping, not the split -- dispatch these in waves rather than all at once."
-}
 
+$waves = [math]::Ceiling($partitions.Count / [double]$MaxParallel)
+"BUCKET: $($ordered.Count) auditable files, $([math]::Round((($ordered | Measure-Object -Property Bytes -Sum).Sum)/1KB)) KB"
+"SLICES: $($partitions.Count) (~$SliceKB KB / $SliceFiles files each)"
+"WAVES : $waves at $MaxParallel subagents in parallel"
+if ($waves -gt 1) {
+  "        Dispatch $MaxParallel, wait for the wave, then the next. A worker that runs out of room"
+  "        reports where it stopped and the remainder is re-sliced -- it is not lost."
+}
 # Non-auditable roots still belong to the reconciliation -- every manifest file must be
 # accounted for -- but they get no worker.
 $nonAuditableFiles = New-Object System.Collections.Generic.List[string]
@@ -294,7 +241,7 @@ $plan.Add('# Partition Plan (PROPOSAL -- requires GATE 1 approval)')
 $plan.Add('')
 $plan.Add("Generated: $(Get-Date -Format 'yyyy-MM-ddTHH:mm')")
 $plan.Add("Manifest total: $($manifest.Count) files")
-$plan.Add("Partitions: $($partitions.Count) (cap $MaxPartitions)")
+$plan.Add("Slices: $($partitions.Count), dispatched $MaxParallel at a time")
 $plan.Add('')
 $plan.Add('| partition_id | files | AUDITABLE | pct of audit surface | service roots |')
 $plan.Add('|---|---|---|---|---|')
@@ -330,10 +277,15 @@ $plan.Add('## Reconciliation')
 $plan.Add('')
 $plan.Add("Files assigned to partitions: $assignedTotal")
 $plan.Add("Files in non-auditable roots:  $($nonAuditableFiles.Count)")
+# Non-auditable files that live INSIDE an auditable root -- docs, tests, assets sitting beside
+# real source. They belong to no slice because no worker would review them, but they are still
+# manifest files and the reconciliation must see them. Omitting them lost 2 files on a 17-file
+# fixture and the suite caught it immediately.
+$plan.Add("Non-auditable files inside audited roots: $($unassigned.Count)")
 $plan.Add("Manifest total: $($manifest.Count)")
-$plan.Add("Auditable surface (drives worker count): $totalWeight files")
-$plan.Add("Workers: $($partitions.Count) (cap $MaxPartitions, target from surface / $FloorPerWorker per worker)")
-$reconTotal = $assignedTotal + $nonAuditableFiles.Count
+$plan.Add("Auditable surface: $totalWeight files")
+$plan.Add("Slices: $($partitions.Count) at ~$SliceKB KB / $SliceFiles files, $MaxParallel in parallel per wave")
+$reconTotal = $assignedTotal + $nonAuditableFiles.Count + $unassigned.Count
 $plan.Add("Match: $(if ($reconTotal -eq $manifest.Count) { 'yes' } else { "NO -- $reconTotal accounted vs $($manifest.Count) in manifest, FILES LOST, DO NOT PROCEED" })")
 
 # Shared-component candidates, by directory-name convention.
@@ -376,13 +328,13 @@ $status | Set-Content -LiteralPath $statusPath -Encoding ASCII
 "Service-root groups found: $($groups.Keys.Count)"
 "  with auditable source: $($auditableRoots.Count) | with none: $($nonAuditableRoots.Count)"
 "AUDITABLE SURFACE: $totalWeight files (this, not file count, drives worker count)"
-"Workers created: $($partitions.Count) (cap $MaxPartitions, ~$FloorPerWorker auditable files per worker)"
+"Slices created: $($partitions.Count) -- dispatch $MaxParallel per wave"
 foreach ($p in $partitions) { "  $($p.Id): $($p.Files.Count) files, $($p.Weight) auditable  [$($p.Roots -join ', ')]" }
 if ($nonAuditableRoots.Count -gt 0) {
   "NO WORKER ASSIGNED (no auditable source): $($nonAuditableFiles.Count) files across $($nonAuditableRoots.Count) root(s)"
   foreach ($r in $nonAuditableRoots) { "  $r ($($groups[$r].Count) files)" }
 }
-"Files assigned: $assignedTotal | non-auditable: $($nonAuditableFiles.Count) | total accounted: $reconTotal"
+"Files sliced: $assignedTotal | non-auditable roots: $($nonAuditableFiles.Count) | non-auditable in-root: $($unassigned.Count) | total accounted: $reconTotal"
 "Reconciliation: $(if ($reconTotal -eq $manifest.Count) { 'OK' } else { 'MISMATCH' })"
 "Written: $planPath, $statusPath, $partDir\*.txt"
 "NEXT: run readplan.ps1 to compute each worker's read floor before dispatching anyone."
@@ -395,12 +347,4 @@ if ($reconTotal -ne $manifest.Count) {
 # A repo whose whole auditable surface fits one worker gets one worker. Say so plainly rather
 # than letting the owner wonder why five partitions became two -- the count is derived from what
 # is actually there to audit, and a small number is the right answer for a small surface.
-if ($clampedByRoots) {
-  # The reassuring message below would be FALSE here and was being printed anyway. The surface
-  # justified more workers; what refused them was the root count. Saying "the surface is the
-  # limit" in this case tells the owner the plan is right when it is actually short.
-  Write-Warning ("WORKER COUNT CLAMPED BY ROOT COUNT, NOT BY SURFACE: {0} auditable files justify {1} workers, but there are only {2} auditable service root(s) and a root is never split across workers. Each worker therefore carries more than one worker's share. readplan.ps1 will report SPLIT REQUIRED; the split has to be made at GATE 1." -f $totalWeight, $surfaceN, $auditableRoots.Count)
-} elseif ($partitions.Count -lt $MaxPartitions) {
-  "NOTE: $($partitions.Count) worker(s) for $totalWeight auditable files. More workers would not"
-  "      read more source -- the surface is the limit, not the parallelism."
-}
+

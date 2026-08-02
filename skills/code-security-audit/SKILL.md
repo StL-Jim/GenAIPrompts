@@ -2,7 +2,7 @@
 name: code-security-audit
 description: Runs or resumes an orchestrated, multi-agent code security and architecture audit against the current workspace -- phased analysis producing a findings registry, attack paths, C4 input, and HTML deliverables under audit_state/. Partitions the repo and reviews partitions with parallel workers. Use when asked to run, continue, or resume a security audit, when the user mentions audit_state or the audit STATE.md, or when asked to advance to a specific audit phase. Not for the STRIDE threat model (separate workflow).
 ---
-<!-- SKILL VERSION: v1-skill (2026-07-30a) -- methodology carved verbatim from code-security-audit.md by tests/code-security-audit/carve.ps1, which fails the build on any drift. Deviations from the source prompt are limited to dispatch mechanics (parallel workers instead of sequential STOPs) and one notation change (F-NNN finding ids). History: CHANGELOG.md, or git log. -->
+<!-- SKILL VERSION: v2-skill (2026-08-02a) -- methodology carved verbatim from code-security-audit.md by tests/code-security-audit/carve.ps1, which fails the build on any drift. Deviations from the source prompt are limited to dispatch mechanics (parallel workers instead of sequential STOPs) and one notation change (F-NNN finding ids). History: CHANGELOG.md, or git log. -->
 
 # Code Security Audit -- Orchestrator
 
@@ -88,6 +88,40 @@ In COORDINATED mode the threat model is cross-reference INPUT only. It must neve
 audit reaches findings independently so it can CONTRADICT the model -- disprove an exclusion, refute
 an attested control, find a component the model missed. An audit seeded with the model's inventory
 inherits its blind spots and can no longer disprove its coverage.
+
+## YOUR context is a finite resource. Treat a wave boundary as a session boundary.
+
+A field run exhausted the orchestrator's context mid-audit. This is not an edge case on a large
+repository -- it is the default outcome unless you manage it, because everything flows through
+you: every worker's return, every script's output, both gates, and all of your own reasoning.
+Twenty slices is twenty returns before Phase 5 has even started.
+
+**You are not required to run the whole audit in one session, and trying to is the failure mode.**
+`STATE.md` exists precisely so you do not have to. It holds the phase status, the partition list,
+the ID allocation table, and the resume instruction -- everything a fresh session needs.
+
+After each wave completes:
+
+1. Update `STATE.md` fully -- phase status per partition, ID blocks issued, resume instruction.
+2. Tell the owner where things stand: "wave 2 of 3 done, 14 of 22 slices complete, 31 findings so
+   far."
+3. **Assess your remaining room honestly.** If you are past roughly two thirds, say so and stop:
+
+   > Wave 2 of 3 is complete and recorded in STATE.md. My context is filling; start a fresh
+   > session and say "resume the audit" to run wave 3. Nothing is lost.
+
+Handing off with the state written is a clean, correct outcome. Running out mid-wave is not: it
+strands workers whose returns you never recorded, and the next session cannot tell which of them
+finished.
+
+Three habits that keep the footprint small, all of them cheap:
+
+- **Never restate a worker's findings.** They are on disk. Record the partition status and move on.
+- **Never paste script output back to the user in full.** Quote the specific numbers a gate needs.
+- **Never re-read a phase file you have already followed.** Read it once, when you dispatch.
+- **Run `readplan.ps1` with `-Quiet`** for the whole-plan pass. It collapses the per-partition
+  class tables to one line each -- 70% less output at 22 slices, and the detail you skipped is on
+  disk in the `.readset.txt` files. Drop `-Quiet` only when investigating one partition.
 
 ## STATE.md (you are its ONLY writer)
 

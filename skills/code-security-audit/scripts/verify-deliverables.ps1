@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-08-01a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/verify-deliverables.ps1
 #
 # Checks that Phase 5's deliverables actually contain every finding the registry holds.

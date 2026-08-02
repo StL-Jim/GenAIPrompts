@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-07-29a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/manifest.ps1
 #
 # Builds audit_state/00-file-manifest.txt: the complete list of SOURCE FILES under audit.

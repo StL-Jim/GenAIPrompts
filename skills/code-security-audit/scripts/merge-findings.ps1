@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-07-29a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/merge-findings.ps1
 #
 # Assembles the GLOBAL audit_state/findings_registry.md, attack_paths.md and

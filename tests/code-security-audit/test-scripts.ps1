@@ -564,6 +564,37 @@ try {
   Check 'every slice fits inside one subagent budget' ($rp.Output -notmatch 'PARTIAL COVERAGE') 'if the pieces still overflow, the slicing solved nothing'
 } finally { Remove-Item -Recurse -Force -LiteralPath $splitTmp -ErrorAction SilentlyContinue }
 
+# ------------------------------------------ version stamps agree ----------
+#
+# The owner asked "are you updating the version, you've made so many changes" and the answer was
+# no. Stamps had drifted across five different dates while the architecture was rewritten under
+# them, and SKILL.md -- the one printed at session start -- was among the stale ones. So the run
+# would announce a version that was not the version running.
+#
+# That matters specifically here: he pulls this onto an air-gapped work machine and the printed
+# stamp is his ONLY way to tell whether the fix he is testing is actually present. A stamp that
+# lies is worse than no stamp, because it converts "did my pull work?" from a checkable question
+# into a false answer. His notes already record a day lost to exactly this failure on the sibling
+# threat-model prompt.
+#
+# Asserting they are IDENTICAL rather than merely present is the point: forgetting to bump is the
+# normal failure, and it is invisible without this check.
+$stamped = @{}
+foreach ($f in @(Get-ChildItem -LiteralPath $SkillDir -Recurse -File)) {
+  $txt = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction SilentlyContinue
+  if ($txt -match 'SKILL VERSION: (v\d+-skill \(\d{4}-\d{2}-\d{2}[a-z]\))') {
+    $stamped[$f.FullName.Substring($SkillDir.Length + 1)] = $Matches[1]
+  }
+}
+$distinct = @($stamped.Values | Sort-Object -Unique)
+Check 'every skill file carries a SKILL VERSION stamp' ($stamped.Count -ge 10) "only $($stamped.Count) file(s) stamped"
+Check 'all SKILL VERSION stamps are identical' ($distinct.Count -eq 1) "found $($distinct.Count): $($distinct -join ', ')"
+
+# SKILL.md's stamp is the one printed at session start, so it is the one the owner reads.
+$skillMd = Get-Content -LiteralPath (Join-Path $SkillDir 'SKILL.md') -Raw
+$skillStamp = if ($skillMd -match 'SKILL VERSION: (v\d+-skill \(\d{4}-\d{2}-\d{2}[a-z]\))') { $Matches[1] } else { $null }
+Check 'SKILL.md carries the same stamp as everything else' ($skillStamp -and $distinct -contains $skillStamp) "SKILL.md says '$skillStamp'"
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

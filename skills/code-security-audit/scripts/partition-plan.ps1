@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-07-29a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/partition-plan.ps1
 #
 # Proposes the Phase 2 partition plan: orders every auditable file into one bucket, cuts it into

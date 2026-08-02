@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-07-31a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/readplan.ps1
 #
 # Computes the PER-PARTITION READ FLOOR for a Phase 3A/4A worker, and (in -Verify mode)
@@ -42,6 +42,14 @@ param(
   [Parameter(Mandatory=$true)][string]$ProjectName,
   [string]$PartitionId,
   [switch]$Verify,
+  # Collapse the per-partition class table to ONE line each.
+  #
+  # Every line this prints lands in the ORCHESTRATOR's context, and the orchestrator has to
+  # survive the whole run. At 22 slices the full tables are ~250 lines of detail it never acts on
+  # -- it needs the file count and the size, and nothing else. A field run exhausted the
+  # orchestrator mid-audit; this is one of the cheaper places to give room back.
+  # The detail is not lost: it is in the .readset.txt and .readset-deferred.txt files.
+  [switch]$Quiet,
   # What ONE worker can read AND still have budget left to reason and write findings.
   # Also the partitioning target -- see SPLIT REQUIRED.
   [int]$FloorPerWorker = 60,
@@ -212,6 +220,7 @@ if (-not $Verify) {
       Write-Error "Read floor $floorPath wrote zero bytes"; exit 1
     }
 
+    if (-not $Quiet) {
     "=== PARTITION '$pname' ==="
     "  {0,-14} {1,8} {2,9} {3,10}" -f 'class', 'in part', 'IN FLOOR', 'deferred'
     foreach ($c in $allClasses) {
@@ -223,6 +232,7 @@ if (-not $Verify) {
     }
     "  {0,-14} {1,8} {2,9} {3,10}" -f 'TOTAL', $files.Count, $floorList.Count, $deferredList.Count
     "  Partition files: $($files.Count) | classified: $($set.Count) | non-code/asset: $($files.Count - $set.Count)"
+    }
 
     # SIZE, not just count. A floor is a claim about what fits in one worker's context window,
     # and a file count cannot make that claim: 60 config fragments and 60 service classes differ

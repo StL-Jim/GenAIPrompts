@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v1-skill (2026-07-30a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
 
 # Phase 6 -- Comparison HTML Render (SUBAGENT, COORDINATED mode only)
 

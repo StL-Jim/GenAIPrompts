@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v1-skill (2026-07-29a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
 
 # Phase 3A -- Worker Security Review (SUBAGENT, one per partition, RUN IN PARALLEL)
 
@@ -130,6 +130,23 @@ This is what keeps the precondition test honest. Without it, a wrongly-rejected 
 indistinguishable from code nobody looked at, and the owner is asked to trust a filter he cannot
 check. Do not skip it because a partition produced few exclusions -- a short list is a fine result,
 an absent one is a gap.
+
+## Your summary to the orchestrator is the BANNER AND NOTHING ELSE
+
+Everything you learn goes in FILES. Your summary is not where findings live, and it is not a
+report -- it is a receipt.
+
+The orchestrator has one context window and must survive every worker in the run, plus both
+gates, plus consolidation. A field run exhausted it. With 20+ slices, a worker summary of even a
+few hundred words is multiplied by twenty and becomes the thing that ends the audit before Phase
+5. Your findings are already safely on disk; restating them to the orchestrator adds no
+information and costs the run.
+
+So: print the banner. Add at most THREE short lines if something genuinely cannot wait (a
+credential in plaintext, a partition that was not what its name said). Nothing else -- no
+narrative of what you examined, no summary of findings, no restatement of the methodology, no
+description of your approach. If you are tempted to explain your reasoning, it belongs in
+`security_review.md`, where the consolidation phase will actually read it.
 
 ## If you run out of room, SAY SO. Do not print COMPLETE.
 

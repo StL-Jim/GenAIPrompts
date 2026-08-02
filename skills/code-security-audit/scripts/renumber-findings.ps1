@@ -1,4 +1,4 @@
-# SKILL VERSION: v1-skill (2026-07-31a)
+# SKILL VERSION: v2-skill (2026-08-02a)
 # skills/code-security-audit/scripts/renumber-findings.ps1
 #
 # Renumbers findings into one contiguous F-001..F-NNN sequence for the final report.

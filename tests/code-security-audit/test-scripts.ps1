@@ -468,14 +468,22 @@ try {
   # Generous file cap, tiny byte budget: only the size rule can produce a split here.
   $tight = Invoke-Script 'readplan.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest', '-FloorPerWorker', '60', '-FloorKBPerWorker', '1')
   Check 'read floor reports size alongside file count' ($tight.Output -match 'READ FLOOR:\s*\d+ files,\s*\d+ KB') 'a floor stated only in files cannot be checked against a context window'
-  Check 'SPLIT REQUIRED can be driven by BYTES with the file cap unmet' `
-    ($tight.Output -match 'SPLIT REQUIRED' -and $tight.Output -match 'KB against a budget') `
-    'two files is far under any file cap -- if this does not split, size is not actually binding'
+  Check 'over-budget partition reports PARTIAL COVERAGE, driven by bytes' `
+    ($tight.Output -match 'PARTIAL COVERAGE' -and $tight.Output -match "budget is 1 KB") `
+    'two files is far under any file cap -- if size does not bind here, it is not binding at all'
 
-  # And the same floor must NOT split when the byte budget is ample: a rule that always fires is
-  # as useless as one that never does.
+  # It must REPORT the shortfall, never refuse. Refusing is what blocked a 5,377 KB partition
+  # that no split or worker cap could ever have satisfied, and it kept the audit from running
+  # at all while three rounds of pattern tuning chased a number that could not come down enough.
+  Check 'partial coverage does NOT block dispatch' ($tight.Code -eq 0) 'an audit that reads the highest-signal files and says so beats one that refuses to start'
+  $defTight = (Get-ChildItem -Path (Join-Path $kbTmp 'audit_state\partitions') -Filter '*.readset-deferred.txt' -ErrorAction SilentlyContinue |
+               ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+  Check 'every file past the budget is NAMED with its reason' ($defTight -match 'over-worker-budget') 'a silent gap and a recorded one are different products'
+
+  # And the same floor must NOT report a shortfall when the budget is ample: a warning that
+  # always fires carries no information.
   $loose = Invoke-Script 'readplan.ps1' @('-Workspace', $kbTmp, '-ProjectName', 'kbtest', '-FloorPerWorker', '60', '-FloorKBPerWorker', '5000')
-  Check 'no split when both budgets are ample' ($loose.Output -notmatch 'SPLIT REQUIRED') 'the size rule must discriminate, not fire unconditionally'
+  Check 'no coverage warning when both budgets are ample' ($loose.Output -notmatch 'PARTIAL COVERAGE') 'the size rule must discriminate, not fire unconditionally'
 } finally { Remove-Item -Recurse -Force -LiteralPath $kbTmp -ErrorAction SilentlyContinue }
 
 # ------------------------------------ worker count clamped by root count ---

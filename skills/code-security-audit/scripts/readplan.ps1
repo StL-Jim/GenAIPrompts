@@ -119,7 +119,14 @@ if (-not $Verify) {
 
     $set = @(foreach ($rel in $files) {
       $c = Get-AuditClass $rel
-      if ($c) { [pscustomobject]@{ Class = $c; Path = $rel } }
+      if ($c) {
+        # Size is carried from here on: it is what the budget is spent in, and what the old
+        # file-count-only floor could not see.
+        $fp = Join-Path $WORKSPACE ($rel -replace '/','\')
+        $bytes = 0
+        if (Test-Path -LiteralPath $fp) { $bytes = (Get-Item -LiteralPath $fp).Length }
+        [pscustomobject]@{ Class = $c; Path = $rel; Bytes = $bytes }
+      }
     })
 
     $deferred = New-Object System.Collections.Generic.List[object]
@@ -147,7 +154,41 @@ if (-not $Verify) {
       }
     }
 
-    $floorList    = @($floor    | Sort-Object Class, Path)
+    # ---------------------------------------------------------------------
+    # PRIORITISE, THEN CUT AT THE BUDGET.
+    #
+    # The floor used to be a MANDATE: every qualifying file read in full, and if that exceeded
+    # one worker the script refused and demanded a split. On a real application that produced a
+    # 5,377 KB partition -- about seven full context windows -- where no split and no worker cap
+    # could ever satisfy it. The rule was unachievable, and holding to it blocked the audit from
+    # running at all while three rounds of pattern tuning chased a number that was never going
+    # to come down far enough.
+    #
+    # No human security review reads every file either. It reads the highest-signal code first
+    # and is honest about what it did not reach. That is what this does now: order by role, cut
+    # at the budget, and record every file past the cut with a reason -- so what was NOT read is
+    # a visible, countable line in the deferred list rather than a silent gap.
+    #
+    # Within a class, SMALLEST FIRST. A 37 KB class and a 4 KB one carry one finding each as far
+    # as this stage can tell, so spending the budget on more distinct files beats spending it on
+    # fewer large ones. Where that is wrong, it is wrong visibly: the skipped file is named.
+    $classRank = @{ 'authz' = 0; 'entry-route' = 1; 'config-iac' = 2; 'dep-manifest' = 3; 'ext-call' = 4; 'data-access' = 5; 'app-source' = 6 }
+    $ordered = @($floor | Sort-Object @{ Expression = { $classRank[$_.Class] } }, @{ Expression = { $_.Bytes } }, Path)
+
+    $budgetBytes = $FloorKBPerWorker * 1KB
+    $kept = New-Object System.Collections.Generic.List[object]
+    $running = 0
+    foreach ($it in $ordered) {
+      if (($running + $it.Bytes) -gt $budgetBytes -and $kept.Count -gt 0) {
+        $deferred.Add([pscustomobject]@{ Class = $it.Class; Path = $it.Path; Reason = "over-worker-budget-${FloorKBPerWorker}KB" })
+        continue
+      }
+      $kept.Add($it)
+      $running += $it.Bytes
+    }
+    $overBudget = @($deferred | Where-Object { $_.Reason -like 'over-worker-budget*' }).Count
+
+    $floorList    = @($kept     | Sort-Object Class, Path)
     $deferredList = @($deferred | Sort-Object Class, Path)
 
     $floorPath    = Join-Path $partDir "$pname.readset.txt"
@@ -176,12 +217,12 @@ if (-not $Verify) {
     # ordinary 8-15KB classes it silently describes two to three times a 200K window as "one
     # worker". The failure mode is the worst kind -- the worker does not refuse, it reads until
     # it runs out and reasons over whatever happened to fit.
-    $floorBytes = 0
-    foreach ($it in $floorList) {
-      $fp = Join-Path $WORKSPACE ($it.Path -replace '/','\')
-      if (Test-Path -LiteralPath $fp) { $floorBytes += (Get-Item -LiteralPath $fp).Length }
-    }
+    $floorBytes = ($floorList | Measure-Object -Property Bytes -Sum).Sum
+    if (-not $floorBytes) { $floorBytes = 0 }
+    $candidateBytes = ($ordered | Measure-Object -Property Bytes -Sum).Sum
+    if (-not $candidateBytes) { $candidateBytes = 1 }
     $floorKB     = [math]::Round($floorBytes / 1KB)
+    $candKB      = [math]::Round($candidateBytes / 1KB)
     $floorTokens = [math]::Round($floorBytes / 4)   # ~4 bytes/token is a fair rule of thumb for code
     "  READ FLOOR: $($floorList.Count) files, $floorKB KB (~$floorTokens tokens) -> $floorPath"
 
@@ -189,16 +230,17 @@ if (-not $Verify) {
       Write-Warning "Partition '$pname' has a read floor of ZERO -- it contains no auditable source. Dispatching a worker to it spends a worker on nothing. Raise this at GATE 1."
     }
 
-    # Either limit can bind, and the binding one decides the split. Files still matter separately
-    # from bytes: each is a tool call and a claim on attention, so many tiny files are not free
-    # even when their bytes are trivial.
-    $needByFiles = if ($floorList.Count -gt $FloorPerWorker) { [math]::Ceiling($floorList.Count / [double]$FloorPerWorker) } else { 1 }
-    $needByBytes = if ($floorKB -gt $FloorKBPerWorker)       { [math]::Ceiling($floorKB / [double]$FloorKBPerWorker) }       else { 1 }
-    $needed = [math]::Max($needByFiles, $needByBytes)
-    if ($needed -gt 1) {
-      $driver = if ($needByBytes -ge $needByFiles) { "$floorKB KB against a budget of $FloorKBPerWorker KB" } else { "$($floorList.Count) files against a capacity of $FloorPerWorker" }
-      $splitNeeded += "$pname (floor $($floorList.Count) files / $floorKB KB, needs $needed workers)"
-      Write-Warning "SPLIT REQUIRED: partition '$pname' exceeds one worker -- $driver. Do NOT hand this to one worker and do NOT lower the floor -- split it into $needed partitions at GATE 1. An unmeetable floor is the failure this script exists to prevent."
+    # COVERAGE, reported -- not a refusal to proceed.
+    #
+    # This used to print SPLIT REQUIRED and treat an over-budget partition as a condition to be
+    # fixed before dispatch. That is right when the overflow is modest and wrong when it is 10x:
+    # it blocked the audit entirely on a partition no arrangement of workers could ever satisfy.
+    # An audit that reads the highest-signal 500 KB and SAYS SO is worth more than one that
+    # refuses to start.
+    if ($overBudget -gt 0) {
+      $pct = [math]::Round(100 * $floorBytes / $candidateBytes)
+      $splitNeeded += "$pname ($pct% of $candKB KB)"
+      Write-Warning ("PARTIAL COVERAGE: partition '{0}' holds {1} KB of candidate source; one worker's budget is {2} KB, so {3} file(s) are deferred and {4}% is read in full. This is REPORTED, not hidden -- every deferred file is named in {5} with reason over-worker-budget. To raise coverage, split this partition at GATE 1 or narrow its scope; do not simply dispatch and assume it was all read." -f $pname, $candKB, $FloorKBPerWorker, $overBudget, $pct, (Split-Path -Leaf $deferredPath))
     }
     ""
   }
@@ -206,7 +248,11 @@ if (-not $Verify) {
   "NEXT: brief each worker with its floor file (audit_state/partitions/<id>.readset.txt) and tell"
   "      it every file listed is read IN FULL. After the worker returns, the ORCHESTRATOR runs"
   "      this script with -Verify -PartitionId <id>. The worker does not verify itself."
-  if ($splitNeeded.Count -gt 0) { "SPLIT REQUIRED before dispatch: $($splitNeeded -join '; ')" }
+  if ($splitNeeded.Count -gt 0) {
+    "COVERAGE: $($splitNeeded -join '; ')"
+    "  Raise this at GATE 1 so the owner decides whether to accept partial coverage, narrow the"
+    "  scope, or split the partition. It does NOT block dispatch."
+  }
   exit 0
 }
 

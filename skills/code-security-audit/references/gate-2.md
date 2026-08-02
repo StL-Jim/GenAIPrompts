@@ -20,7 +20,7 @@ one word and moves on.
 
 ## Why the gate is HERE and not after Phase 5
 
-Phase 5 derives the consolidated report, the executive briefing, the C4 input and (in COORDINATED
+Phase 5 derives the consolidated report, the executive briefing and (in COORDINATED
 mode) the threat-audit comparison from this registry. Review after consolidation would leave every
 derived artifact carrying uncorrected text, with no way to see which ones drifted. The registry is
 the reviewable artifact; gate before anything is derived from it.

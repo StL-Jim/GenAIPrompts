@@ -1,6 +1,6 @@
 ---
 name: code-security-audit
-description: Runs or resumes an orchestrated, multi-agent code security and architecture audit against the current workspace -- phased analysis producing a findings registry, attack paths, C4 input, and HTML deliverables under audit_state/. Partitions the repo and reviews partitions with parallel workers. Use when asked to run, continue, or resume a security audit, when the user mentions audit_state or the audit STATE.md, or when asked to advance to a specific audit phase. Not for the STRIDE threat model (separate workflow).
+description: Runs or resumes an orchestrated, multi-agent code security and architecture audit against the current workspace -- phased analysis producing a findings registry, attack paths, and HTML deliverables under audit_state/. Partitions the repo and reviews partitions with parallel workers. Use when asked to run, continue, or resume a security audit, when the user mentions audit_state or the audit STATE.md, or when asked to advance to a specific audit phase. Not for the STRIDE threat model (separate workflow).
 ---
 <!-- SKILL VERSION: v2-skill (2026-08-02a) -- methodology carved verbatim from code-security-audit.md by tests/code-security-audit/carve.ps1, which fails the build on any drift. Deviations from the source prompt are limited to dispatch mechanics (parallel workers instead of sequential STOPs) and one notation change (F-NNN finding ids). History: CHANGELOG.md, or git log. -->
 

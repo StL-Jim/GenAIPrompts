@@ -62,6 +62,17 @@ scripts exist to REMOVE clerical work from you so that more of your attention go
 code, not less. If you notice yourself producing tables instead of reading source, that is the
 failure mode -- go read.
 
+## Do NOT populate c4_input.md
+
+The carved methodology lists `audit_state/c4_input.md` as an output, collecting services,
+dependencies and trust boundaries for a C4 diagram. That diagram is no longer produced -- the
+owner has architecture diagrams from the STRIDE threat-model skill, which models the system
+deliberately rather than deriving it from whatever an audit happened to notice.
+
+So skip it. Do not create the file, do not spend reading budget gathering structure for it, and do
+not treat its absence as an error. That effort belongs in `entry_points.md` below, which every
+worker actually depends on.
+
 ## ALSO write audit_state/entry_points.md -- every worker depends on it
 
 An output the carved list does not name, added because a field run showed what its absence costs.

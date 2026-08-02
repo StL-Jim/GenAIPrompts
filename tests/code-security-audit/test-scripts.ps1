@@ -478,6 +478,41 @@ try {
   Check 'no split when both budgets are ample' ($loose.Output -notmatch 'SPLIT REQUIRED') 'the size rule must discriminate, not fire unconditionally'
 } finally { Remove-Item -Recurse -Force -LiteralPath $kbTmp -ErrorAction SilentlyContinue }
 
+# ------------------------------------ worker count clamped by root count ---
+#
+# A service root is atomic in partition-plan.ps1: roots merge into fewer workers, but one root is
+# never split across two. So achievable parallelism is bounded by ROOT COUNT, not by surface --
+# on a real application 837 auditable files justified 14 workers and got 5, because the repo has
+# 5 auditable roots.
+#
+# The bug this covers is the message, not the clamp. The script printed "the surface is the
+# limit, not the parallelism" in BOTH cases. That sentence is true for a small repo and false for
+# a clamped one, and in the false case it tells the owner a short plan is the right plan.
+$clampTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("clamp-" + [guid]::NewGuid().ToString('N'))
+try {
+  foreach ($case in @(
+    @{ Dir = 'onlyroot'; N = 90; ExpectClamp = $true;  Label = 'one root holding more surface than one worker warns' }
+    @{ Dir = 'small';    N = 5;  ExpectClamp = $false; Label = 'a genuinely small surface still gets the reassuring note' }
+  )) {
+    $ws = Join-Path $clampTmp $case.Dir
+    New-Item -ItemType Directory -Force -Path (Join-Path $ws 'svc') | Out-Null
+    1..$case.N | ForEach-Object {
+      Set-Content -LiteralPath (Join-Path $ws "svc\C$_.cs") -Value "public class C$_ { var q = `"SELECT * FROM U WHERE n=`" + n; }" -Encoding UTF8
+    }
+    $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $ws, '-ProjectName', $case.Dir, '-Mode', 'STANDALONE')
+    $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $ws, '-ProjectName', $case.Dir)
+    $pp   = Invoke-Script 'partition-plan.ps1' @('-Workspace', $ws, '-ProjectName', $case.Dir)
+
+    if ($case.ExpectClamp) {
+      Check $case.Label ($pp.Output -match 'CLAMPED BY ROOT COUNT') 'the surface justifies more workers than there are roots -- that must be said, not smoothed over'
+      Check 'clamped plan does NOT claim the surface is the limit' ($pp.Output -notmatch 'the surface is the limit') 'that sentence is false when the root count did the clamping'
+    } else {
+      Check $case.Label ($pp.Output -match 'the surface is the limit') 'a small repo genuinely does not need more workers and should be told so'
+      Check 'small surface is not falsely reported as clamped' ($pp.Output -notmatch 'CLAMPED BY ROOT COUNT') 'a warning that always fires carries no information'
+    }
+  }
+} finally { Remove-Item -Recurse -Force -LiteralPath $clampTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

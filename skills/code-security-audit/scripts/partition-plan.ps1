@@ -95,9 +95,15 @@ $nonAuditableRoots = @($groups.Keys | Where-Object { $weights[$_] -eq 0 } | Sort
 
 # N is derived from the auditable surface, not from how many directories exist. Most repos need
 # fewer workers than the cap allows; a repo justifying 8 needs a floor around 480 files.
-$targetN = [math]::Ceiling($totalWeight / [double]$FloorPerWorker)
-if ($targetN -lt 1) { $targetN = 1 }
+$surfaceN = [math]::Ceiling($totalWeight / [double]$FloorPerWorker)
+if ($surfaceN -lt 1) { $surfaceN = 1 }
+$targetN = $surfaceN
 if ($targetN -gt $MaxPartitions) { $targetN = $MaxPartitions }
+# A service root is ATOMIC here: roots can be merged into fewer workers but one root is never
+# split across two. So the achievable parallelism is bounded by how many auditable roots exist,
+# regardless of how much source any one of them holds. Remember WHY the clamp bound, because the
+# two reasons need opposite messages -- a small surface is fine, an unsplittable root is not.
+$clampedByRoots = ($targetN -gt $auditableRoots.Count -and $auditableRoots.Count -gt 0)
 if ($targetN -gt $auditableRoots.Count) { $targetN = [math]::Max(1, $auditableRoots.Count) }
 
 # Greedy first-fit-decreasing into $targetN bins. Service coherence is preserved -- a worker
@@ -239,7 +245,12 @@ if ($reconTotal -ne $manifest.Count) {
 # A repo whose whole auditable surface fits one worker gets one worker. Say so plainly rather
 # than letting the owner wonder why five partitions became two -- the count is derived from what
 # is actually there to audit, and a small number is the right answer for a small surface.
-if ($partitions.Count -lt $MaxPartitions) {
+if ($clampedByRoots) {
+  # The reassuring message below would be FALSE here and was being printed anyway. The surface
+  # justified more workers; what refused them was the root count. Saying "the surface is the
+  # limit" in this case tells the owner the plan is right when it is actually short.
+  Write-Warning ("WORKER COUNT CLAMPED BY ROOT COUNT, NOT BY SURFACE: {0} auditable files justify {1} workers, but there are only {2} auditable service root(s) and a root is never split across workers. Each worker therefore carries more than one worker's share. readplan.ps1 will report SPLIT REQUIRED; the split has to be made at GATE 1." -f $totalWeight, $surfaceN, $auditableRoots.Count)
+} elseif ($partitions.Count -lt $MaxPartitions) {
   "NOTE: $($partitions.Count) worker(s) for $totalWeight auditable files. More workers would not"
   "      read more source -- the surface is the limit, not the parallelism."
 }

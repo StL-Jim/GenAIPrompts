@@ -146,22 +146,46 @@ function Get-SinkPattern {
 # floored by its ROLE without any sink test, because its class sat under -BulkClassThreshold.
 # That distinction matters: an over-large floor caused by a bad pattern and one caused by an
 # unfiltered small class need opposite fixes.
+# ONE read per file, and only ever one.
+#
+# This used a separate Select-String call per pattern group, so a .sql file matching nothing was
+# opened FOUR times, and Test-SinkShared opened it again. Across partition-plan and readplan the
+# same file was read five or more times. On a developer SSD that is invisible; on a corporate
+# machine where every file open is an antivirus round trip it is the difference between seconds
+# and minutes -- the owner's 1,479-file application took over five minutes while a 1,500-file
+# fixture here took 2.7.
+#
+# Reading once into a string and matching in memory is exactly equivalent: PowerShell's -match is
+# case-insensitive by default like Select-String, and `.` excludes newlines in both, so no
+# pattern changes meaning. Results are memoised per process, which also collapses the repeat
+# calls readplan makes for its bulk-class filter.
+$script:sinkMemo = @{}
+
 function Get-SinkReason {
   param([string]$Workspace, [string]$RelPath)
   $full = Join-Path $Workspace ($RelPath -replace '/','\')
-  if (-not (Test-Path -LiteralPath $full)) { return 'unreadable' }
-  $ext = [System.IO.Path]::GetExtension($RelPath)
-  if ($ext) { $ext = $ext.ToLower() }
-  try {
-    if ($ext -and $script:sinkGroupsByExt.ContainsKey($ext)) {
-      foreach ($g in $script:sinkGroupsByExt[$ext]) {
-        if (Select-String -LiteralPath $full -Pattern $g.Re -List -ErrorAction SilentlyContinue) { return $g.Name }
+  if ($script:sinkMemo.ContainsKey($full)) { return $script:sinkMemo[$full] }
+
+  $result = $null
+  if (-not (Test-Path -LiteralPath $full)) {
+    $result = 'unreadable'
+  } else {
+    $text = $null
+    try { $text = [System.IO.File]::ReadAllText($full) } catch { $result = 'unreadable' }
+    if ($null -ne $text) {
+      $ext = [System.IO.Path]::GetExtension($RelPath)
+      if ($ext) { $ext = $ext.ToLower() }
+      if ($ext -and $script:sinkGroupsByExt.ContainsKey($ext)) {
+        foreach ($g in $script:sinkGroupsByExt[$ext]) {
+          if ($text -match $g.Re) { $result = $g.Name; break }
+        }
+      } elseif ($text -match $script:sinkRe) {
+        $result = 'default'
       }
-      return $null
     }
-    if (Select-String -LiteralPath $full -Pattern $script:sinkRe -List -ErrorAction SilentlyContinue) { return 'default' }
-    return $null
-  } catch { return 'unreadable' }
+  }
+  $script:sinkMemo[$full] = $result
+  return $result
 }
 
 $script:FloorClasses = @('authz','entry-route','data-access','ext-call','config-iac','dep-manifest','app-source')
@@ -185,10 +209,11 @@ function Get-AuditClass {
 function Test-SinkShared {
   param([string]$Workspace, [string]$RelPath)
   $full = Join-Path $Workspace ($RelPath -replace '/','\')
-  if (-not (Test-Path -LiteralPath $full)) { return $true }   # cannot check -> keep (err toward reading)
-  $pattern = Get-SinkPattern -RelPath $RelPath
-  try { return [bool](Select-String -LiteralPath $full -Pattern $pattern -List -ErrorAction SilentlyContinue) }
-  catch { return $true }
+  # Derived from Get-SinkReason so the file is read once and the two can never disagree about
+  # the same file -- a sink with no reason, or a reason on a non-sink, would both be nonsense.
+  $r = Get-SinkReason -Workspace $Workspace -RelPath $RelPath
+  if ($r -eq 'unreadable') { return $true }   # cannot check -> keep (err toward reading)
+  return ($null -ne $r)
 }
 
 # Does this file count toward a partition's AUDITABLE WEIGHT? Same rule the read floor uses:

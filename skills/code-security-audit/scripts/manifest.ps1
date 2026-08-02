@@ -46,7 +46,53 @@ $topLevelExcludePrefix  = @('audit_state', "$PROJECT_NAME-threat-model")
 $excludeRootFiles       = @('security_architecture_audit.md')
 $anyDepthExclude        = 'node_modules|vendor|target|\.venv|dist|build|__pycache__'
 
-$manifest = Get-ChildItem -Path $WORKSPACE -Recurse -File -Force |
+# PRUNE during traversal, do not filter after it.
+#
+# This was `Get-ChildItem -Recurse -File -Force | Where-Object { ...exclude .git... }`, which is
+# correct and catastrophically slow: -Recurse descends INTO .git and node_modules, enumerates
+# every loose object and vendored file, and only then discards them. The owner's 1,479-file
+# application took over five minutes; a 1,500-file fixture with no .git took 2.7 seconds. The
+# difference is not the algorithm, it is the tens of thousands of files nobody ever wanted --
+# and on a corporate machine every one of them is also an antivirus round trip.
+#
+# .git is pruned at ANY depth here, not just the top level, so submodules are cheap too. A
+# directory named .git is never source in any repository.
+$pruneDirs = @('.git','node_modules','vendor','target','.venv','dist','build','__pycache__')
+
+$walked = New-Object System.Collections.Generic.List[string]
+$stack  = New-Object System.Collections.Generic.Stack[string]
+$stack.Push($WORKSPACE)
+while ($stack.Count -gt 0) {
+  $dir = $stack.Pop()
+  try { $subs = [System.IO.Directory]::EnumerateDirectories($dir) } catch { continue }
+  foreach ($sub in $subs) {
+    $leaf = [System.IO.Path]::GetFileName($sub)
+    if ($pruneDirs -contains $leaf.ToLower()) { continue }
+
+    # THIS AUDIT'S OWN OUTPUT, and the threat model's, at ANY depth.
+    #
+    # The owner asked whether prior audit_state or threat-model directories were excluded. The
+    # honest answer was: only if they sit at the top level AND the threat model is named exactly
+    # "<project>-threat-model". Anything else was being audited as application source -- and the
+    # source prompt's own example path is `real-world-threat-model/`, which would NOT have
+    # matched on a project named cassidi-app.
+    #
+    # Auditing a previous audit is worse than wasted work: findings_registry.md is full of
+    # vulnerability descriptions and file:line citations, so a worker reading it will "find"
+    # every issue the last run already reported, in a file that is not application code.
+    if ($leaf -like 'audit_state*') { continue }
+    if ($leaf -match '(?i)-threat-model$|^threat-model$') { continue }
+    $stack.Push($sub)
+  }
+  try { foreach ($f in [System.IO.Directory]::EnumerateFiles($dir)) { $walked.Add($f) } } catch { }
+}
+
+# The original Where-Object is KEPT as a safety net rather than replaced. It is now cheap -- it
+# runs over the pruned set -- and it still enforces the cases the walk does not express, such as
+# $excludeRootFiles. Two independent expressions of the same exclusion is the right trade here:
+# a pruning bug that let .git through would otherwise be invisible in the output.
+$manifest = $walked | Sort-Object |
+  ForEach-Object { Get-Item -LiteralPath $_ -Force } |
   Where-Object {
     $rel = $_.FullName.Substring($WORKSPACE.Length).TrimStart('\')
     $topSegment = ($rel -split '\\')[0]

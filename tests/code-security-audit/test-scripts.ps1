@@ -513,6 +513,37 @@ try {
   }
 } finally { Remove-Item -Recurse -Force -LiteralPath $clampTmp -ErrorAction SilentlyContinue }
 
+# ------------------------------ the audit must not audit itself ------------
+#
+# Raised by the owner: "are you checking any of the previous audit_state* or threat-model*
+# directories?" The answer was only partly yes. audit_state was excluded at the TOP LEVEL only,
+# and the threat model only when named exactly "<project>-threat-model" -- while the source
+# prompt's own example path is `real-world-threat-model/`, which would not have matched on a
+# project called cassidi-app.
+#
+# The consequence is not wasted work, it is FABRICATED FINDINGS: findings_registry.md is full of
+# vulnerability descriptions with file:line citations, so a worker handed one will faithfully
+# report every issue the previous run found, attributed to a file that is not application code.
+$selfTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("self-" + [guid]::NewGuid().ToString('N'))
+try {
+  foreach ($d in @('src','audit_state','src\audit_state','real-world-threat-model','cassidi-threat-model','threat-model')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $selfTmp $d) | Out-Null
+  }
+  Set-Content -LiteralPath (Join-Path $selfTmp 'src\A.cs') -Value 'public class A { var q = "SELECT * FROM U WHERE n=" + n; }' -Encoding UTF8
+  foreach ($f in @('audit_state\findings_registry.md','src\audit_state\findings_registry.md',
+                   'real-world-threat-model\02-threats.md','cassidi-threat-model\02-threats.md','threat-model\02-threats.md')) {
+    Set-Content -LiteralPath (Join-Path $selfTmp $f) -Value 'id: F-001 sev: Critical' -Encoding UTF8
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $selfTmp, '-ProjectName', 'selftest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $selfTmp, '-ProjectName', 'selftest')
+  $mf = Get-Content -LiteralPath (Join-Path $selfTmp 'audit_state\00-file-manifest.txt') -Raw
+
+  Check 'manifest keeps real application source'        ($mf -match 'src/A\.cs') 'the pruning must not be so broad it drops the code under audit'
+  Check 'manifest excludes NESTED audit_state'          ($mf -notmatch 'src/audit_state') 'a prior audit nested in the tree was being read as source'
+  Check 'manifest excludes a differently-named threat model' ($mf -notmatch 'real-world-threat-model') 'the prompt''s own example path would not have matched the project-name rule'
+  Check 'manifest excludes a bare threat-model dir'     ($mf -notmatch '(^|/)threat-model/') 'name convention varies; the role does not'
+} finally { Remove-Item -Recurse -Force -LiteralPath $selfTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

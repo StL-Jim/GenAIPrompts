@@ -29,14 +29,23 @@ $scripts = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'sk
 if (-not (Test-Path -LiteralPath $scripts)) { Write-Error "Cannot locate skill scripts at $scripts"; exit 1 }
 
 $script:captured = @()
+# TIMED per step. The owner reported a run taking over five minutes; a 1,500-file fixture here
+# took 2.7 seconds, so the cost is something this machine does not reproduce -- corporate
+# antivirus on every file open, or a network-backed checkout. Guessing which step is slow from
+# here has already cost a round trip. Timing each one moves the measurement onto the machine
+# where the problem actually happens.
+$script:timings = @()
 
 function Step($label, $file, $argv) {
   ""
   "=============================================================================="
   "  $label"
   "=============================================================================="
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
   & (Join-Path $scripts $file) @argv | Tee-Object -Variable out
+  $sw.Stop()
   $script:captured += @($out)
+  $script:timings += [pscustomobject]@{ Step = ($file -replace '\.ps1$',''); Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1) }
   if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
     Write-Error "$file exited $LASTEXITCODE -- stopping."
     exit 1
@@ -165,6 +174,7 @@ $split = if ($splitHit.Count -gt 0) { 'YES' } else { 'no' }
 "floor: $($floors -join ' ')"
 "ext: $($topExt -join ' ')"
 "why: $($topWhy -join ' ')"
+"secs: $(($script:timings | ForEach-Object { "$($_.Step)=$($_.Seconds)" }) -join ' ')"
 "---8<---"
 ""
 "That is the whole report. You are not expected to judge which numbers matter -- these are"

@@ -131,6 +131,39 @@ indistinguishable from code nobody looked at, and the owner is asked to trust a 
 check. Do not skip it because a partition produced few exclusions -- a short list is a fine result,
 an absent one is a gap.
 
+## If you run out of room, SAY SO. Do not print COMPLETE.
+
+The carved banner below says `PHASE 3A COMPLETE`. It was written for a run where a human fed one
+partition at a time and could see for themselves what happened. Here your slice was sized by an
+ESTIMATE of what one subagent can get through, and an estimate is sometimes wrong -- so you have a
+second, mandatory outcome available, and using it is a correct result rather than a failure.
+
+Before the banner, count: **files in your slice** versus **files you actually reviewed in full**.
+
+If those numbers match, print the carved banner unchanged.
+
+If they do not match -- you ran short of room, a file was too large to read, anything -- then:
+
+1. Write the unreviewed paths, one per line, to `audit_state/workers/<partition_id>/unreviewed.txt`.
+2. Report every finding you DID reach. Work already done is never discarded.
+3. Print this instead of the carved banner:
+
+```
+=== PHASE 3A INCOMPLETE: PARTITION '<partition_id>' ===
+  Reviewed <n> of <total> files. Last completed: <path>
+  Unreviewed: audit_state/workers/<partition_id>/unreviewed.txt
+  Findings written: <count>
+```
+
+The orchestrator re-slices `unreviewed.txt` into the next wave. Nothing is lost and nothing needs
+redoing -- this is the design working, not an error to be hidden.
+
+**Printing COMPLETE when you did not finish is the worst outcome available to you.** A short
+review that says it is short gets its remainder picked up automatically. A short review that
+claims completeness silently becomes "the audit looked at those files and found nothing", and no
+downstream check can tell the difference. If you are unsure whether you covered everything, you
+did not: print INCOMPLETE and list what you are unsure about.
+
 ## Overrides of the carved methodology below
 
 - **Its STOP and "type proceed" banner:** you have no user to prompt. Write your files, verify each

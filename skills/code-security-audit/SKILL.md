@@ -362,6 +362,25 @@ done." A run spread over several waves is the correct handling of a large codeba
 one -- the alternative is a single worker holding seven context windows and quietly reading a
 fraction of them.
 
+**A worker may return INCOMPLETE, and that is a normal result.** Slice size is an estimate; when it
+is wrong the worker reports how far it got and writes the remainder to
+`audit_state/workers/<id>/unreviewed.txt`. When that happens:
+
+1. Accept and keep every finding it did produce. Never discard partial work.
+2. Record the partition as `security_partial`, not `security_complete`.
+3. Collect all `unreviewed.txt` files from the wave, concatenate them, and re-slice that list into
+   additional partitions for a later wave (ids `<original>-r1`, `-r2`, ...). Allocate fresh
+   finding-ID blocks for them exactly as at GATE 1.
+4. Tell the owner plainly: "3 of 10 workers ran short; 47 files re-queued into wave 4."
+
+Do NOT respond by shrinking the slice for everyone or by re-running the worker on the same slice.
+The estimate being wrong for one area is not evidence it is wrong everywhere, and re-running from
+the start throws away findings that are already correct.
+
+The run is finished when the bucket is empty AND no `unreviewed.txt` holds any path. Check that
+before Phase 3B -- "all workers returned" is not the same as "everything was reviewed", and the
+difference is exactly what an INCOMPLETE banner exists to make visible.
+
 ## Briefing a worker
 
 Every worker briefing states: partition_id, its file list path

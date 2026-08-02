@@ -132,8 +132,33 @@ $dupes = @($ids | Group-Object | Where-Object { $_.Count -gt 1 })
 "=== MERGE ==="
 $mergeReport | ForEach-Object { "  $_" }
 
+# WHAT WAS NEVER REVIEWED.
+#
+# Slice size is an estimate, so a worker may return INCOMPLETE and write its remainder to
+# unreviewed.txt. Stopping the audit with files still unreviewed is a legitimate choice -- order
+# is the selection, and the owner may decide the remaining tail is not worth another wave. What
+# is NOT legitimate is that choice being invisible.
+#
+# Counted here because GATE 2 is where the owner decides what to do with the run. "18 findings"
+# and "18 findings, and 143 files were never opened" are different reports, and only one of them
+# lets him judge whether to run another wave before sending anything to developers.
+$unreviewedFiles = @()
+$workersDir = Join-Path $outDir 'workers'
+if (Test-Path -LiteralPath $workersDir) {
+  foreach ($u in @(Get-ChildItem -LiteralPath $workersDir -Recurse -Filter 'unreviewed.txt' -ErrorAction SilentlyContinue)) {
+    $unreviewedFiles += @(Get-Content -LiteralPath $u.FullName | Where-Object { $_.Trim() -ne '' })
+  }
+}
+$unreviewedFiles = @($unreviewedFiles | Sort-Object -Unique)
+
 "=== GATE 2 COUNTS (computed -- quote these, do not restate from memory) ==="
 "  Total findings: $($ids.Count)"
+if ($unreviewedFiles.Count -gt 0) {
+  "  NEVER REVIEWED: $($unreviewedFiles.Count) file(s) -- one or more workers ran short of room."
+  "    These are listed in audit_state/workers/*/unreviewed.txt and can be picked up by another"
+  "    wave. Say this number out loud at GATE 2 alongside the findings count: the audit did not"
+  "    look at them, which is not the same as looking and finding nothing."
+}
 "  By severity:"
 if ($sevs.Count -gt 0) { $sevs | Group-Object | Sort-Object Name | ForEach-Object { "    $($_.Name): $($_.Count)" } } else { "    (none parsed)" }
 "  By class:"

@@ -19,11 +19,27 @@ param(
   # it decide how the work was divided is precisely the mistake this script no longer makes.
   [ValidateRange(1,10)][int]$MaxParallel = 10,
   # Slice size. An ESTIMATE of what one subagent can get through, not a guarantee: a worker that
-  # runs out reports where it stopped and the remainder is re-sliced. Derived from the 200K window
-  # (~14.7K instructions + reasoning and findings headroom leaves ~500 KB of source), but being
-  # wrong here costs one extra wave rather than blocking anything.
-  [int]$SliceKB = 500,
-  [int]$SliceFiles = 50
+  # runs out reports where it stopped and the remainder is re-sliced.
+  #
+  # WAS 500 KB, and that was too aggressive -- the field run hit "parser aborted (timeout,
+  # resource-limit, or over-length)". 500 KB is ~125K tokens of source; add ~15K of instructions
+  # and it leaves under 60K for reading comprehension, reasoning, THINKING TOKENS, and writing
+  # findings, on a 200K window. I had sized it as "what fits" rather than "what fits with room
+  # left to do the work", which is the same mistake in a smaller place.
+  #
+  #   200,000  window
+  #   -15,000  instructions and worker context
+  #   -75,000  source at 300 KB
+  #   =110,000 for reasoning, thinking, and findings -- a real margin rather than a rounding error
+  #
+  # Erring small is nearly free here: an extra slice is an extra subagent in a wave that already
+  # runs 10 at a time. Erring large costs the whole worker.
+  [int]$SliceKB = 300,
+  [int]$SliceFiles = 40,
+  # A single file bigger than this cannot be read whole by a worker with room left to think, and
+  # no slicing fixes that -- slices divide BETWEEN files, never within one. Flagged rather than
+  # silently packed, because a worker that aborts mid-file produces no finding and no error.
+  [int]$MaxFileKB = 120
 )
 
 $ErrorActionPreference = 'Stop'
@@ -219,6 +235,19 @@ $assignedSet = @{}
 foreach ($p in $partitions) { foreach ($f in $p.Files) { $assignedSet[$f] = $true } }
 foreach ($r in $auditableRoots) {
   foreach ($rel in $groups[$r]) { if (-not $assignedSet.ContainsKey($rel)) { $unassigned.Add($rel) } }
+}
+
+# OVERSIZED SINGLE FILES. Slicing divides between files and can never divide within one, so a
+# file larger than a worker's whole source budget is a defect the slicer cannot solve. Naming
+# them here is the point: a worker handed one aborts partway through with no finding and no
+# error, which reads downstream as "nothing found in that file".
+$oversize = @($ordered | Where-Object { $_.Bytes -gt ($MaxFileKB * 1KB) } | Sort-Object -Property Bytes -Descending)
+if ($oversize.Count -gt 0) {
+  ""
+  Write-Warning "$($oversize.Count) file(s) exceed $MaxFileKB KB and cannot be read whole by one worker with room left to reason. Slicing cannot help -- slices divide between files, never within one. Review these by hand, or brief a worker to read named regions rather than the whole file:"
+  foreach ($o in ($oversize | Select-Object -First 15)) { "    {0,7} KB  {1}" -f [math]::Round($o.Bytes/1KB), $o.Path }
+  if ($oversize.Count -gt 15) { "    ... and $($oversize.Count - 15) more" }
+  ""
 }
 
 $waves = [math]::Ceiling($partitions.Count / [double]$MaxParallel)

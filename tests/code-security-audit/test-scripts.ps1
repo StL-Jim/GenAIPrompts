@@ -708,6 +708,55 @@ try {
     "12 tiny unconnected files produced $($sparseSlices.Count) slice(s) -- the graph must improve grouping where it exists and never worsen it where it does not"
 } finally { Remove-Item -Recurse -Force -LiteralPath $sparseTmp -ErrorAction SilentlyContinue }
 
+# ------------------- GATE 2 decisions reach the registry -------------------
+#
+# Nothing applied the owner's decisions to findings_registry.md. His answers land in
+# gate2_progress.md, but renumber-findings.ps1 and Phase 5 read `status:` from the REGISTRY -- so a
+# rejection had to reach it or the report would not know it was suppressed. Faced with 24 findings
+# and one manual approval per edit, the running agent wrote itself an apply_disposition.py:
+# unreviewed code, in a language this skill does not use, mutating the file holding the results,
+# invoking a `python3` that does not exist on his machine.
+#
+# keep and unsure must BOTH stay open. He is not a developer; asked to separate "definitely real"
+# from "cannot tell", the honest answer is nearly always the second, and treating them differently
+# writes a confidence signal into the record that he never gave.
+$dispTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("disp-" + [guid]::NewGuid().ToString('N'))
+try {
+  New-Item -ItemType Directory -Force -Path (Join-Path $dispTmp 'audit_state') | Out-Null
+  $reg = @(
+    '# Findings Registry','',
+    '- id: F-001','- sev: Critical','- status: open','- file: src/A.cs','',
+    '- id: F-002','- sev: High','- status: open','- file: src/B.cs','',
+    '- id: F-003','- sev: High','- status: open','- file: src/C.cs',''
+  )
+  Set-Content -LiteralPath (Join-Path $dispTmp 'audit_state\findings_registry.md') -Value $reg -Encoding UTF8
+  Set-Content -LiteralPath (Join-Path $dispTmp 'audit_state\gate2_progress.md') -Encoding UTF8 -Value @(
+    '| F-001 | keep | real and reachable | judge:uphold | 2026-08-02T10:00 |',
+    '| F-002 | not real | parameterised by the Db wrapper | judge:reject | 2026-08-02T10:01 |',
+    '| F-003 | unsure | cannot judge this myself | judge:uphold | 2026-08-02T10:02 |'
+  )
+
+  # -WhatIf must change nothing.
+  $before = Get-Content -LiteralPath (Join-Path $dispTmp 'audit_state\findings_registry.md') -Raw
+  $null = Invoke-Script 'apply-dispositions.ps1' @('-Workspace', $dispTmp, '-ProjectName', 'disptest', '-WhatIf')
+  $after = Get-Content -LiteralPath (Join-Path $dispTmp 'audit_state\findings_registry.md') -Raw
+  Check 'apply-dispositions -WhatIf writes nothing' ($before -eq $after) 'a dry run that mutates the audit record is worse than none'
+
+  $ad = Invoke-Script 'apply-dispositions.ps1' @('-Workspace', $dispTmp, '-ProjectName', 'disptest')
+  Check 'apply-dispositions exits 0' ($ad.Code -eq 0) "exit $($ad.Code)"
+  $now = Get-Content -LiteralPath (Join-Path $dispTmp 'audit_state\findings_registry.md') -Raw
+  Check 'keep stays open'   ($now -match '(?s)id: F-001.*?status: open')           'a kept finding must remain live'
+  Check 'unsure stays open' ($now -match '(?s)id: F-003.*?status: open')           'unsure is not a rejection -- it is a finding he could not judge'
+  Check 'rejection becomes false_positive with its reason' `
+    ($now -match '(?s)id: F-002.*?status: false_positive' -and $now -match 'sup:.*parameterised') `
+    'the reason must travel with the finding, or the report cannot say why it was suppressed'
+
+  # A decision for an id the registry does not hold must abort, not half-apply.
+  Add-Content -LiteralPath (Join-Path $dispTmp 'audit_state\gate2_progress.md') -Value '| F-999 | keep | ghost | judge:uphold | 2026-08-02T10:03 |'
+  $ghost = Invoke-Script 'apply-dispositions.ps1' @('-Workspace', $dispTmp, '-ProjectName', 'disptest')
+  Check 'FAIL-CLOSED on a decision with no matching finding' ($ghost.Code -ne 0) 'a decision recorded and not applied is exactly the silent loss this replaces'
+} finally { Remove-Item -Recurse -Force -LiteralPath $dispTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

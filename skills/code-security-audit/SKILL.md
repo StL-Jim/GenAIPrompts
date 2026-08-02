@@ -89,6 +89,31 @@ audit reaches findings independently so it can CONTRADICT the model -- disprove 
 an attested control, find a component the model missed. An audit seeded with the model's inventory
 inherits its blind spots and can no longer disprove its coverage.
 
+## Phase 4A is OPTIONAL and defaults to OFF
+
+4A dispatches one architecture worker PER SLICE, so on a repository needing 20 slices it doubles
+the run -- and a real run already costs the owner 3-4 hours. What it buys is one prose section:
+`architecture_review.md` feeds section 8 of the consolidated report as OBSERVATIONS with no
+severity, no risk score, no finding ids, and no place in any finding total. Nothing else in the
+skill reads it. No finding depends on it.
+
+That is a poor trade against the reason this audit exists -- security findings a developer can act
+on. So at GATE 1, ask once:
+
+> Also run the architecture review? It roughly doubles the run and produces operability
+> observations rather than security findings. Default is no.
+
+Default NO. If he declines, mark every partition's Phase 4A `not_applicable` in STATE.md so resume
+never waits on it, and tell Phase 5 to write "not run in this audit" for section 8 rather than
+inventing observations out of the security findings.
+
+**Do not add a critic or judge pass to 4A.** Those exist to test whether a claimed VULNERABILITY
+holds up -- its evidence, its precondition, its severity. An observation makes no such claim, so
+there is nothing for them to check and the cost would buy nothing.
+
+If the architecture view is wanted later it can run on its own against the same `audit_state/`,
+without redoing any security work.
+
 ## YOUR context is a finite resource. Treat a wave boundary as a session boundary.
 
 A field run exhausted the orchestrator's context mid-audit. This is not an edge case on a large

@@ -154,6 +154,46 @@ function Get-AreaKey {
   return "$Root/$($parts[0])"
 }
 
+# ---------------------------------------------------------------------------
+# FEATURE KEY -- slice down the stack, not across it
+#
+# Directory grouping alone splits every vulnerability in half, and a field worker said so
+# outright: "I can't validate this finding because the file I need is not in my partition."
+#
+# The reason is that directories are LAYERS. OrderController lives in Areas/API, OrderService in
+# Services, OrderRepository in Repositories -- three directories, so three slices, so no worker
+# ever sees a whole path from untrusted input to dangerous sink. Ordering by directory cannot fix
+# that; it is what causes it.
+#
+# What one worker actually needs is the vertical slice: OrderController + OrderService +
+# OrderRepository together, wherever they physically sit. In layered C#/Java/TS codebases the
+# filename says which feature a file belongs to -- the layer is a SUFFIX on a shared stem. So
+# strip the layer suffix and group on what remains.
+#
+# Deliberately a heuristic, not a call graph. Building a real one means parsing every language in
+# the repo; this is one regex per filename and gets the common case right. Where it is wrong the
+# cost is the status quo (a lead for Phase 3B), not a regression.
+$layerSuffix = '(controller|apicontroller|service|services|svc|repository|repositories|repo|manager|handler|provider|factory|dao|store|gateway|client|adapter|mapper|validator|model|models|dto|viewmodel|vm|entity|request|response|command|query|job|worker|helper|util|utils|extensions|config|configuration|middleware|filter|attribute|builder|resolver|hub|listener|consumer|publisher)'
+
+function Get-FeatureKey {
+  param([string]$Rel)
+  $stem = [System.IO.Path]::GetFileNameWithoutExtension($Rel)
+  if ([string]::IsNullOrWhiteSpace($stem)) { return $null }
+  # Trim one layer suffix, then a second (OrderApiController -> OrderApi -> Order).
+  $k = $stem
+  for ($i = 0; $i -lt 2; $i++) {
+    $trimmed = [regex]::Replace($k, "(?i)$layerSuffix$", '')
+    if ($trimmed -eq $k -or $trimmed.Length -lt 3) { break }
+    $k = $trimmed
+  }
+  $k = $k.Trim('_','-','.').ToLower()
+  # Too short or nothing but a layer word: no usable feature signal. Fall back to directory.
+  if ($k.Length -lt 3) { return $null }
+  # Names that appear across unrelated features carry no grouping information.
+  if ($k -in @('base','common','shared','core','main','index','program','startup','global','app','test','tests')) { return $null }
+  return $k
+}
+
 # Every auditable file, with what ordering and sizing need.
 $items = New-Object System.Collections.Generic.List[object]
 foreach ($r in $auditableRoots) {
@@ -165,47 +205,113 @@ foreach ($r in $auditableRoots) {
     if (Test-Path -LiteralPath $fp) { $bytes = (Get-Item -LiteralPath $fp).Length }
     $rank = 9
     if ($cls -and $classRank.ContainsKey($cls)) { $rank = $classRank[$cls] }
+    $feat = Get-FeatureKey -Rel $rel
     $items.Add([pscustomobject]@{
       Path = $rel; Root = $r; Area = (Get-AreaKey -Rel $rel -Root $r); Class = $cls; Rank = $rank; Bytes = $bytes
+      # Files with no usable feature signal group by directory, as before. Prefixing keeps a
+      # feature group distinct from a directory group of the same name.
+      Group = $(if ($feat) { "feature:$feat" } else { "area:$(Get-AreaKey -Rel $rel -Root $r)" })
+      Feature = $feat
     })
   }
 }
 
-# Rank each AREA by the most security-relevant file it holds, so auth and routing areas are
-# reviewed before plumbing. Ties break on size (smaller first covers more distinct areas early).
-$areaRank = @{}
-$areaBytes = @{}
-foreach ($it in $items) {
-  if (-not $areaRank.ContainsKey($it.Area) -or $it.Rank -lt $areaRank[$it.Area]) { $areaRank[$it.Area] = $it.Rank }
-  if (-not $areaBytes.ContainsKey($it.Area)) { $areaBytes[$it.Area] = 0 }
-  $areaBytes[$it.Area] += $it.Bytes
-}
-$ordered = @($items | Sort-Object `
-  @{ Expression = { $areaRank[$_.Area] } }, `
-  @{ Expression = { $areaBytes[$_.Area] } }, `
-  @{ Expression = { $_.Area } }, `
-  @{ Expression = { $_.Rank } }, `
-  @{ Expression = { $_.Path } })
+# PULL IN THE CONNECTING FILES.
+#
+# A file qualifies as auditable on its own merits -- ordinary app-source needs a dangerous API to
+# get in. That rule is right for selection and wrong for COHERENCE, and the fixture shows exactly
+# how: OrderController and OrderRepository both qualify, OrderService does not, because a method
+# that just forwards a string contains nothing dangerous by itself. The worker then gets both ends
+# of the path and not the middle -- and the middle is where you see whether the parameter was
+# validated, re-encoded, or passed straight through.
+#
+# So once a feature has earned a place, its quiet siblings come with it. They are small (that is
+# WHY they did not qualify) and they are the difference between "these two files look related" and
+# a path you can actually follow. Only siblings of an already-included feature are pulled in; this
+# never widens the selection to files whose feature nobody is reviewing.
+$featuresPresent = @{}
+foreach ($it in $items) { if ($it.Feature) { $featuresPresent[$it.Feature] = $true } }
 
-# Cut. A slice closes when it would exceed either budget, or when the area changes and the slice
-# is already substantially full -- preferring an area boundary to a hard cut keeps each worker
-# looking at one coherent surface without stranding tiny slices.
+$pulledIn = 0
+foreach ($r in $auditableRoots) {
+  foreach ($rel in $groups[$r]) {
+    if (Test-Auditable -Workspace $WORKSPACE -RelPath $rel) { continue }
+    $cls = Get-AuditClass -Path $rel
+    if (-not $cls -or $script:FloorClasses -notcontains $cls) { continue }   # docs/tests stay out
+    $feat = Get-FeatureKey -Rel $rel
+    if (-not $feat -or -not $featuresPresent.ContainsKey($feat)) { continue }
+    $fp = Join-Path $WORKSPACE ($rel -replace '/','\')
+    $bytes = 0
+    if (Test-Path -LiteralPath $fp) { $bytes = (Get-Item -LiteralPath $fp).Length }
+    $rank = 9
+    if ($classRank.ContainsKey($cls)) { $rank = $classRank[$cls] }
+    $items.Add([pscustomobject]@{
+      Path = $rel; Root = $r; Area = (Get-AreaKey -Rel $rel -Root $r); Class = $cls; Rank = $rank
+      Bytes = $bytes; Group = "feature:$feat"; Feature = $feat
+    })
+    $pulledIn++
+  }
+}
+if ($pulledIn -gt 0) {
+  "CONNECTING FILES PULLED IN: $pulledIn -- quiet siblings of features already being reviewed"
+  "  (a service that only forwards a parameter holds no dangerous API of its own, but it is where"
+  "   you see whether that parameter was validated before it reached the sink)."
+}
+
+# Build GROUPS, then pack whole groups into slices. Grouping first is the point: a group is the
+# unit that must not be split, because splitting it is what put a controller and its repository in
+# different workers and cost the run a real finding.
+$groupOf = @{}
+foreach ($it in $items) {
+  if (-not $groupOf.ContainsKey($it.Group)) { $groupOf[$it.Group] = New-Object System.Collections.Generic.List[object] }
+  $groupOf[$it.Group].Add($it)
+}
+# Rank each group by the most security-relevant file it holds, so auth and routing features are
+# reviewed before plumbing. Ties break on size -- smaller first covers more distinct features early.
+$featureGroups = @($groupOf.Keys | ForEach-Object {
+  $g = $groupOf[$_]
+  [pscustomobject]@{
+    Key   = $_
+    Files = @($g | Sort-Object Rank, Path | ForEach-Object { $_.Path })
+    Bytes = (($g | Measure-Object -Property Bytes -Sum).Sum)
+    Rank  = (($g | Measure-Object -Property Rank -Minimum).Minimum)
+    Areas = @($g | ForEach-Object { $_.Area } | Sort-Object -Unique)
+  }
+} | Sort-Object Rank, Bytes, Key)
+
+$crossLayer = @($featureGroups | Where-Object { $_.Key -like 'feature:*' -and $_.Areas.Count -gt 1 })
+
+# Pack. A group goes in whole wherever it fits; only a group larger than one slice is broken, and
+# then it is broken alone rather than dragging unrelated files with it.
 $sliceBytes = $SliceKB * 1KB
 $slices = New-Object System.Collections.Generic.List[object]
 $cur = $null
-$prevArea = $null
-foreach ($it in $ordered) {
-  $wouldExceed = $cur -and ((($cur.Bytes + $it.Bytes) -gt $sliceBytes) -or (($cur.Files.Count + 1) -gt $SliceFiles))
-  $areaBreak   = $cur -and $prevArea -and ($it.Area -ne $prevArea) -and ($cur.Bytes -ge ($sliceBytes * 0.6))
-  if (-not $cur -or $wouldExceed -or $areaBreak) {
-    $cur = [pscustomobject]@{ Areas = (New-Object System.Collections.Generic.List[string]); Files = (New-Object System.Collections.Generic.List[string]); Bytes = 0 }
-    $slices.Add($cur)
+foreach ($g in $featureGroups) {
+  $chunks = @()
+  if ($g.Bytes -le $sliceBytes -and $g.Files.Count -le $SliceFiles) {
+    $chunks = @(,$g.Files)
+  } else {
+    $n = [math]::Max([math]::Ceiling($g.Bytes / [double]$sliceBytes), [math]::Ceiling($g.Files.Count / [double]$SliceFiles))
+    $per = [math]::Ceiling($g.Files.Count / [double]$n)
+    for ($i = 0; $i -lt $g.Files.Count; $i += $per) {
+      $chunks += ,@($g.Files[$i..([math]::Min($i + $per - 1, $g.Files.Count - 1))])
+    }
   }
-  if (-not $cur.Areas.Contains($it.Area)) { $cur.Areas.Add($it.Area) }
-  $cur.Files.Add($it.Path)
-  $cur.Bytes += $it.Bytes
-  $prevArea = $it.Area
+  foreach ($chunk in $chunks) {
+    $chunkBytes = 0
+    foreach ($f in $chunk) { $chunkBytes += (@($items | Where-Object { $_.Path -eq $f } | Select-Object -First 1).Bytes) }
+    $wouldExceed = $cur -and ((($cur.Bytes + $chunkBytes) -gt $sliceBytes) -or (($cur.Files.Count + $chunk.Count) -gt $SliceFiles))
+    if (-not $cur -or $wouldExceed) {
+      $cur = [pscustomobject]@{ Areas = (New-Object System.Collections.Generic.List[string]); Files = (New-Object System.Collections.Generic.List[string]); Bytes = 0 }
+      $slices.Add($cur)
+    }
+    $label = if ($g.Key -like 'feature:*') { $g.Key.Substring(8) } else { $g.Areas[0] }
+    if (-not $cur.Areas.Contains($label)) { $cur.Areas.Add($label) }
+    foreach ($f in $chunk) { $cur.Files.Add($f) }
+    $cur.Bytes += $chunkBytes
+  }
 }
+$ordered = $items
 
 # Name each slice after the area it mostly holds, numbered within that area. This list is what
 # the owner reads at GATE 1; an id that does not say what the worker covers is unjudgeable.
@@ -247,6 +353,20 @@ if ($oversize.Count -gt 0) {
   Write-Warning "$($oversize.Count) file(s) exceed $MaxFileKB KB and cannot be read whole by one worker with room left to reason. Slicing cannot help -- slices divide between files, never within one. Review these by hand, or brief a worker to read named regions rather than the whole file:"
   foreach ($o in ($oversize | Select-Object -First 15)) { "    {0,7} KB  {1}" -f [math]::Round($o.Bytes/1KB), $o.Path }
   if ($oversize.Count -gt 15) { "    ... and $($oversize.Count - 15) more" }
+  ""
+}
+
+if ($crossLayer.Count -gt 0) {
+  ""
+  "CROSS-LAYER FEATURES KEPT TOGETHER: $($crossLayer.Count)"
+  "  These span more than one directory -- a controller, its service and its repository in one"
+  "  slice, so ONE worker can follow untrusted input all the way to the sink. Splitting them is"
+  "  what made a worker say it could not validate a finding because the file it needed was in"
+  "  another partition."
+  foreach ($c in ($crossLayer | Sort-Object Rank, Key | Select-Object -First 8)) {
+    "    {0,-22} {1} file(s) across: {2}" -f $c.Key.Substring(8), $c.Files.Count, ($c.Areas -join ', ')
+  }
+  if ($crossLayer.Count -gt 8) { "    ... and $($crossLayer.Count - 8) more" }
   ""
 }
 

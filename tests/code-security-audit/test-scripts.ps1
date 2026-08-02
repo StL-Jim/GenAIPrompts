@@ -606,6 +606,49 @@ $skillMd = Get-Content -LiteralPath (Join-Path $SkillDir 'SKILL.md') -Raw
 $skillStamp = if ($skillMd -match 'SKILL VERSION: (v\d+-skill \(\d{4}-\d{2}-\d{2}[a-z]\))') { $Matches[1] } else { $null }
 Check 'SKILL.md carries the same stamp as everything else' ($skillStamp -and $distinct -contains $skillStamp) "SKILL.md says '$skillStamp'"
 
+# --------------------------- feature slicing: down the stack, not across ---
+#
+# A field worker said it plainly: "I can't validate this finding because the file I need is not in
+# my partition." Directories are LAYERS -- OrderController in Areas/API, OrderService in Services,
+# OrderRepository in Repositories -- so grouping by directory guarantees no worker ever sees a
+# whole path from untrusted input to dangerous sink. Ordering by directory cannot fix that; it is
+# what causes it.
+#
+# The fixture is deliberately layered so a directory-based grouping FAILS it: each feature's files
+# are in four different directories. If these pass, one worker can follow the whole path.
+$featTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("feat-" + [guid]::NewGuid().ToString('N'))
+try {
+  foreach ($d in @('src\Areas\API\Controllers','src\Services','src\Repositories','src\Models')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $featTmp $d) | Out-Null
+  }
+  foreach ($feat in @('Order','Customer','Invoice')) {
+    Set-Content -LiteralPath (Join-Path $featTmp "src\Areas\API\Controllers\${feat}Controller.cs") -Value "public class ${feat}Controller { [Authorize] public void Search(string q) { } }" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $featTmp "src\Repositories\${feat}Repository.cs")          -Value "public class ${feat}Repository { var q = `"SELECT * FROM T WHERE n=`" + n; }" -Encoding UTF8
+    # Deliberately holds NO dangerous API: it must still be pulled in, because the middle of the
+    # path is where you see whether the parameter was validated before reaching the sink.
+    Set-Content -LiteralPath (Join-Path $featTmp "src\Services\${feat}Service.cs")                 -Value "public class ${feat}Service { public void Find(string q) { _repo.Search(q); } }" -Encoding UTF8
+  }
+  $null = Invoke-Script 'init-workspace.ps1' @('-Workspace', $featTmp, '-ProjectName', 'feattest', '-Mode', 'STANDALONE')
+  $null = Invoke-Script 'manifest.ps1'       @('-Workspace', $featTmp, '-ProjectName', 'feattest')
+  $fp   = Invoke-Script 'partition-plan.ps1' @('-Workspace', $featTmp, '-ProjectName', 'feattest')
+
+  Check 'cross-layer features are reported as kept together' ($fp.Output -match 'CROSS-LAYER FEATURES KEPT TOGETHER') 'if features are not grouped, every vulnerability spanning layers is split in half'
+  Check 'quiet connecting files are pulled in' ($fp.Output -match 'CONNECTING FILES PULLED IN') 'a service that only forwards a parameter has no dangerous API and would otherwise be dropped from its own feature'
+
+  # The decisive check: controller, service and repository for ONE feature in ONE slice.
+  $sliceFiles = @{}
+  foreach ($pf in @(Get-ChildItem -Path (Join-Path $featTmp 'audit_state\partitions') -Filter '*.txt' | Where-Object { $_.Name -notlike '*readset*' })) {
+    $sliceFiles[$pf.BaseName] = @(Get-Content -LiteralPath $pf.FullName)
+  }
+  $together = $false
+  foreach ($k in $sliceFiles.Keys) {
+    $f = $sliceFiles[$k]
+    if (($f -match 'OrderController') -and ($f -match 'OrderRepository') -and ($f -match 'OrderService')) { $together = $true }
+  }
+  Check 'one slice holds a full vertical path (controller + service + repository)' $together `
+    'this is the whole point -- without it a worker sees a sink and cannot tell if its input is attacker-controlled'
+} finally { Remove-Item -Recurse -Force -LiteralPath $featTmp -ErrorAction SilentlyContinue }
+
 # ----------------------------------------------------------------- report ---
 Write-Host ""
 Write-Host "================================"

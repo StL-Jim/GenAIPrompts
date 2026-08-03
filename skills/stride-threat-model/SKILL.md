@@ -201,7 +201,11 @@ member before the next step. Groups write disjoint files; only you write STATE.m
 
   ADVANCING. Anything that reads as acceptance -- "no", "no, next threat", "next", "fine", "looks good", "nothing" -- means he has nothing to change on that threat: go straight to the next one and print it. Do NOT ask a confirming question, do NOT summarise what he just accepted, and do not remark on the decision; the next thing he should see is the next threat. Note in particular that a bare "no" ANSWERS THE QUESTION YOU ASKED -- it means nothing to ask or change -- and is not a refusal to continue.
 
-  Honour the other things a reviewer says mid-walk: "back" or "previous" re-shows the preceding threat, a numbered request jumps to that threat, and "stop" / "that's enough" / "just proceed" ends the walk and continues with every remaining threat unchanged. When the last threat is done, say so, state the final threat count, list the changes made during the walk, and ask whether to proceed to Phase 2C.
+  Honour the other things a reviewer says mid-walk: "back" or "previous" re-shows the preceding threat, a numbered request jumps to that threat, and "stop" / "that's enough" / "just proceed" ends the walk and continues with every remaining threat unchanged. When the last threat is done, say so, state the final threat count, list the changes made during the walk, and ask whether to proceed to Phase 2C. Then close with this line exactly, counted from the walk you just ran rather than estimated (rule 15):
+
+  `Review walk: walked <N> of <N> | challenged <N> | held <N> | changed <N> | dropped <N>`
+
+  `challenged` = threats the user questioned instead of accepting; `held` = of those, the ones you kept as written; `changed` = reworded, re-rated or split; `dropped` = rows that left the main table. Print it even when every count is zero. This line exists because of the caution above -- agreeing with most challenges is a signal about YOURSELF -- and that signal is only usable if it is counted and shown rather than noticed privately. Do not editorialise about the numbers or defend them; print the line and stop.
 
   ANSWERING MEANS GOING AND LOOKING. When the user challenges a threat, RE-READ the files its Evidence column cites before you respond, and report what you found there. Do not defend the row from memory and do not restate its Description in different words -- restating the row is precisely the failure this gate exists to catch, because the row is the thing under question.
 

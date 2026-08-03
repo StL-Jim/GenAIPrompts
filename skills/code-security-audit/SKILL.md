@@ -89,6 +89,29 @@ audit reaches findings independently so it can CONTRADICT the model -- disprove 
 an attested control, find a component the model missed. An audit seeded with the model's inventory
 inherits its blind spots and can no longer disprove its coverage.
 
+## After GATE 2, YOU run apply-dispositions.ps1. He does not.
+
+His decisions land in `gate2_progress.md`, but `renumber-findings.ps1` and Phase 5 read `status:`
+from `findings_registry.md`. Nothing carried them across, so on a real run the agent wrote itself
+a Python script to do it -- unreviewed code, in a language this skill does not use, mutating the
+file holding the audit's results.
+
+`scripts/apply-dispositions.ps1` is the sanctioned version. Run it YOURSELF, as an ordinary step,
+the moment the walk ends:
+
+1. `apply-dispositions.ps1 -Workspace <ws> -ProjectName <n> -WhatIf` -- read the counts back to
+   him in one line: "12 stay open, 12 recorded as false positives."
+2. Run it again without `-WhatIf`.
+3. Then `renumber-findings.ps1`, then Phase 5.
+
+**Never ask him to run it.** He has said plainly he will not run scripts and should not have to:
+his job at a gate is judgement about the system, never operating the toolchain. A step that
+depends on him typing a command is a step that does not happen. This applies to every script in
+`scripts/` -- they are yours to run and yours to report the results of, in plain language.
+
+If it fails, it fails closed and writes nothing. Report what it said and stop; do not hand-edit
+the registry to work around it, because a decision applied by hand is one nothing verified.
+
 ## Phase 4A is OPTIONAL and defaults to OFF
 
 4A dispatches one architecture worker PER SLICE, so on a repository needing 20 slices it doubles
@@ -249,7 +272,8 @@ audit -- the precise outcome it exists to prevent.
 | Critic pass | 1 subagent | `critic.md` | Argues AGAINST every finding, re-reading the code |
 | Judge pass | 1 subagent | `judge.md` | Settles each dispute; routes only what the repo cannot answer |
 | GATE 2 | YOU | `gate-2.md` | Review findings BEFORE anything derives from them |
-| renumber-findings | YOU (script) | -- | After GATE 2, before Phase 5. Contiguous ids for the report |
+| apply-dispositions | YOU (script) | -- | IMMEDIATELY after GATE 2. Writes his decisions into the registry |
+| renumber-findings | YOU (script) | -- | After apply-dispositions, before Phase 5. Contiguous ids for the report |
 | Phase 5 | 1 subagent PER deliverable | `phase-5.md` | Fresh output budget each |
 | verify-deliverables | YOU (script) | -- | After Phase 5, BEFORE showing him anything |
 | Phase 6 | 1 subagent | `phase-6.md` | COORDINATED only |
@@ -532,7 +556,8 @@ Scripts, in the order a run uses them:
 | `readplan.ps1` | Phase 1 | per-partition read floor |
 | `readplan.ps1 -Verify` | you | after EACH worker returns |
 | `merge-findings.ps1` | you | after all workers, before GATE 2 |
-| `renumber-findings.ps1` | you | after GATE 2, before Phase 5 |
+| `apply-dispositions.ps1` | you | immediately after GATE 2, before renumber |
+| `renumber-findings.ps1` | you | after apply-dispositions, before Phase 5 |
 
 `lib-classify.ps1` is dot-sourced by `partition-plan.ps1` and `readplan.ps1`; it is not run
 directly. It holds the single definition of what counts as auditable source, so partitions are

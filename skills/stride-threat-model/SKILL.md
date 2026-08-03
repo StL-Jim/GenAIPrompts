@@ -120,12 +120,14 @@ the command you just ran. If the agent's summary contains a verdict at all, that
 signal it is narrating rather than reporting.
 
 Act on what it returns:
-- VERDICT: COMPLETE, depth verdict adequate -> proceed to the Scope Proposal.
+- VERDICT: COMPLETE -> proceed to the Scope Proposal.
 - VERDICT: INCOMPLETE -> re-dispatch the discovery agent with the named unread files listed
   in its briefing. Do not build scope on it. Do not accept an explanation for the gap.
-- Depth verdict THIN, or several rescued candidates that Pass 1 missed -> re-dispatch with
-  the shortfall named. Nothing downstream detects what discovery missed, so a shallow
-  discovery silently caps the entire run.
+- Several rescued candidates that Pass 1 missed -> re-dispatch with the shortfall named.
+  Nothing downstream detects what discovery missed, so a shallow discovery silently caps the
+  entire run. This is the shallowness signal to watch, and it is the only one that is actually
+  COMPUTED: the sweep mechanically found resources that Pass 1's reading did not, which is a
+  fact about the run rather than an impression of it.
 Also verify 00-discovery.md exists and is substantive, and that 00-files-read.txt EXISTS
 and lists the files reviewed. If the agent reported coverage in prose ("read 21 key files",
 "depth adequate") instead of producing that file and the -Verify output, the phase is

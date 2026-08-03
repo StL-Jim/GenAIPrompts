@@ -95,8 +95,27 @@ $set = @($set)
 # high-value classes are never filtered -- an entry point or a config file matters whether
 # or not it contains a URL.
 $signalRe = '://|<script[^>]+src=|<iframe[^>]+src=|<embed[^>]+src=|fetch\(|axios|XMLHttpRequest|\.ajax\(|integrity=|HttpClient|WebClient|RestClient|RestSharp|new \w+Client|createClient|connectionString|getenv|environ\[|process\.env|ConfigurationManager|IConfiguration|AppSettings|arn:aws|_URL|_URI|_HOST|_ENDPOINT|_ADDR|_BUCKET|_TABLE|_QUEUE|_TOPIC'
+#
+# WHICH CLASSES MAY BE FILTERED. Only those where an external-reference PATTERN is a
+# meaningful test of the file's value. This list is the fix for a bug where the loop ran
+# over every class:
+#   docs, dependency -- in the floor precisely BECAUSE a pattern cannot see their contents.
+#     A prose sentence ("integrates with the Acme Payments API") and a <PackageReference>
+#     line carry no scheme, host, TLD or client construction, so $signalRe does not THIN
+#     these classes, it deletes almost all of them -- silently, since -Verify then measures
+#     against the post-filter floor and reports COMPLETE. Field: a monitoring vendor was
+#     missed for exactly this reason, which is why dependency is in the floor at all.
+#   entrypoint, config-env -- the comment above already declares these never-filtered
+#     ("an entry point or a config file matters whether or not it contains a URL"); the
+#     code filtered them anyway.
+#   app-source, client-view -- not in the floor at all ($floorClasses), so filtering them
+#     was wasted work that also polluted 00-readset-deferred.txt with files that were never
+#     in the floor to begin with.
+# Consequence to accept: on a docs-heavy repo the floor is now larger and honest, where
+# before it was small and wrong.
+$filterableClasses = @('auth','ext-client')
 $deferred = @()
-foreach ($c in $classes) {
+foreach ($c in $filterableClasses) {
   $inClass = @($set | Where-Object { $_.Class -eq $c })
   if ($inClass.Count -le $BulkClassThreshold) { continue }
   foreach ($item in $inClass) {

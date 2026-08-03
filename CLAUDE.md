@@ -43,8 +43,8 @@ not. `git status` before every commit, and stage what you actually changed.
 Run the suite for whatever you touched:
 
 ```bash
-pwsh -File tests/code-security-audit/test-scripts.ps1
-pwsh -File tests/code-security-audit/carve.ps1
+powershell -File tests/code-security-audit/test-scripts.ps1
+powershell -File tests/code-security-audit/carve.ps1
 bash tests/code-security-audit/test-bash-invocation.sh
 ```
 

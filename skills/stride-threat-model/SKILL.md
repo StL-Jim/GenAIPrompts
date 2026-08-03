@@ -178,7 +178,16 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   after confirm/correct, Edit the final text into 01-inventory.md's System Restatement
   section (replacing the PENDING marker) and record corrections the user made.
 - Phase 2: dispatch 2a -> 2b sequentially, verifying each output file (W-d) before the
-  next. After 2b verifies, hold GATE 3 -- the threat review. Present 2b's banner, the
+  next. After 2b verifies, RUN THE MECHANICAL CHECK YOURSELF (same reasoning as the Phase 0
+  read-set verify; rule S for your shell's form):
+
+      & '<SKILL_DIR>\scripts\check-threats.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+
+  Exit 1 means rule violations -- fix 02b-threats.md and re-run BEFORE the gate, so the user
+  spends the walk on judgement rather than bookkeeping. An unparseable row and a zero-row table
+  are both FAILURES, not passes. 2B may run it on itself; your run is the one that counts.
+
+  Then hold GATE 3 -- the threat review. Present 2b's banner, the
   threat count by priority, and anything the agent flagged, then wait for explicit
   approval. Apply corrections to 02b-threats.md and 02b-excluded.md BEFORE dispatching
   anything else: re-dispatch 2b, or make the edit yourself when it is small and

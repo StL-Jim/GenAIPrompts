@@ -108,7 +108,7 @@
 
    Run the comparison script (one call; use YOUR shell's invocation form per common.md rule S):
    ```powershell
-   & '<SKILL_DIR>\scriptsrchive-compare.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   & '<SKILL_DIR>\scripts\archive-compare.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
    ```
    It finds the most recent archived run, picks the comparison basis (the archive's `00-resources.txt`, or its `01-inventory.md` element names as a weaker name-only fallback, or reports that it cannot be compared), and prints the FOUR sets described below plus both resource counts. If no archive exists it says so and you skip to step 8 without writing 00-archive-comparison.md. Paste its output.
 

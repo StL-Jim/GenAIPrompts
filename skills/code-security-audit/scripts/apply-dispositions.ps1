@@ -44,15 +44,49 @@ foreach ($p in @($regPath, $progPath)) {
 # ---------------------------------------------------------------------------
 $calls = @{}
 $reasons = @{}
+$source = @{}
 foreach ($line in (Get-Content -LiteralPath $progPath)) {
   $m = [regex]::Match($line, '^\s*\|\s*(F-\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|')
   if (-not $m.Success) { continue }
   $calls[$m.Groups[1].Value]   = $m.Groups[2].Value.Trim().ToLower()
   $reasons[$m.Groups[1].Value] = $m.Groups[3].Value.Trim()
+  $source[$m.Groups[1].Value]  = 'owner'
 }
 if ($calls.Count -eq 0) {
   Write-Error "Parsed no decisions from gate2_progress.md. Check its row format against references/gate-2.md."
   exit 1
+}
+
+# ---------------------------------------------------------------------------
+# THE JUDGE'S REJECTIONS COUNT TOO
+#
+# This script originally applied ONLY the owner's GATE 2 answers, and a real run showed what that
+# leaves behind. The judge rejected 50 of 85 findings; nothing carried those rulings into the
+# registry, so all 50 stayed `status: open`. Phase 5 reads status, so the reports presented them
+# as live findings -- the owner disposed of 24 findings and received a report describing dozens.
+#
+# The judge's ruling is a disposition exactly like his, and it has to land the same way. The
+# OWNER WINS wherever both spoke: he is the superior judge and may overturn any ruling, so his
+# decision is applied second and overwrites.
+$rulPath = Join-Path $outDir 'judge_rulings.md'
+$fromJudge = 0
+if (Test-Path -LiteralPath $rulPath) {
+  $rulText = (Get-Content -LiteralPath $rulPath -Raw) -replace "`r`n", "`n"
+  foreach ($m in [regex]::Matches($rulText, '(?m)^\s*[-*]?\s*id:\s*(F-\d+)\s*$')) {
+    $id = $m.Groups[1].Value
+    $end = $rulText.IndexOf("`n`n", $m.Index); if ($end -lt 0) { $end = $rulText.Length }
+    $block = $rulText.Substring($m.Index, $end - $m.Index)
+    # [\w-] not \w: 'uphold-corrected' would otherwise capture as 'uphold'.
+    $r = [regex]::Match($block, '(?m)^\s*[-*]?\s*ruling:\s*([\w-]+)')
+    if (-not $r.Success) { continue }
+    if ($r.Groups[1].Value.ToLower() -ne 'reject') { continue }   # uphold/uphold-corrected/unresolved stay open
+    if ($calls.ContainsKey($id)) { continue }                      # the owner already spoke; he wins
+    $why = [regex]::Match($block, '(?m)^\s*[-*]?\s*reason:\s*(.+)$')
+    $calls[$id]   = 'not real'
+    $reasons[$id] = if ($why.Success) { 'judge: ' + $why.Groups[1].Value.Trim() } else { 'judge: rejected' }
+    $source[$id]  = 'judge'
+    $fromJudge++
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -123,8 +157,11 @@ foreach ($line in $lines) {
 # owner answered, the report shipped as though he had not, and nothing said so.
 # ---------------------------------------------------------------------------
 $missed = @($calls.Keys | Where-Object { -not $applied.ContainsKey($_) } | Sort-Object)
+$ownerCount = @($source.Values | Where-Object { $_ -eq 'owner' }).Count
 "DISPOSITIONS -- $ProjectName"
-"  decisions in gate2_progress.md : $($calls.Count)"
+"  from the owner at GATE 2       : $ownerCount"
+"  from judge 'reject' rulings    : $fromJudge"
+"  total decisions                : $($calls.Count)"
 "  applied to findings_registry.md: $($applied.Count)"
 foreach ($s in @('open','accepted','false_positive')) {
   $n = @($applied.Values | Where-Object { $_ -eq $s }).Count

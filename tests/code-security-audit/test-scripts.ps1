@@ -751,6 +751,40 @@ try {
     ($now -match '(?s)id: F-002.*?status: false_positive' -and $now -match 'sup:.*parameterised') `
     'the reason must travel with the finding, or the report cannot say why it was suppressed'
 
+  # JUDGE REJECTIONS MUST LAND TOO -- the defect that produced a report of 24 open findings after
+  # the owner had disposed of everything down to 12. The judge rejected 50 of 85; nothing carried
+  # those rulings into the registry, so all 50 stayed `status: open` and Phase 5 read them as live.
+  # And where BOTH ruled, the owner wins: he is the superior judge and may overturn any ruling.
+  $jTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("judge-" + [guid]::NewGuid().ToString('N'))
+  try {
+    New-Item -ItemType Directory -Force -Path (Join-Path $jTmp 'audit_state') | Out-Null
+    Set-Content -LiteralPath (Join-Path $jTmp 'audit_state\findings_registry.md') -Encoding UTF8 -Value @(
+      '# Findings Registry','',
+      '- id: F-001','- sev: High','- status: open','',
+      '- id: F-002','- sev: High','- status: open','',
+      '- id: F-003','- sev: High','- status: open',''
+    )
+    # Owner overturns the judge on F-001, and says nothing about F-002 or F-003.
+    Set-Content -LiteralPath (Join-Path $jTmp 'audit_state\gate2_progress.md') -Encoding UTF8 `
+      -Value '| F-001 | keep | judge was wrong, I overturn this | judge:reject | t |'
+    Set-Content -LiteralPath (Join-Path $jTmp 'audit_state\judge_rulings.md') -Encoding UTF8 -Value @(
+      'id: F-001','ruling: reject','reason: no evidence cited','',
+      'id: F-002','ruling: reject','reason: not a security issue','',
+      'id: F-003','ruling: uphold','reason: stands',''
+    )
+    $jr = Invoke-Script 'apply-dispositions.ps1' @('-Workspace', $jTmp, '-ProjectName', 'judgetest')
+    $jreg = Get-Content -LiteralPath (Join-Path $jTmp 'audit_state\findings_registry.md') -Raw
+    Check 'judge rejections are applied to the registry' ($jreg -match '(?s)id: F-002.*?status: false_positive') `
+      'a judge rejection left as open is read by Phase 5 as a live finding -- this is what produced a report of 24 when the owner had settled on 12'
+    Check 'the judge reason travels with the suppression' ($jreg -match 'sup:.*judge:.*not a security issue') `
+      'the suppressed table must say who rejected it and why'
+    Check 'the OWNER overrides a judge rejection' ($jreg -match '(?s)id: F-001.*?status: open') `
+      'he is the superior judge; his decision is applied second and wins'
+    Check 'an upheld finding stays open' ($jreg -match '(?s)id: F-003.*?status: open') 'uphold is not a disposition to suppress'
+    Check 'both sources are reported separately' ($jr.Output -match "from the owner at GATE 2\s*:\s*1" -and $jr.Output -match "from judge 'reject' rulings\s*:\s*1") `
+      'the counts must be separable or the owner cannot tell what he decided from what the judge decided'
+  } finally { Remove-Item -Recurse -Force -LiteralPath $jTmp -ErrorAction SilentlyContinue }
+
   # A decision for an id the registry does not hold must abort, not half-apply.
   Add-Content -LiteralPath (Join-Path $dispTmp 'audit_state\gate2_progress.md') -Value '| F-999 | keep | ghost | judge:uphold | 2026-08-02T10:03 |'
   $ghost = Invoke-Script 'apply-dispositions.ps1' @('-Workspace', $dispTmp, '-ProjectName', 'disptest')

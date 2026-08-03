@@ -23,6 +23,49 @@ Dispatch separately, each with a fresh context window and a fresh output budget:
 
 The cross-run log update is the ORCHESTRATOR's, not a subagent's -- see below.
 
+## TWO TABLES. Full detail for OPEN findings only; suppressed get one row each.
+
+A real run produced a report containing this line:
+
+> [Due to response length constraints, detailed findings for remaining 76 findings are presented
+> in summary format below.]
+
+That is the budget-exhaustion failure the carved text warns about, and the cause was an
+instruction of mine: "every finding from findings_registry.md is included, no exceptions" got read
+as "write every finding in full". Eighty-five full write-ups do not fit, so the agent truncated --
+and the 12 findings the owner actually needed were diluted among 73 he had already rejected.
+
+"Included" means APPEARS. It does not mean identical depth. So:
+
+**Table 1 -- OPEN FINDINGS. Full detail, every one, no exceptions, never summarised.** These are
+`status: open` -- what he kept plus what he could not judge. Each gets the complete write-up: file
+and line, the quoted evidence, precondition, severity and score, and the fix. **A finding without
+its details is useless to the developer who receives it**, so if budget is ever tight this table is
+the last thing to lose, not the first.
+
+**Table 2 -- SUPPRESSED. One row each, no write-ups.** These are `false_positive` and `accepted`,
+whether the judge rejected them or the owner did. Columns: id, severity, one-line title, who
+disposed of it (judge or owner), and the reason. Nothing is hidden -- the count and the reasons
+are visible and countable -- but a rejected finding does not need a page.
+
+State both counts plainly near the top: "12 open findings requiring attention; 73 suppressed
+(50 by the judge, 23 by the owner)." Those two numbers are what he checks first, and a report
+whose headline count does not match what he decided at the gate is worse than no report.
+
+If the open table is genuinely too large for one response, that is a real budget problem: produce
+it complete and say what you had to leave out of the SUPPRESSED table instead. Never the reverse.
+
+## Attack paths may only chain OPEN findings
+
+The same run put excluded vulnerabilities into the executive briefing's attack paths. An attack
+path built on a finding that was rejected is a path that does not exist, and it is worse than a
+wrong finding: it reads as corroboration for the ones around it.
+
+Build attack paths from `status: open` findings only, and rebuild them AFTER dispositions are
+applied -- `attack_paths.md` was written by workers before the critic, the judge, or the owner had
+ruled on anything. If removing suppressed findings leaves a path with a single step or no path at
+all, say so; a shorter honest list beats a padded one.
+
 ## The C4 architecture output is REMOVED. Do not produce it.
 
 The carved methodology below generates `audit_state/C4_architecture.md` from `c4_input.md`, and a

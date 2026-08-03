@@ -102,9 +102,19 @@ Four lines, in this order:
    until the scorecard earns otherwise, and a ruling he disagrees with is exactly the signal that
    makes the scorecard worth keeping.
 
-Present findings the judge REJECTED too, in their own short section with the ruling's reason. He is
-the superior judge and can overturn any of them. Never let a rejection disappear -- a filter whose
-output he cannot see is the thing he was worried about when he reviewed all 53 by hand.
+Judge rejections are SUMMARISED, not walked. Show a count grouped by the judge's grounds -- for
+example "50 rejected: 16 insufficient evidence, 15 not a security issue, 12 severity below scope,
+7 development-only" -- and say the full rulings are in `judge_rulings.md` if he wants any of them.
+Then move on.
+
+He is still the superior judge and may overturn any of them by asking. But walking 50 rejections
+one at a time is the review he is trying to escape: on a real run the critic and judge disposed of
+61 of 85 findings, and re-presenting all 61 individually hands back exactly the workload the pass
+exists to remove. Asked directly, he said he did not want to.
+
+What must never happen is a rejection VANISHING. The count and the grounds are always stated, the
+rulings stay on disk, and every suppressed finding appears in the final report's suppressed table
+with who rejected it and why. Visible and countable, without costing him an hour.
 
 Findings the judge ruled `unresolved` with **`route: owner`** come FIRST, before anything else.
 Those are the ones the repository genuinely could not answer and only he can -- "is the

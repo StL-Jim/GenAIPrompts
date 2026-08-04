@@ -142,7 +142,7 @@
      "kind": "external",
      "tier": "EXTERNAL",
      "tech": "HTTPS API",
-     "description": "Map tiles"
+     "description": "Generates chart interpretations"
     },
     {
      "id": "EXT-002",
@@ -150,8 +150,8 @@
      "kind": "external",
      "tier": "EXTERNAL",
      "threat": "P1",
-     "tech": "SMTP",
-     "description": "Outbound mail relay"
+     "tech": "HTTP API",
+     "description": "Geocodes birth locations"
     }
    ],
    "edges": [

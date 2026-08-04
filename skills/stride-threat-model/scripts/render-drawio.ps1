@@ -59,6 +59,32 @@ function Esc([string]$t) {
 }
 function Up40([double]$v) { return [int]([math]::Ceiling($v / 40.0) * 40) }
 
+# The C4 label convention: name in bold, then the element type and its technology, then a
+# one-line description. Rendered with html=1, which every shape style already sets.
+#
+# DOUBLE ESCAPING IS THE POINT HERE. User text is html-escaped FIRST so a literal '<' in a
+# component name displays as a character; the markup is added around it; then the whole
+# string is xml-escaped for the attribute. Single-escaping (which is what happens when the
+# label is passed straight to Esc) leaves a raw '<' in the decoded value, and html=1 then
+# treats it as a tag and silently EATS the rest of the name -- the text does not break the
+# file, it disappears, which is far harder to notice.
+$TYPE_WORD = @{
+  component = 'Container'; process = 'Process'; store = 'Database'
+  dfdstore  = 'Data Store'; external = 'External System'; actor = 'Person'
+}
+function HtmlEsc([string]$t) {
+  if ($null -eq $t) { return '' }
+  $t.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
+}
+function Build-Label($n) {
+  $out = '<b>' + (HtmlEsc $n.label) + '</b>'
+  $word = $TYPE_WORD[$n.kind]
+  if ($n.tech) { $out += '<div style="font-size:15px">[' + $word + ': ' + (HtmlEsc $n.tech) + ']</div>' }
+  elseif ($word) { $out += '<div style="font-size:15px">[' + $word + ']</div>' }
+  if ($n.description) { $out += '<div style="font-size:14px">' + (HtmlEsc $n.description) + '</div>' }
+  return $out
+}
+
 function Render-Diagram($d) {
   $nodes = @($d.nodes); $edges = @($d.edges)
   if ($nodes.Count -eq 0) { return $null }
@@ -153,11 +179,11 @@ function Render-Diagram($d) {
       if ($isContained) {
         $rx = [int](($COL_W - $w) / 2); $ry = $MEMBER_Y0 + $s * $V_PITCH
         [void]$cells.Add(('<mxCell id="{0}" value="{1}" style="{2}" vertex="1" parent="zone-{3}"><mxGeometry x="{4}" y="{5}" width="{6}" height="{7}" as="geometry"/></mxCell>' -f `
-          $n.id, (Esc $n.label), $sty, $c, $rx, $ry, $w, $hh))
+          $n.id, (Esc (Build-Label $n)), $sty, $c, $rx, $ry, $w, $hh))
         $pos[$n.id] = @{ x=$ox+$rx; y=$ZONE_Y+$ry; w=$w; h=$hh; col=$cidx[$c]; cell=$cells.Count-1; contained=$true }
       } else {
         # provisional slot; the barycentre pass below moves it
-        $pos[$n.id] = @{ x=$ox; y=$ZONE_Y + $s*$V_PITCH; w=$w; h=$hh; col=$cidx[$c]; cell=-1; contained=$false; kind=$n.kind; label=$n.label; sty=$sty }
+        $pos[$n.id] = @{ x=$ox; y=$ZONE_Y + $s*$V_PITCH; w=$w; h=$hh; col=$cidx[$c]; cell=-1; contained=$false; kind=$n.kind; label=(Build-Label $n); sty=$sty }
       }
     }
   }
@@ -191,7 +217,7 @@ function Render-Diagram($d) {
     foreach ($n in $members[$c]) {
       $p = $pos[$n.id]
       [void]$cells.Add(('<mxCell id="{0}" value="{1}" style="{2}" vertex="1" parent="1"><mxGeometry x="{3}" y="{4}" width="{5}" height="{6}" as="geometry"/></mxCell>' -f `
-        $n.id, (Esc $n.label), $p.sty, $p.x, $p.y, $p.w, $p.h))
+        $n.id, (Esc $p.label), $p.sty, $p.x, $p.y, $p.w, $p.h))
     }
   }
 

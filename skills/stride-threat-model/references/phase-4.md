@@ -35,7 +35,8 @@ Write it with the Write tool, in one call, as valid JSON:
       "name": "c4-02-container",
       "title": "Container Diagram",
       "nodes": [
-        { "id": "C-001", "label": "Web Application", "kind": "component", "tier": "APPLICATION", "threat": "P1" },
+        { "id": "C-001", "label": "Web Application", "kind": "component", "tier": "APPLICATION",
+          "tech": "Python/Flask", "description": "Serves chart generation requests", "threat": "P1" },
         { "id": "DS-001", "label": "Prod Database", "kind": "store", "tier": "DATA" },
         { "id": "EXT-001", "label": "Bing Maps", "kind": "external", "tier": "EXTERNAL" },
         { "id": "A-001", "label": "End User", "kind": "actor", "tier": "ACTORS" }
@@ -58,13 +59,17 @@ Field rules:
 
 - `kind` is one of `component`, `store`, `external`, `actor` (C4 diagrams) or `process`, `dfdstore`, `external` (the DFD). It selects the shape; you do not supply styles.
 - `tier` is one of `ACTORS`, `EDGE`, `APPLICATION`, `DATA`, `SECURED`, `EXTERNAL`, assigned by the decision table below. Column order and containers follow from it.
+- `tech` is optional: the technology or framework, rendered on a second line in the C4 convention as `[Container: Python/Flask]`. The type word comes from `kind` -- Container, Process, Database, Data Store, External System, Person -- so supply only the technology.
+- `description` is optional: ONE short line saying what the element does, rendered as a third line. Not a sentence about why it matters, not its threats -- what it is. "Serves chart generation requests", not "critical component handling sensitive requests".
+  Both are optional and additive: omit them and the box renders exactly as it did before. Take them from the inventory's Type / Language-Framework and Responsibilities fields, which already hold this.
 - `threat` is optional: `"P1"` when a Priority 1 threat in 02-threats.md touches that component, `"P2"` for Priority 2, omitted otherwise. This is the ONLY meaning of a red or orange shape border.
 - `secure` is `false` when the flow's Encryption is none/plaintext/unknown OR its AuthN is none/unknown, per its row in 02a-context.md. The script draws those as thick red edges, which is the diagram's at-a-glance answer to "what is unprotected".
 - `async` is `true` for broker and event-bus flows; the script dashes them.
 - `protocol` is the protocol AND NOTHING ELSE -- `HTTPS`, `HTTP`, `AMQP`, `TLS/5432`, or `?` if genuinely unknown. No DF-NNN, no TB-NNN, no data classification, no auth detail. Long edge labels collide with each other and with the shapes; everything omitted here is still in the 02a-context.md data-flow table, which is where a reader goes for detail.
 - `notes` is free text rendered in the diagram's notes box. Put the tier you assigned each component (by ID) here, plus any TB-NNN that backs no flow.
 
-ANGLE BRACKETS ARE BANNED from every label and note. A raw `<` or `>` breaks the file. Do not rely on escaping -- do not generate the characters: write `List[String]` not `List<String>`, "under 5" not "< 5".
+Angle brackets in labels and notes are SAFE and no longer need avoiding. Write `List<String>` and "under 5" or "< 5" as they really are. The renderer double-escapes user text -- html-escaped first so the character displays, then xml-escaped for the attribute -- so a literal `<` renders as a character instead of being treated as markup.
+  The old ban existed for the wrong reason. A raw `<` never broke the file; every shape style sets `html=1`, so draw.io treated `<String>` as a tag and silently ATE the rest of the label. Text vanishing is harder to notice than a file that fails to open, which is why the rule was written as "do not generate the characters". With correct escaping the workaround is unnecessary, and contorting a name into `List[String]` misrepresents the code.
 
 ### COMPONENT-TO-TIER ASSIGNMENT (your judgment, and the main thing you decide)
 

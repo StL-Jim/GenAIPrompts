@@ -30,7 +30,7 @@ if (-not (Test-Path $DataFile)) { Write-Error "diagram data not found: $DataFile
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
 
 # ---------------------------------------------------------------- geometry constants
-$COL_PITCH = 720; $COL_W = 480; $V_PITCH = 400; $ZONE_Y = 80; $MEMBER_Y0 = 80
+$COL_PITCH = 720; $COL_W = 480; $V_PITCH = 300; $ZONE_Y = 80; $MEMBER_Y0 = 80
 $GAP = 320; $NOTICE_H = 30; $UNCONTAINED_GAP = 160; $ENTRY_SEP = 45; $ENTRY_INSET = 30
 
 $SZ = @{

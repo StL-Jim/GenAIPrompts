@@ -69,7 +69,7 @@ function Up40([double]$v) { return [int]([math]::Ceiling($v / 40.0) * 40) }
 # treats it as a tag and silently EATS the rest of the name -- the text does not break the
 # file, it disappears, which is far harder to notice.
 $TYPE_WORD = @{
-  component = 'Container'; process = 'Process'; store = 'Database'
+  component = 'Container'; process = 'Process'; store = 'Data Store'
   dfdstore  = 'Data Store'; external = 'External System'; actor = 'Person'
 }
 function HtmlEsc([string]$t) {

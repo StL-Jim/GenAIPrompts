@@ -71,6 +71,67 @@ function Render-Diagram($d) {
   $cidx = @{}; for ($i=0; $i -lt $present.Count; $i++) { $cidx[$present[$i]] = $i }
   $members = @{}; foreach ($c in $present) { $members[$c] = @($nodes | Where-Object { $_.tier -eq $c }) }
 
+  # ---- BARYCENTRE ORDERING WITHIN TIERS --------------------------------------
+  # Decide WHICH member sits in WHICH slot before any coordinate is computed. Slot positions,
+  # container heights and every formula below are untouched -- only the assignment changes.
+  #
+  # Members arrive in inventory-id order, which is arbitrary with respect to what connects to
+  # what. That is what put a wrapper three slots above the two generators it feeds, sending
+  # both edges 1100px and 1500px down a 40px gutter. Each node is instead pulled toward the
+  # average position of everything it connects to in OTHER columns -- its centre of gravity --
+  # and the columns are swept forward then backward a few times, because reordering one column
+  # changes the right answer for its neighbours.
+  #
+  # Positions are NORMALISED to 0..1 within a column so a 9-member tier and a 2-member tier
+  # compare sensibly. Ties break on id, and the sweep count is fixed, so the result is
+  # deterministic: the same input always produces the same ordering.
+  $order = @{}
+  foreach ($c in $present) { $order[$c] = @($members[$c] | ForEach-Object { $_.id }) }
+  $colOf = @{}
+  foreach ($c in $present) { foreach ($id in $order[$c]) { $colOf[$id] = $c } }
+  $nbr = @{}
+  foreach ($e in $edges) {
+    if (-not $colOf.ContainsKey($e.source) -or -not $colOf.ContainsKey($e.target)) { continue }
+    # SAME-COLUMN EDGES COUNT TOO. Excluding them was a mistake: they are exactly the edges
+    # that produce long gutter runs, so leaving them out of the pull means the ordering cannot
+    # fix the problem it exists to fix. A wrapper feeding two generators in its own tier must
+    # be pulled toward them.
+    if (-not $nbr.ContainsKey($e.source)) { $nbr[$e.source] = @() }
+    if (-not $nbr.ContainsKey($e.target)) { $nbr[$e.target] = @() }
+    $nbr[$e.source] += $e.target
+    $nbr[$e.target] += $e.source
+  }
+  function Get-NormPos($id, $ord) {
+    $c = $colOf[$id]; $k = $ord[$c].Count
+    if ($k -le 1) { return 0.5 }
+    return ([array]::IndexOf($ord[$c], $id)) / ($k - 1)
+  }
+  # Sweep FORWARD then BACKWARD each pass. A single direction only ever propagates
+  # information one way, so the last column never influences the first.
+  for ($sweep = 0; $sweep -lt 4; $sweep++) {
+    $seq = if ($sweep % 2 -eq 0) { $present } else { @($present)[($present.Count-1)..0] }
+    foreach ($c in $seq) {
+      if ($order[$c].Count -lt 3) { continue }   # nothing to gain below three members
+      $score = @{}
+      for ($i = 0; $i -lt $order[$c].Count; $i++) {
+        $id = $order[$c][$i]
+        $own = $i / [math]::Max(1, $order[$c].Count - 1)
+        if ($nbr.ContainsKey($id) -and $nbr[$id].Count -gt 0) {
+          $acc = 0.0
+          foreach ($o in $nbr[$id]) { $acc += (Get-NormPos $o $order) }
+          $score[$id] = $acc / $nbr[$id].Count
+        } else {
+          $score[$id] = $own      # unconnected nodes hold their place rather than flying to the top
+        }
+      }
+      $order[$c] = @($order[$c] | Sort-Object @{Expression={$score[$_]}}, @{Expression={$_}})
+    }
+  }
+  foreach ($c in $present) {
+    $byId = @{}; foreach ($m in $members[$c]) { $byId[$m.id] = $m }
+    $members[$c] = @($order[$c] | ForEach-Object { $byId[$_] })
+  }
+
   $pos = @{}; $cells = New-Object System.Collections.ArrayList
 
   # ---- containers and members ------------------------------------------------

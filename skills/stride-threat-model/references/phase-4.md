@@ -49,6 +49,11 @@ Write it with the Write tool, in one call, as valid JSON:
 }
 ```
 
+IDS: USE THE INVENTORY'S, OR A MARKED SYNTHETIC ONE. Every node needs an `id`, and most are inventory ids used verbatim -- `C-001`, `DS-001`, `EXT-001`, `A-001`. But two diagrams legitimately contain elements the inventory does not record, and inventing plausible-looking ids for those makes them indistinguishable from fabrication. Use these instead, and never invent a third form:
+- `SYS-001` -- the single block representing THE WHOLE SYSTEM on c4-01. The system as a whole is not a component and has no C-NNN; this is the only node that ever carries it.
+- `INT-001`, `INT-002`, ... -- internal elements on c4-03 (layers, middleware, handlers, modules) that are structure INSIDE a component rather than components themselves. Every INT-NNN needs a `file:line` citation in `notes`, per the c4-03 rule below.
+A `SYS-` or `INT-` prefix is a promise to the reader that the element is deliberately outside the inventory rather than a lapse, and it lets Validation exclude them from the inventory reconciliation instead of failing the count. If you find yourself wanting an id for something that is neither an inventory element nor one of these two cases, that is the signal that it does not belong on the diagram.
+
 Field rules:
 
 - `kind` is one of `component`, `store`, `external`, `actor` (C4 diagrams) or `process`, `dfdstore`, `external` (the DFD). It selects the shape; you do not supply styles.
@@ -87,13 +92,25 @@ The property worth checking was never that a string appears on a line; it is tha
 
 Content selection is MECHANICAL for diagrams 1, 2 and 4 -- a function of the inventory and 02a, not judgment.
 
-**1. `c4-01-context`.** The system as ONE `component` node, every A-NNN from inventory Section 4a as an `actor`, every EXT-NNN as an `external`. Nothing else. If Section 4a is empty the context diagram is wrong, not empty -- go back and derive the actors.
+**1. `c4-01-context`.** The system as ONE `component` node with id `SYS-001`, every A-NNN from inventory Section 4a as an `actor`, every EXT-NNN as an `external`. Nothing else. If Section 4a is empty the context diagram is wrong, not empty -- go back and derive the actors.
 
 **2. `c4-02-container`.** EVERY C-NNN from inventory Section 2 -- INCLUDING the attested platform components (WAF, ingress, load balancer) carrying `Attested: yes`, which are drawn like any other component so the path from the edge to the application is unbroken, each with the `kind` matching its type, placed in its tier. Edges come from the component Dependencies fields; a dependency with no backing DF-NNN gets `"protocol": ""`. Validation counts nodes against the inventory component count.
 
-**3. `c4-03-component`.** Internal structure of the primary application component -- the ONE judgment-permitted diagram. Grounded in what Phase 1 recorded for it: entry points, AuthN/AuthZ and middleware, crypto operations, data-access paths. Anything drawn that the inventory did not record needs a `file:line` citation in `notes`. This diagram is expected to vary between runs; the others are not.
+**3. `c4-03-component`.** Internal structure of the primary application component -- the ONE judgment-permitted diagram. Its internal elements carry `INT-NNN` ids (see IDS above), never invented C-NNN ids: they are structure inside a component, not components, and an invented C-NNN both misrepresents them and breaks the Validation count. Grounded in what Phase 1 recorded for it: entry points, AuthN/AuthZ and middleware, crypto operations, data-access paths. Anything drawn that the inventory did not record needs a `file:line` citation in `notes`. This diagram is expected to vary between runs; the others are not.
 
 **4. `dfd`.** Gane-Sarson notation, PINNED (never Yourdon): `kind` is `process` for components, `dfdstore` for data stores, `external` for external entities. Every DF-NNN from 02a-context.md becomes an edge; Validation counts them against the 02a total.
+
+### Before rendering: COUNT, do not eyeball
+
+The data file is the one place a whole element can go missing silently, and a missing element cannot be recovered later by looking at the diagram -- you would have to already know it was absent. Count before you render, and state the counts:
+
+- EXT-NNN in inventory Section 4 vs `external` nodes across your diagrams -- these are the ones that go missing most often, because external integrations are recorded in a supplementary section and are easy to skip when walking Section 2.
+- C-NNN in inventory Section 2 vs nodes on c4-02 (SYS-/INT- ids excluded).
+- DS-NNN in Section 3 vs `store`/`dfdstore` nodes.
+- A-NNN in Section 4a vs `actor` nodes on c4-01.
+- DF-NNN in 02a-context.md vs edges on the dfd.
+
+Any mismatch is fixed in the DATA FILE before rendering, not after. A count stated and wrong is still better than a count not taken -- but do not proceed on a mismatch you have not explained.
 
 ### RENDER
 
@@ -111,7 +128,7 @@ Paste its output. It reports, per diagram, the page size, node and edge counts, 
 & '<SKILL_DIR>\scripts\validate-drawio.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
 ```
 
-Reconcile against the source files and state the result: C-NNN nodes on c4-02 = inventory component count; edges on dfd = the 02a DF count; containers on c4-02 and dfd = the number of component-bearing tiers (NOT the TB count -- trust boundaries are structural, not containers); every TB-NNN reconciled to a tier-crossing edge or listed in `notes`; bad edge refs and bad parents = 0 everywhere. Any TB-NNN that is neither reconciled nor noted is a rule violation -- fix the data file and re-render, never the number.
+Reconcile against the source files and state the result: C-NNN nodes on c4-02 = inventory component count (SYS-NNN and INT-NNN are synthetic and excluded from this count); edges on dfd = the 02a DF count; containers on c4-02 and dfd = the number of component-bearing tiers (NOT the TB count -- trust boundaries are structural, not containers); every TB-NNN reconciled to a tier-crossing edge or listed in `notes`; bad edge refs and bad parents = 0 everywhere. Any TB-NNN that is neither reconciled nor noted is a rule violation -- fix the data file and re-render, never the number.
 
 Return your completion banner to the orchestrator (it owns STATE.md).
 

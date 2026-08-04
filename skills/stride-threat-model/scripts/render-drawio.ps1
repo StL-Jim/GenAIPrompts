@@ -270,9 +270,15 @@ function Render-Diagram($d) {
   $corridor = @{}
   foreach ($e in $edges) {
     $cs = $pos[$e.source].col; $ct = $pos[$e.target].col
-    if ($ct -eq $cs + 1) {
-      if (-not $corridor.ContainsKey($cs)) { $corridor[$cs] = @() }
-      $corridor[$cs] += "$($e.source)|$($e.target)"
+    # A corridor is the GAP between two adjacent columns, and both directions travel through
+    # it. Collecting only left-to-right left every backward edge with no channel and no
+    # waypoints at all -- handed to draw.io's router, which is obstacle-unaware and will cut
+    # straight through whatever sits in the way. Key on the LOWER column index so a forward
+    # and a backward edge across the same gap share one channel allocation.
+    if ([math]::Abs($ct - $cs) -eq 1) {
+      $lo = [math]::Min($cs, $ct)
+      if (-not $corridor.ContainsKey($lo)) { $corridor[$lo] = @() }
+      $corridor[$lo] += "$($e.source)|$($e.target)"
     }
   }
   # Order channels GEOMETRICALLY (by the edge's mid height), not by the "src|tgt" string.
@@ -323,9 +329,16 @@ function Render-Diagram($d) {
         $att = "exitX=0;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
         $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $gut, $yOut, $yIn
       } else {
-        # adjacent: entry is on the TOP edge, so the fraction is an X position. A Y-derived
-        # value here produces an S-bend. Align on X.
-        $att = "exitX=$fOut;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=$fOut;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;"
+        # Adjacent: entry is on a HORIZONTAL edge, so the fraction is an X position. A
+        # Y-derived value here produces an S-bend, so align on X.
+        # Direction matters: bottom -> top is only right when the target is BELOW. For an
+        # upward edge (a callback to a peer higher in the tier) leaving the bottom means
+        # going down, looping around and coming back.
+        if ($tp.y -lt $sp.y) {
+          $att = "exitX=$fOut;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=$fOut;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;"
+        } else {
+          $att = "exitX=$fOut;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=$fOut;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;"
+        }
       }
     }
 
@@ -333,11 +346,12 @@ function Render-Diagram($d) {
     if ($e.async) { $st += 'dashed=1;' }
     if (-not $e.secure) { $st += 'strokeColor=#CC0000;strokeWidth=3;' }
 
-    if (($ct - $cs) -ge 2) {
+    $span = [math]::Abs($ct - $cs)
+    if ($span -ge 2) {
       # DETOUR ONLY WHEN NECESSARY, and only as far as necessary.
       $blockers = @()
       foreach ($kv in $pos.GetEnumerator()) {
-        if ($kv.Value.col -gt $cs -and $kv.Value.col -lt $ct) {
+        if ($kv.Value.col -gt [math]::Min($cs,$ct) -and $kv.Value.col -lt [math]::Max($cs,$ct)) {
           $blockers += ,@($kv.Value.y, $kv.Value.y + $kv.Value.h)
         }
       }
@@ -357,10 +371,11 @@ function Render-Diagram($d) {
         $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{2}" y="{1}"/></Array>' -f `
                ($sp.x + $sp.w + 40), $band, ($tp.x - 40)
       }
-    } elseif ($ct -eq $cs + 1 -and $corridor.ContainsKey($cs)) {
-      $lst = $corridor[$cs]; $m = $lst.Count
+    } elseif ($span -eq 1 -and $corridor.ContainsKey([math]::Min($cs,$ct))) {
+      $loCol = [math]::Min($cs, $ct)
+      $lst = $corridor[$loCol]; $m = $lst.Count
       $i = [array]::IndexOf($lst, "$($e.source)|$($e.target)")
-      $gapLeft = 40 + $cs * $COL_PITCH + 440
+      $gapLeft = 40 + $loCol * $COL_PITCH + 440
       $wx = [int]($gapLeft + ($i + 1) * $GAP / ($m + 1))
       # TWO waypoints. One lets the router collapse neighbouring edges onto a shared segment.
       # two identical points are junk in the model and two stacked drag handles in the editor

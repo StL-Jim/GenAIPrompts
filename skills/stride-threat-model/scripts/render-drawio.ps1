@@ -47,7 +47,7 @@ $STYLE = @{
 }
 $ZONE_COLOR = @{ EDGE='#E65100'; APPLICATION='#B58C00'; DATA='#00695C'; SECURED='#2E7D32' }
 $ZONE_STYLE = 'rounded=1;container=1;collapsible=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=22;fontStyle=1;fillColor=none;dashed=1;strokeWidth=2;strokeColor='
-$EDGE_STYLE = 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;'
+$EDGE_STYLE = 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=16;endArrow=classic;labelBackgroundColor=#FFFFFF;jettySize=30;jumpStyle=arc;jumpSize=10;'
 $LEGEND_STYLE = 'rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=16;align=left;verticalAlign=top;'
 $NOTICE_STYLE = 'text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=16;fontStyle=2;'
 $COL_ORDER = @('ACTORS','EDGE','APPLICATION','DATA','SECURED','EXTERNAL')
@@ -175,13 +175,33 @@ function Render-Diagram($d) {
       $sp = $pos[$src]
       $want += [pscustomobject]@{ y = $sp.y + $sp.h * $exitY["$src|$tgt"]; src = $src }
     }
-    $lo = $tp.y + $ENTRY_INSET; $hi = $tp.y + $tp.h - $ENTRY_INSET; $prev = $null
-    foreach ($it in ($want | Sort-Object y)) {
-      $y = [math]::Min([math]::Max($it.y, $lo), $hi)
-      if ($null -ne $prev -and ($y - $prev) -lt $ENTRY_SEP) { $y = $prev + $ENTRY_SEP }
-      if ($y -gt $hi) { $y = $hi }
-      $entryY["$($it.src)|$tgt"] = $y
-      $prev = $y
+    $lo = $tp.y + $ENTRY_INSET; $hi = $tp.y + $tp.h - $ENTRY_INSET
+    $ordered = @($want | Sort-Object y)
+    $k = $ordered.Count
+    # Alignment first: each entry wants its source's exit height. But clamping into the band
+    # and then nudging by ENTRY_SEP STACKS every saturated want on the same bound -- and
+    # saturation is the NORMAL case, because a target's sources usually sit well above or
+    # below it. That drew three separate flows into one data store as a SINGLE arrowhead.
+    # So: if the clamped wants cannot be separated by ENTRY_SEP, abandon alignment for this
+    # target and distribute evenly across the band instead. A slight jog on every edge is
+    # vastly better than several edges rendered as one.
+    $needed = ($k - 1) * $ENTRY_SEP
+    if ($k -gt 1 -and $needed -gt ($hi - $lo)) { $step = ($hi - $lo) / [math]::Max(1, $k - 1) }
+    else { $step = $ENTRY_SEP }
+    $clamped = @(); foreach ($it in $ordered) { $clamped += [math]::Min([math]::Max($it.y, $lo), $hi) }
+    $distinct = @($clamped | Sort-Object -Unique).Count
+    if ($k -gt 1 -and $distinct -lt $k) {
+      # wants collapsed -- spread evenly, preserving their relative order
+      for ($i = 0; $i -lt $k; $i++) { $entryY["$($ordered[$i].src)|$tgt"] = $lo + $i * (($hi - $lo) / ($k - 1)) }
+    } else {
+      $prev = $null
+      foreach ($it in $ordered) {
+        $y = [math]::Min([math]::Max($it.y, $lo), $hi)
+        if ($null -ne $prev -and ($y - $prev) -lt $step) { $y = $prev + $step }
+        if ($y -gt $hi) { $y = $hi }
+        $entryY["$($it.src)|$tgt"] = $y
+        $prev = $y
+      }
     }
   }
 
@@ -194,8 +214,18 @@ function Render-Diagram($d) {
       $corridor[$cs] += "$($e.source)|$($e.target)"
     }
   }
-  foreach ($k in @($corridor.Keys)) { $corridor[$k] = @($corridor[$k] | Sort-Object) }
+  # Order channels GEOMETRICALLY (by the edge's mid height), not by the "src|tgt" string.
+  # Alphabetical order threw away the same principle the exit fan establishes above, and let
+  # two edges whose endpoints are both near the top take the leftmost and rightmost channels
+  # -- crossing each other in the corridor for no reason.
+  foreach ($k in @($corridor.Keys)) {
+    $corridor[$k] = @($corridor[$k] | Sort-Object {
+      $p = $_ -split '\|'
+      ($pos[$p[0]].y + $pos[$p[0]].h / 2) + ($pos[$p[1]].y + $pos[$p[1]].h / 2)
+    }, { $_ })
+  }
 
+  $gutterIdx = @{}
   # ---- edges ------------------------------------------------------------------
   foreach ($e in $edges) {
     $sp = $pos[$e.source]; $tp = $pos[$e.target]
@@ -222,8 +252,13 @@ function Render-Diagram($d) {
         if ($kv.Value.col -eq $cs -and $kv.Value.y -lt $hiY -and ($kv.Value.y + $kv.Value.h) -gt $loY) { $between = $true; break }
       }
       if ($between) {
-        # nodes are 400 wide centred in a 480 container, so the 40px margin is free space
-        $gut = (40 + $cs * $COL_PITCH) + 20
+        # nodes are 400 wide centred in a 480 container, so the 40px margin is free space.
+        # FAN the gutter across that margin: a single shared x drew every gutter edge in the
+        # column on top of every other, which is the same collapse the corridor channels
+        # exist to prevent.
+        if (-not $gutterIdx.ContainsKey($cs)) { $gutterIdx[$cs] = 0 }
+        $gi = $gutterIdx[$cs]; $gutterIdx[$cs] = $gi + 1
+        $gut = (40 + $cs * $COL_PITCH) + 8 + (($gi % 4) * 9)
         $att = "exitX=0;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
         $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $gut, $yOut, $yIn
       } else {
@@ -267,7 +302,9 @@ function Render-Diagram($d) {
       $gapLeft = 40 + $cs * $COL_PITCH + 440
       $wx = [int]($gapLeft + ($i + 1) * $GAP / ($m + 1))
       # TWO waypoints. One lets the router collapse neighbouring edges onto a shared segment.
-      $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $wx, $yOut, $yIn
+      # two identical points are junk in the model and two stacked drag handles in the editor
+      if ($yOut -eq $yIn) { $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/></Array>' -f $wx, $yOut }
+      else { $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $wx, $yOut, $yIn }
     }
 
     # The label sits at x=-0.4 along the edge (-1 is the source end, 1 the target). At the

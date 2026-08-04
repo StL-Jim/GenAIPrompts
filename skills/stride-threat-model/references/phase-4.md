@@ -112,6 +112,8 @@ The data file is the one place a whole element can go missing silently, and a mi
 
 Any mismatch is fixed in the DATA FILE before rendering, not after. A count stated and wrong is still better than a count not taken -- but do not proceed on a mismatch you have not explained.
 
+ONE DIAGRAM, ONE PAGE -- owner requirement, 2026-07-30. Each diagram is a single page. Do NOT split a diagram across multiple pages, and do not propose multi-page decomposition with drill-down links as a fix for a crowded or tall diagram: draw.io supports it and it is a natural fit for C4's context/container/component structure, which is exactly why it keeps getting suggested. It is rejected. A reader must be able to see the whole system at once; a diagram that requires clicking through pages to follow a data flow defeats the purpose of drawing it. Crowding is addressed by layout, or by accepting a large page.
+
 ### RENDER
 
 Substitute the literal SKILL_DIR, WORKSPACE and PROJECT_NAME from your briefing, and use the invocation form for YOUR shell (common.md rule S -- from bash use `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` with the same parameters):

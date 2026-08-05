@@ -8,3 +8,6 @@
 tests/stride-threat-model/*.drawio
 tests/stride-threat-model/*.png
 tests/stride-threat-model/*.pdf
+
+# draw.io scratch files -- it writes .$name.drawio.bkp and .dtmp beside the file it edits
+.$*

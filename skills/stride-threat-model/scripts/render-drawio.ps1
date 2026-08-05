@@ -30,8 +30,8 @@ if (-not (Test-Path $DataFile)) { Write-Error "diagram data not found: $DataFile
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
 
 # ---------------------------------------------------------------- geometry constants
-$COL_PITCH = 720; $COL_W = 480; $V_PITCH = 300; $ZONE_Y = 80; $MEMBER_Y0 = 80
-$GAP = 320; $NOTICE_H = 30; $UNCONTAINED_GAP = 160; $ENTRY_SEP = 45; $ENTRY_INSET = 30
+$COL_PITCH = 840; $COL_W = 480; $V_PITCH = 300; $ZONE_Y = 80; $MEMBER_Y0 = 80
+$GAP = 440; $NOTICE_H = 30; $UNCONTAINED_GAP = 160; $ENTRY_SEP = 45; $ENTRY_INSET = 30
 
 $SZ = @{
   component = @(400,200); store = @(320,240); external = @(400,200)
@@ -293,6 +293,11 @@ function Render-Diagram($d) {
   }
 
   # ---- corridor channels ------------------------------------------------------
+  # ONE ALLOCATOR PER GAP. Corridor edges crossing gap g and GUTTER edges of the tier to the
+  # right of g both run vertically through that space. Allocating them separately put a
+  # corridor channel 21px from a gutter channel, and squeezed the gutter into the container's
+  # 40px margin at 9px per lane -- four lanes that read as one line. Numbering them together
+  # gives every vertical run in that space its own channel, evenly spaced.
   $corridor = @{}
   foreach ($e in $edges) {
     $cs = $pos[$e.source].col; $ct = $pos[$e.target].col
@@ -311,9 +316,26 @@ function Render-Diagram($d) {
   # Alphabetical order threw away the same principle the exit fan establishes above, and let
   # two edges whose endpoints are both near the top take the leftmost and rightmost channels
   # -- crossing each other in the corridor for no reason.
+  # gutter edges join the allocator for the gap immediately LEFT of their own tier
+  foreach ($e in $edges) {
+    if (-not $pos.ContainsKey($e.source) -or -not $pos.ContainsKey($e.target)) { continue }
+    $sp2 = $pos[$e.source]; $tp2 = $pos[$e.target]
+    if ($sp2.col -ne $tp2.col) { continue }
+    $lo2 = [math]::Min($sp2.y + $sp2.h, $tp2.y); $hi2 = [math]::Max($sp2.y, $tp2.y + $tp2.h)
+    $btw = $false
+    foreach ($kv in $pos.GetEnumerator()) {
+      if ($kv.Key -eq $e.source -or $kv.Key -eq $e.target) { continue }
+      if ($kv.Value.col -eq $sp2.col -and $kv.Value.y -lt $hi2 -and ($kv.Value.y + $kv.Value.h) -gt $lo2) { $btw = $true; break }
+    }
+    if (-not $btw) { continue }
+    $g = $sp2.col - 1
+    if ($g -lt 0) { continue }      # leftmost tier has no gap to its left; falls back below
+    if (-not $corridor.ContainsKey($g)) { $corridor[$g] = @() }
+    $corridor[$g] += "GUT:$($e.source)|$($e.target)"
+  }
   foreach ($k in @($corridor.Keys)) {
     $corridor[$k] = @($corridor[$k] | Sort-Object {
-      $p = $_ -split '\|'
+      $p = ($_ -replace '^GUT:','') -split '\|'
       ($pos[$p[0]].y + $pos[$p[0]].h / 2) + ($pos[$p[1]].y + $pos[$p[1]].h / 2)
     }, { $_ })
   }
@@ -349,9 +371,18 @@ function Render-Diagram($d) {
         # FAN the gutter across that margin: a single shared x drew every gutter edge in the
         # column on top of every other, which is the same collapse the corridor channels
         # exist to prevent.
-        if (-not $gutterIdx.ContainsKey($cs)) { $gutterIdx[$cs] = 0 }
-        $gi = $gutterIdx[$cs]; $gutterIdx[$cs] = $gi + 1
-        $gut = (40 + $cs * $COL_PITCH) + 8 + (($gi % 4) * 9)
+        # Route the vertical run in the GAP to the left of this tier, on the channel the
+        # shared allocator assigned. The container's own 40px margin is far too narrow: it
+        # gave 9px per lane, four lanes that read as a single line.
+        $gkey = "GUT:$($e.source)|$($e.target)"; $g = $cs - 1
+        if ($g -ge 0 -and $corridor.ContainsKey($g) -and ($corridor[$g] -contains $gkey)) {
+          $lst2 = $corridor[$g]; $m2 = $lst2.Count
+          $i2 = [array]::IndexOf($lst2, $gkey)
+          $gl = 40 + $g * $COL_PITCH + 440
+          $gut = [int]($gl + ($i2 + 1) * $GAP / ($m2 + 1))
+        } else {
+          $gut = $sp.x - 20          # leftmost tier: nothing to its left, use the margin
+        }
         $att = "exitX=0;exitY=$fOut;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=$fIn;entryDx=0;entryDy=0;entryPerimeter=0;"
         $pts = '<Array as="points"><mxPoint x="{0}" y="{1}"/><mxPoint x="{0}" y="{2}"/></Array>' -f $gut, $yOut, $yIn
       } else {

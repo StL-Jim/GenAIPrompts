@@ -1,3 +1,9 @@
 # Local Continue.dev config / workspace state
 .continue/
 .$*.dtmp
+
+# Diagram exports: the user makes these from the .drawio so they can be looked at.
+# Pure by-product, half a megabyte each, regenerated every round trip. The .drawio
+# files ARE tracked -- that is how the diagram gets opened in the first place.
+tests/stride-threat-model/*.png
+tests/stride-threat-model/*.pdf

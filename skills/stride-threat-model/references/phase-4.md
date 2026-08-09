@@ -22,7 +22,7 @@ You do NOT write mxGraph XML and you do NOT compute coordinates. You write ONE d
 
 This split is deliberate. Layout is roughly fifty coordinates, a dozen four-decimal attachment fractions and a per-edge routing channel, for each of four diagrams. That is arithmetic, an agent doing it by hand on a real system will get some of it wrong, and a single wrong coordinate is a visibly broken diagram. What the diagram should CONTAIN -- which component sits in which tier, which flows exist, which are unprotected, which components a Priority 1 threat touches -- is classification, which is your job and which no script can do.
 
-Everything the script owns, and which you must therefore NOT attempt: page size, column and row positions, zone container geometry, shape sizes and style strings, edge attachment points, routing channels, detour bands, node ordering within the actor and external columns, the legend, and the AI-generation notice. All of it is settled, and all of it was verified by rendering sample diagrams and inspecting the exported images. Do not second-guess it and do not hand-edit the output.
+Everything the script owns, and which you must therefore NOT attempt: page size, the grid of cells every node is placed into (including how many columns a large tier wraps across, and which member goes in which cell), zone container geometry, shape sizes and style strings, edge attachment points, gutter routing and channel allocation, node ordering within the actor and external columns, the legend, and the AI-generation notice. All of it is settled, and all of it was verified by rendering sample diagrams and inspecting the exported images. Do not second-guess it and do not hand-edit the output.
 
 ### The data file: `{PROJECT_NAME}-threat-model/04-diagram-data.json`
 
@@ -127,7 +127,7 @@ Substitute the literal SKILL_DIR, WORKSPACE and PROJECT_NAME from your briefing,
 & '<SKILL_DIR>\scripts\render-drawio.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
 ```
 
-Paste its output. It reports, per diagram, the page size, node and edge counts, and the per-corridor edge load. A corridor carrying more than 8 edges is flagged: that is a diagram which should be SPLIT, because the problem is edge density and no amount of spacing reduces density. Do not try to fix it by editing the output.
+Paste its output. It reports, per diagram, the page size, the GRID SHAPE (`grid 6x5` means six columns of cells by five rows), node and edge counts, and the per-gutter load. A gutter carrying more than 8 vertical runs is flagged: that is a diagram which should be SPLIT, because the problem is edge density and no amount of spacing reduces density. Do not try to fix it by editing the output.
 
 ### Validation (mandatory, before STATE.md -- a diagram that fails is not written)
 
@@ -147,7 +147,7 @@ Return your completion banner to the orchestrator (it owns STATE.md).
   .\{PROJECT_NAME}-threat-model\diagrams\c4-03-component.drawio
   .\{PROJECT_NAME}-threat-model\diagrams\dfd.drawio
 Render output (pasted verbatim):
-<paste the render-drawio.ps1 lines -- page sizes, counts, corridor loads>
+<paste the render-drawio.ps1 lines -- page sizes, grid shapes, counts, gutter loads>
 Validation output (pasted verbatim):
 <paste the per-file validation lines -- every file parsed OK, bad refs 0, counts reconciled>
 Phase status reported to orchestrator (it owns STATE.md). Threat model run is finished.

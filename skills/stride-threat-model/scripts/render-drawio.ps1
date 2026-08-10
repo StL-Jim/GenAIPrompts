@@ -1,4 +1,4 @@
-# SKILL VERSION: v26-skill (2026-08-09a)
+# SKILL VERSION: v26-skill (2026-08-10a)
 # skills/stride-threat-model/scripts/render-drawio.ps1
 #
 # Phase 4 diagram renderer. Consumes a diagram DATA file the agent writes and emits the

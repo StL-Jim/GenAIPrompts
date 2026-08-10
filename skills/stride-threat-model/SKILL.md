@@ -66,7 +66,8 @@ after every phase") and recorded in STATE.md.
 - three-gates (default): GATE 1 after Phase 0 (Scope Proposal approval), GATE 2 after
   Phase 1 reconciliation (System Restatement confirm/correct -- mandatory user input,
   never skippable), GATE 3 after Phase 2B -- the THREAT REVIEW. All other boundaries
-  auto-proceed.
+  auto-proceed, except the short asset-tier confirm after 2A described under Phase 2 below,
+  which runs under every policy.
   GATE 3 sits after 2B and not after 2C because 2B is the last point at which a
   correction is cheap. Its two files, 02b-threats.md and 02b-excluded.md, are plain
   editable text, and NOTHING has yet been derived from them: not the 2C consolidation,
@@ -177,7 +178,13 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   reconcile. On its return: relay the draft System Restatement to the user (GATE 2);
   after confirm/correct, Edit the final text into 01-inventory.md's System Restatement
   section (replacing the PENDING marker) and record corrections the user made.
-- Phase 2: dispatch 2a -> 2b sequentially, verifying each output file (W-d) before the
+- Phase 2: after 2a verifies, PRESENT ITS 'Primary assets' LINES TO THE USER and ask them to
+  confirm or correct the tiering before dispatching 2b. This is a short, targeted check --
+  the asset list, not the whole of 02a-context.md -- and it exists because everything
+  downstream ranks threats by what they target: Phase 2B's Impact test reads the tier, so a
+  wrong tier is not visible as a wrong tier later, it is visible as threats rated oddly. If
+  the user corrects it, Edit 02a-context.md before dispatching 2b. Then dispatch
+  2a -> 2b sequentially, verifying each output file (W-d) before the
   next. After 2b verifies, RUN THE MECHANICAL CHECK YOURSELF (same reasoning as the Phase 0
   read-set verify; rule S for your shell's form):
 

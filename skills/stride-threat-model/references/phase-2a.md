@@ -46,6 +46,10 @@ Every asset carries a CRITICALITY tier, recorded as the third field. The tier is
 - `Sensitive` -- data matching the Q4 data-sensitivity answer in 00-scope.md (PII, PHI, financial, and the like), plus every secret, credential, and authentication or session asset. These are the assets whose loss is reportable, or which directly enable impersonation.
 - `Supporting` -- everything else: internal metadata, configuration holding no secrets, service availability, non-sensitive code and infrastructure.
 
+Secrets, credentials and session material DEFAULT to `Sensitive`, not `Primary`. A credential is usually the MEANS of reaching an asset rather than the asset itself, and promoting one is the observed fallback when the tiering is underdetermined -- field runs produced "credentials" as the top asset whenever nothing else forced a choice.
+
+The exception is real and must not be read away: a secret IS `Primary` when compromising it is equivalent to compromising the Q4 data itself. Three recognised cases -- a code- or token-SIGNING key, whose loss lets an attacker forge trust rather than merely reach data; a MASTER ENCRYPTION key, which renders the protected data readable on its own without any further access; and a system whose held credentials ARE the regulated data (a vault, a password manager, a broker holding third-party tokens). Tier those `Primary` and say why in the asset's evidence field. A credential that merely grants access, and still needs network reach or another control defeated to be useful, stays `Sensitive`.
+
 If the Q4 answer names a data classification that corresponds to no asset you enumerated, do NOT invent an asset and do NOT quietly promote a substitute: record the mismatch in the Asset Coverage Check. It means Phase 0 and Phase 2A disagree about what this system holds, which is worth a human's attention rather than a silent repair.
 
 ### Data Assets
@@ -91,6 +95,8 @@ Write the file with the Write tool. Return your completion banner to the orchest
 ```
 === PHASE 2A COMPLETE: 02a-context.md WRITTEN ===
 Assets: <N>  |  Trust boundaries: <N>  |  Data flows: <N>  |  Boundary-crossing flows: <N>
+Asset tiers: Primary <N> / Sensitive <N> / Supporting <N>
+Primary assets: <AS-NNN -- name, one per line, with the Q4 classification each carries | none -- Q4 names no sensitive data>
 Phase status reported to orchestrator (it owns STATE.md).
 Return this banner verbatim as the end of your completion summary.
 ```

@@ -458,8 +458,20 @@ function Render-Diagram($d) {
   }
 
   # ---- legend (leftmost column dead space) and AI notice ----------------------
+  # LEGEND PLACEMENT. Centring short tiers vertically is worth 23 -> 9 edge crossings, but it
+  # opens a large void at the TOP LEFT: a one-member edge tier now sits mid-height while the
+  # application tier runs the full five rows. Parking the legend below all content then left
+  # that void empty AND stretched the page. So the legend fills the void when the void exists,
+  # and falls back below the content when it does not -- checked against the actual node
+  # rectangles rather than assumed, because a diagram whose first tier IS tall has no void and
+  # a legend pinned to the top would land on a component.
   $bottom = ($pos.Values | ForEach-Object { $_.y + $_.h } | Measure-Object -Maximum).Maximum
-  $legendY = $bottom + 160
+  $legendY = $NOTICE_H + 40
+  foreach ($q in $pos.Values) {
+    if ($q.x -lt 1100 -and $q.y -lt ($legendY + 360 + 60) -and ($q.y + $q.h) -gt ($legendY - 60)) {
+      $legendY = $bottom + 160; break
+    }
+  }
   $legendLines = @('LEGEND','')
   foreach ($c in $present) { if ($ZONE_COLOR.ContainsKey($c)) { $legendLines += "$c tier" } }
   $legendLines += @('','Red thick edge = unencrypted or unauthenticated flow',
@@ -480,7 +492,7 @@ function Render-Diagram($d) {
     'AI-GENERATED -- this diagram was produced by an AI tool and requires human review.', $NOTICE_STYLE, ($right - 40), $NOTICE_H))
 
   $pw = [math]::Max(2400, (Up40 ($right + 40)))
-  $ph = [math]::Max(1600, (Up40 ($legendY + 360 + 80)))
+  $ph = [math]::Max(1600, (Up40 ([math]::Max($bottom, $legendY + 360) + 80)))
 
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.AppendLine('<mxfile host="app.diagrams.net">')

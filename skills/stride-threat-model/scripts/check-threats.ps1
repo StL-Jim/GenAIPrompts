@@ -54,7 +54,7 @@ if (Test-Path -LiteralPath $contextPath) {
   foreach ($line in (Get-Content -LiteralPath $contextPath)) {
     $m = [regex]::Match($line, '(AS-\d+)')
     if (-not $m.Success) { continue }
-    $t = [regex]::Match($line, '(Crown Jewel|Sensitive|Supporting)')
+    $t = [regex]::Match($line, '(Primary|Sensitive|Supporting)')
     if ($t.Success -and -not $assetTier.ContainsKey($m.Groups[1].Value)) {
       $assetTier[$m.Groups[1].Value] = $t.Groups[1].Value
     }
@@ -140,7 +140,7 @@ foreach ($r in $rows) {
   $agentLevel = [regex]::Match($r['ThreatAgent'], '\(L([0-4])\)')
   if (-not $agentLevel.Success) { Add-V $id "ThreatAgent '$($r['ThreatAgent'])' carries no (L0)-(L4) privilege level -- mandatory" }
 
-  $assetM = [regex]::Match($r['Asset'], '(AS-\d+)\s*\((Crown Jewel|Sensitive|Supporting)\)')
+  $assetM = [regex]::Match($r['Asset'], '(AS-\d+)\s*\((Primary|Sensitive|Supporting)\)')
   if (-not $assetM.Success) { Add-V $id "Asset '$($r['Asset'])' is not in the form 'AS-NNN (tier)'" }
 
   # NOTE: use .Contains(), not -like. In a -like pattern '[' opens a character class, so
@@ -180,7 +180,7 @@ foreach ($r in $rows) {
       Add-V $id "Priority is '$($r['Priority'])' but $rcL x $rcI computes to $outcome"
     }
 
-    # Critical impact requires a Crown Jewel or Sensitive target (phase-2b.md Impact test).
+    # Critical impact requires a Primary or Sensitive target (phase-2b.md Impact test).
     if ($rcI -eq 'Critical' -and $assetM.Success -and $assetM.Groups[2].Value -eq 'Supporting') {
       Add-V $id "Impact is Critical but the target $($assetM.Groups[1].Value) is tier Supporting -- a threat against a Supporting asset caps at High however broad the gain"
     }

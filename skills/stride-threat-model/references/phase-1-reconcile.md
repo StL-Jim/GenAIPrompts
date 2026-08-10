@@ -46,7 +46,7 @@ Structure:
 # Architectural Inventory
 
 ## System Restatement
-<the user-confirmed one-paragraph restatement written at the end of Phase 1: what the system is, what it talks to, who its users are, its single most sensitive asset>
+<the user-confirmed one-paragraph restatement written at the end of Phase 1: what the system is, what it talks to, who its users are, and the kinds of sensitive data it holds -- do NOT press the user to nominate a single most-sensitive asset; asset criticality is looked up from the Phase 0 Q4 answer in Phase 2A, not attested here>
 
 ## 1. Documentation Artifacts
 | ID | Path | Type | Key Assertions |

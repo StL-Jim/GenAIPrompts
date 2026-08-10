@@ -107,7 +107,7 @@ Supplementary detail (protocol, auth method, direction) for the Section 2 compon
 
 ## 4a. Actors
 
-Human and machine principals that interact with this system from OUTSIDE it. Actors are NOT components -- they do not process, store or mediate this system's data; they are the principals on the far side of its entry points -- so they take their own ID space and are not walked in Phase 2B.
+Human and machine principals that reach this system's OWN entry points while it is RUNNING. A principal that only BUILDS, DEPLOYS, HOSTS or OPERATES the system -- CI/CD pipelines, deployment credentials, cluster RBAC, registry or secret-store permissions -- is not an actor however much power it holds: if it vanished, the system would stop being UPDATED, not stop SERVING. Actors are NOT components -- they do not process, store or mediate this system's data; they are the principals on the far side of its entry points -- so they take their own ID space and are not walked in Phase 2B.
 
 They are recorded because three things downstream need them and currently have nowhere to look: the context diagram draws every actor class, every threat names a ThreatAgent, and Phase 2B's L0-L4 prerequisite privilege levels are a claim about WHICH actor is assumed. An actor list that exists only as prose in the System Restatement cannot serve any of them -- field symptom: context diagrams with no user on them at all, because the diagram spec said "every human actor class from the inventory" and the inventory had no such section.
 
@@ -120,7 +120,7 @@ Each actor gets a stable ID: `A-<NNN>`, assigned by the same fixed-sort rule (di
 - Authenticates via: (session cookie | OIDC/SSO | API key | mTLS | none | ...)
 - Evidence: [evidence: src/auth/roles.go:20-58]
 
-Derive actors from what the code and docs actually show -- authentication roles and claim types, endpoints with differing authorization requirements, admin interfaces, service accounts in IaC, and the Q6a platform profile for principals the platform interposes. An application with an admin UI and a public page has at least two actor classes; recording only "user" undercounts in exactly the way that recording only active services undercounts components. If the system is internet-facing, an `anonymous-public` L0 actor exists whether or not any code names it.
+Derive actors from what the code and docs actually show -- authentication roles and claim types, endpoints with differing authorization requirements, admin interfaces, service accounts that CALL this system's interfaces, and the Q6a platform profile for principals the platform interposes in the request path. An application with an admin UI and a public page has at least two actor classes; recording only "user" undercounts in exactly the way that recording only active services undercounts components. If the system is internet-facing, an `anonymous-public` L0 actor exists whether or not any code names it.
 
 ## 5. Trust Boundaries
 `TB-<NNN>` IDs. A trust boundary exists wherever data crosses between principals with different trust levels. At minimum consider:

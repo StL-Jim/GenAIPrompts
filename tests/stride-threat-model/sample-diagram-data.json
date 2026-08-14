@@ -1,0 +1,169 @@
+{
+ "diagrams": [
+  {
+   "name": "c4-02-container",
+   "title": "Container",
+   "nodes": [
+    {
+     "id": "A-01",
+     "label": "End User",
+     "kind": "actor",
+     "tier": "ACTORS"
+    },
+    {
+     "id": "C-01",
+     "label": "Akamai WAF",
+     "kind": "component",
+     "tier": "EDGE"
+    },
+    {
+     "id": "C-02",
+     "label": "Traefik Ingress",
+     "kind": "component",
+     "tier": "EDGE"
+    },
+    {
+     "id": "C-03",
+     "label": "Web Application",
+     "kind": "component",
+     "tier": "APPLICATION"
+    },
+    {
+     "id": "C-04",
+     "label": "Admin Portal",
+     "kind": "component",
+     "tier": "APPLICATION"
+    },
+    {
+     "id": "C-05",
+     "label": "Reporting API",
+     "kind": "component",
+     "tier": "APPLICATION"
+    },
+    {
+     "id": "C-06",
+     "label": "Batch Worker",
+     "kind": "component",
+     "tier": "APPLICATION"
+    },
+    {
+     "id": "DS-01",
+     "label": "Prod Database",
+     "kind": "store",
+     "tier": "DATA"
+    },
+    {
+     "id": "DS-02",
+     "label": "Redis Cache",
+     "kind": "store",
+     "tier": "DATA"
+    },
+    {
+     "id": "EXT-01",
+     "label": "Bing Maps",
+     "kind": "external",
+     "tier": "EXTERNAL"
+    },
+    {
+     "id": "EXT-02",
+     "label": "SMTP Relay",
+     "kind": "external",
+     "tier": "EXTERNAL"
+    }
+   ],
+   "edges": [
+    {
+     "source": "A-01",
+     "target": "C-01",
+     "protocol": "HTTPS",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-01",
+     "target": "C-02",
+     "protocol": "HTTPS",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-02",
+     "target": "C-03",
+     "protocol": "HTTP",
+     "secure": false,
+     "async": false
+    },
+    {
+     "source": "C-02",
+     "target": "C-04",
+     "protocol": "HTTP",
+     "secure": false,
+     "async": false
+    },
+    {
+     "source": "C-02",
+     "target": "C-05",
+     "protocol": "HTTP",
+     "secure": false,
+     "async": false
+    },
+    {
+     "source": "C-03",
+     "target": "DS-01",
+     "protocol": "TLS/5432",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-03",
+     "target": "DS-02",
+     "protocol": "TLS/6379",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-04",
+     "target": "DS-01",
+     "protocol": "TLS/5432",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-05",
+     "target": "DS-01",
+     "protocol": "TLS/5432",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-06",
+     "target": "DS-01",
+     "protocol": "TLS/5432",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-06",
+     "target": "DS-02",
+     "protocol": "6379",
+     "secure": false,
+     "async": false
+    },
+    {
+     "source": "C-03",
+     "target": "EXT-01",
+     "protocol": "HTTPS",
+     "secure": true,
+     "async": false
+    },
+    {
+     "source": "C-06",
+     "target": "EXT-02",
+     "protocol": "SMTP",
+     "secure": false,
+     "async": false
+    }
+   ]
+  }
+ ]
+}

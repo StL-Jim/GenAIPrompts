@@ -11,6 +11,35 @@ The prompts:
 
 Tested with Claude Sonnet 4.5 on AWS Bedrock via the Continue.dev VS Code extension.
 
+## stride-threat-model skill (Claude Code)
+
+The STRIDE threat model is also available as a Claude Code skill at `skills/stride-threat-model/` -- a multi-agent conversion of `stride-threat-model-prompt.md` (frozen at v24, 2026-07-16a). This is the future home of the threat-model workflow; the monolith prompt stays the source of record until the skill is field-validated.
+
+What the skill changes versus pasting the monolith:
+- An orchestrator (`SKILL.md`) runs the workflow and is the only thing that talks to you. It dispatches a fresh subagent per phase, so each phase gets its own context window (progressive disclosure replaces the paste-the-whole-prompt model, and the hand-copy version-drift problem goes away).
+- Phase 1 runs as three PARALLEL partition passes (docs / IaC / app source) plus a reconciliation agent; Phase 3 exports and Phase 4 diagrams run in parallel.
+- Instead of typing `proceed` at every phase, there are THREE review gates: after Phase 0 (scope), after Phase 1 (System Restatement confirm), and after Phase 2C (before exports). Everything else auto-proceeds. A GATE_POLICY of `all-gates` in STATE.md restores a pause after every phase (recommended for the first run on a new machine/model).
+- Deterministic mechanical work (file manifest, discovery sweep, drawio validation) is done by PowerShell scripts in `scripts/`, not by the model.
+- Enhancements beyond v24 (see `designs/2026-07-21-carve-verification.md`): redesigned Phase 4 diagrams (trust zones derived from component tiers, bounded/roomier deterministic layout); a Phase 0 guard so output is never written to or resumed from an archived `-yyyyMMdd` run directory; and a Phase 0 archive-comparison step that cross-checks this run's discovered resources against the most recent archived run for completeness and surfaces any regression at the scope gate.
+
+Install (both machines):
+
+```bash
+git pull
+bash skills/stride-threat-model/install.sh
+```
+
+(`install.ps1` is the PowerShell equivalent if you prefer.) Both copy the skill into
+`~/.claude/skills/stride-threat-model`, resolving `$HOME` on whatever machine runs them,
+and both print the installed version stamp and path so you can confirm what landed.
+
+Use the installer rather than `cp -r`: it REPLACES the target directory, whereas `cp`
+merges into it, so a file removed from the repo would linger in the installed copy and
+still be read by a later run. Then, from a Claude Code session with your target repository as the working directory, ask it to run the STRIDE threat model (the skill triggers on "run the threat model" / "STRIDE analysis" / resume requests). Outputs land in `{PROJECT_NAME}-threat-model/` exactly as the monolith produces them; STATE.md resume works across sessions, and a half-finished monolith run and the skill share the same output layout.
+
+Requires Claude Code with subagent (Task) support and Windows PowerShell 5.1. The monolith prompt remains fully usable in Continue.dev; the two produce the same artifact layout. `scripts/concat-monolith.ps1` can rebuild the monolith from the per-phase skill files.
+
+
 ## How These Prompts Relate
 
 Use individually:
@@ -53,8 +82,7 @@ A full run typically takes 60-90 minutes. Phases:
 Outputs land in `{PROJECT_NAME}-threat-model/` inside the workspace, where `{PROJECT_NAME}` is the workspace's leaf directory name.
 
 Key outputs:
-- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs
-- `outputs/threat-model.md` -- same content in Markdown
+- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs (the canonical Markdown lives at `02-threats.md`; Phase 3 no longer emits a redundant copy)
 - `outputs/threats.csv` -- comprehensive CSV for Excel import or scripted analysis
 - `outputs/architecture-threat-explanation.html` -- per-threat architecture-vs-code explainer, a leave-behind for answering stakeholder pushback on findings
 - `diagrams/*.drawio` -- the four architectural diagrams

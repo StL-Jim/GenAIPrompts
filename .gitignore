@@ -1,2 +1,13 @@
 # Local Continue.dev config / workspace state
 .continue/
+.$*.dtmp
+
+# Generated diagram artifacts. Both the .drawio and the exported .png are OUTPUT --
+# reproduced from the tracked data file by scripts/render-drawio.ps1, in the same
+# working directory they are opened from. Nothing needs them in version control.
+tests/stride-threat-model/*.drawio
+tests/stride-threat-model/*.png
+tests/stride-threat-model/*.pdf
+
+# draw.io scratch files -- it writes .$name.drawio.bkp and .dtmp beside the file it edits
+.$*

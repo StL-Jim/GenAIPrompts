@@ -1,4 +1,4 @@
-# SKILL VERSION: v2-skill (2026-08-02a)
+# SKILL VERSION: v2-skill (2026-08-14a)
 # Changelog -- code-security-audit skill
 
 SKILL.md has referenced this file since v1 and it did not exist. Created when the version stamps
@@ -10,7 +10,7 @@ two disagree. The stamp printed at session start is the one in `SKILL.md`.
 
 ---
 
-## v2-skill (2026-08-02a)
+## v2-skill (2026-08-14a)
 
 Architecture change, not a patch release. Everything below came out of the first field runs
 against a real 1,479-file application.

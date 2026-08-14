@@ -1,5 +1,5 @@
 # skills/code-security-audit/install.ps1
-# SKILL VERSION: v2-skill (2026-08-02a) -- installer
+# SKILL VERSION: v2-skill (2026-08-14a) -- installer
 param([string]$Target = (Join-Path $HOME ".claude\skills\code-security-audit"))
 $src = $PSScriptRoot
 

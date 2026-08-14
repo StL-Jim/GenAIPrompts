@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-14a) -->
 
 # GATE 2 -- Findings Triage (ORCHESTRATOR ONLY)
 

@@ -1,4 +1,4 @@
-# SKILL VERSION: v2-skill (2026-08-02a)
+# SKILL VERSION: v2-skill (2026-08-14a)
 # skills/code-security-audit/scripts/apply-dispositions.ps1
 #
 # Applies the owner's GATE 2 decisions from gate2_progress.md to findings_registry.md.

@@ -1,4 +1,4 @@
-# SKILL VERSION: v2-skill (2026-08-02a)
+# SKILL VERSION: v2-skill (2026-08-14a)
 # skills/code-security-audit/scripts/score-judge.ps1
 #
 # Scores the judge's rulings against the owner's own GATE 2 decisions.

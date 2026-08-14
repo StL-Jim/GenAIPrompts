@@ -1,4 +1,4 @@
-# SKILL VERSION: v2-skill (2026-08-02a)
+# SKILL VERSION: v2-skill (2026-08-14a)
 # skills/code-security-audit/scripts/readplan.ps1
 #
 # Computes the PER-PARTITION READ FLOOR for a Phase 3A/4A worker, and (in -Verify mode)

@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-14a) -->
 
 # Phase 2 -- Global Risk Prioritization (ORCHESTRATOR, not a subagent)
 

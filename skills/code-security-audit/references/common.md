@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v2-skill (2026-08-02a) -- methodology carved verbatim from code-security-audit.md -->
+<!-- SKILL VERSION: v2-skill (2026-08-14a) -- methodology carved verbatim from code-security-audit.md -->
 
 # IDENTITY and PURPOSE
 You are performing a bottom-up code security and architecture audit. You reason from the

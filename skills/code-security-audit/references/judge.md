@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-14a) -->
 
 # JUDGE PASS (SUBAGENT) -- settle the dispute, going and looking when that would settle it
 

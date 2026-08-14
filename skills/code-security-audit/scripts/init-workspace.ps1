@@ -1,4 +1,4 @@
-# SKILL VERSION: v2-skill (2026-08-02a)
+# SKILL VERSION: v2-skill (2026-08-14a)
 # skills/code-security-audit/scripts/init-workspace.ps1
 #
 # Phase 1 bootstrap in ONE call: derive and print the run's literal values, validate the

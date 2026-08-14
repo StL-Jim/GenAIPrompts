@@ -61,8 +61,7 @@ artifacts named below.
 
    You may run the verification yourself while working, to find out what you still owe:
    ```powershell
-   & '<SKILL_DIR>\scripts
-eadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
+   & '<SKILL_DIR>\scripts\readset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
    ```
    (bash shell: the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, rule S.)
    Use it as a worklist -- it names the floor files you have not read yet. Keep reading and

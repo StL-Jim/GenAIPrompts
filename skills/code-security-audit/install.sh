@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SKILL VERSION: v2-skill (2026-08-02a) -- installer (bash / Git Bash)
+# SKILL VERSION: v2-skill (2026-08-14a) -- installer (bash / Git Bash)
 #
 # Clean-installs this skill into Claude Code's user skills directory. Unlike a plain
 # `cp -r`, this REPLACES the target rather than merging into it, so a file removed from

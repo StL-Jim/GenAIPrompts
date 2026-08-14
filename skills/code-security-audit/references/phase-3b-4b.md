@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v2-skill (2026-08-02a) -->
+<!-- SKILL VERSION: v2-skill (2026-08-14a) -->
 
 # Phase 3B / 4B -- Shared Component Review (SUBAGENT, ONE worker, runs after all of 3A/4A)
 

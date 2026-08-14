@@ -2,7 +2,7 @@
 name: stride-threat-model
 description: Runs or resumes an orchestrated, multi-agent STRIDE threat model against the current workspace -- phased analysis producing a component inventory, STRIDE threat table, HTML/CSV deliverables, and draw.io diagrams under {project}-threat-model/. Use when asked to run, continue, or resume a threat model or STRIDE analysis, when the user mentions the threat-model STATE.md, or when asked to advance to a specific phase. Not for the Code Security Audit (separate workflow).
 ---
-<!-- SKILL VERSION: v25-skill (2026-07-29j) -- methodology carved from PROMPT VERSION v24 (2026-07-16a) and since advanced past it: threat-realism filtering (exploitability test, L0-L4 prerequisite levels, Impact bound to the stated Gains and to asset criticality, no count target), a Phase 2B threat-review gate with per-threat discussion, tool-computed Phase 0 read-set coverage, and computed draw.io layout with explicit edge routing. Full history: CHANGELOG.md in the repo, or git log. If the version you are running does not match what the user expects, they may be on a stale copy. -->
+<!-- SKILL VERSION: v26-skill (2026-08-10a) -- methodology carved from PROMPT VERSION v24 (2026-07-16a) and since advanced past it: threat-realism filtering (exploitability test, L0-L4 prerequisite levels, Impact bound to the stated Gains and to asset criticality, no count target), a Phase 2B threat-review gate with per-threat discussion, tool-computed Phase 0 read-set coverage, and computed draw.io layout with explicit edge routing. Diagram layout is now RENDER-VERIFIED: every Phase 4 geometry rule was confirmed by generating a sample diagram and looking at the exported PNG, which found six defects invisible in the spec text. Diagram data ids: inventory ids verbatim, or the marked synthetic SYS-001 (the c4-01 system block) and INT-NNN (c4-03 internals) -- never invented. Full history: CHANGELOG.md in the repo, or git log. If the version you are running does not match what the user expects, they may be on a stale copy. -->
 
 # STRIDE Threat Model -- Orchestrator
 
@@ -66,7 +66,8 @@ after every phase") and recorded in STATE.md.
 - three-gates (default): GATE 1 after Phase 0 (Scope Proposal approval), GATE 2 after
   Phase 1 reconciliation (System Restatement confirm/correct -- mandatory user input,
   never skippable), GATE 3 after Phase 2B -- the THREAT REVIEW. All other boundaries
-  auto-proceed.
+  auto-proceed, except the short asset-tier confirm after 2A described under Phase 2 below,
+  which runs under every policy.
   GATE 3 sits after 2B and not after 2C because 2B is the last point at which a
   correction is cheap. Its two files, 02b-threats.md and 02b-excluded.md, are plain
   editable text, and NOTHING has yet been derived from them: not the 2C consolidation,
@@ -103,8 +104,7 @@ When the discovery agent returns, do NOT take its word for its own coverage. RUN
 VERIFICATION YOURSELF -- you are a different agent than the one that did the reading, so
 this is an independent check rather than a self-report, and it costs one command:
 
-    & '<SKILL_DIR>\scripts
-eadset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
+    & '<SKILL_DIR>\scripts\readset.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>' -Verify
 
 (bash shell: the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` form, rule S.)
 It diffs the computed read set against what the agent logged reading and names every unread
@@ -121,12 +121,14 @@ the command you just ran. If the agent's summary contains a verdict at all, that
 signal it is narrating rather than reporting.
 
 Act on what it returns:
-- VERDICT: COMPLETE, depth verdict adequate -> proceed to the Scope Proposal.
+- VERDICT: COMPLETE -> proceed to the Scope Proposal.
 - VERDICT: INCOMPLETE -> re-dispatch the discovery agent with the named unread files listed
   in its briefing. Do not build scope on it. Do not accept an explanation for the gap.
-- Depth verdict THIN, or several rescued candidates that Pass 1 missed -> re-dispatch with
-  the shortfall named. Nothing downstream detects what discovery missed, so a shallow
-  discovery silently caps the entire run.
+- Several rescued candidates that Pass 1 missed -> re-dispatch with the shortfall named.
+  Nothing downstream detects what discovery missed, so a shallow discovery silently caps the
+  entire run. This is the shallowness signal to watch, and it is the only one that is actually
+  COMPUTED: the sweep mechanically found resources that Pass 1's reading did not, which is a
+  fact about the run rather than an impression of it.
 Also verify 00-discovery.md exists and is substantive, and that 00-files-read.txt EXISTS
 and lists the files reviewed. If the agent reported coverage in prose ("read 21 key files",
 "depth adequate") instead of producing that file and the -Verify output, the phase is
@@ -176,8 +178,23 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   reconcile. On its return: relay the draft System Restatement to the user (GATE 2);
   after confirm/correct, Edit the final text into 01-inventory.md's System Restatement
   section (replacing the PENDING marker) and record corrections the user made.
-- Phase 2: dispatch 2a -> 2b sequentially, verifying each output file (W-d) before the
-  next. After 2b verifies, hold GATE 3 -- the threat review. Present 2b's banner, the
+- Phase 2: after 2a verifies, PRESENT ITS 'Primary assets' LINES TO THE USER and ask them to
+  confirm or correct the tiering before dispatching 2b. This is a short, targeted check --
+  the asset list, not the whole of 02a-context.md -- and it exists because everything
+  downstream ranks threats by what they target: Phase 2B's Impact test reads the tier, so a
+  wrong tier is not visible as a wrong tier later, it is visible as threats rated oddly. If
+  the user corrects it, Edit 02a-context.md before dispatching 2b. Then dispatch
+  2a -> 2b sequentially, verifying each output file (W-d) before the
+  next. After 2b verifies, RUN THE MECHANICAL CHECK YOURSELF (same reasoning as the Phase 0
+  read-set verify; rule S for your shell's form):
+
+      & '<SKILL_DIR>\scripts\check-threats.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+
+  Exit 1 means rule violations -- fix 02b-threats.md and re-run BEFORE the gate, so the user
+  spends the walk on judgement rather than bookkeeping. An unparseable row and a zero-row table
+  are both FAILURES, not passes. 2B may run it on itself; your run is the one that counts.
+
+  Then hold GATE 3 -- the threat review. Present 2b's banner, the
   threat count by priority, and anything the agent flagged, then wait for explicit
   approval. Apply corrections to 02b-threats.md and 02b-excluded.md BEFORE dispatching
   anything else: re-dispatch 2b, or make the edit yourself when it is small and
@@ -186,7 +203,7 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   Skepticism at this gate points at the SUBAGENT'S OUTPUT, never at the user. The user
   correcting or deleting a threat is the gate working; do not argue the threat back onto
   the list or ask them to justify a removal.
-  GATE 3 THREAT REVIEW -- when the user asks for it. This is a DISCUSSION, not a menu. The user questions a threat the way a reviewer does: "is this real?", "isn't that already handled by our WAF?", "the dev team will say this is unreachable". There is no menu, no keyword and no shortcut syntax to memorise: the user types what he means, in his own words, and you work out what he is asking.
+  GATE 3 THREAT REVIEW -- when the user asks for it. This is a DISCUSSION, not a form to fill in. The user questions a threat the way a reviewer does: "is this real?", "isn't that already handled by our WAF?", "the dev team will say this is unreachable". He types what he means, in his own words, and you work out what he is asking.
 
   TRIGGER. The user asks for this in plain language -- "I would like to review each threat individually", "let me see them one at a time", "walk me through the threats". Any such request starts the review. Default to EVERY threat in the main table, in ThreatID order, one threat per message. He may instead name particular threats, and you may mention that is possible, but do not steer him toward it and never offer an abbreviated path as the easier option: when he asks to review each threat individually, he means each one, and the review is the point of the gate rather than an overhead to minimise.
 
@@ -194,11 +211,19 @@ member before the next step. Groups write disjoint files; only you write STATE.m
 
   Reproduce Description IN FULL, including its [Prereq:], [Gains:] and [Risk calc:] notes verbatim, and Evidence IN FULL, including EVERY citation rather than the first one. Disposition and DispositionRationale are empty until stakeholder review; show them as empty rather than dropping them. Do not summarise, do not truncate a long field, and do not omit a field because it looks uninteresting or repetitive -- the user is reviewing the threat exactly as it will appear in the report, and a field you hide is a field he cannot correct. If a row is missing a field the schema requires, show it as MISSING rather than passing over it: the gate is the place that defect gets caught.
 
-  Then stop and let him respond. He may accept it, question it, ask you something about it, or tell you to change it.
+  Then close with this line, or very close to it:
+
+  `You can accept this (say "next"), ask me to check the evidence (I'll read the actual files), tell me to change something, go back to the previous threat, jump to a number, or stop. Or ask me anything about it.`
+
+  Then stop for his response.
 
   ADVANCING. Anything that reads as acceptance -- "no", "no, next threat", "next", "fine", "looks good", "nothing" -- means he has nothing to change on that threat: go straight to the next one and print it. Do NOT ask a confirming question, do NOT summarise what he just accepted, and do not remark on the decision; the next thing he should see is the next threat. Note in particular that a bare "no" ANSWERS THE QUESTION YOU ASKED -- it means nothing to ask or change -- and is not a refusal to continue.
 
-  Honour the other things a reviewer says mid-walk: "back" or "previous" re-shows the preceding threat, a numbered request jumps to that threat, and "stop" / "that's enough" / "just proceed" ends the walk and continues with every remaining threat unchanged. When the last threat is done, say so, state the final threat count, list the changes made during the walk, and ask whether to proceed to Phase 2C.
+  Honour the other things a reviewer says mid-walk: "back" or "previous" re-shows the preceding threat, a numbered request jumps to that threat, and "stop" / "that's enough" / "just proceed" ends the walk and continues with every remaining threat unchanged. When the last threat is done, say so, state the final threat count, list the changes made during the walk, and ask whether to proceed to Phase 2C. Then close with this line exactly, counted from the walk you just ran rather than estimated (rule 15):
+
+  `Review walk: walked <N> of <N> | challenged <N> | held <N> | changed <N> | dropped <N>`
+
+  `challenged` = threats the user questioned instead of accepting; `held` = of those, the ones you kept as written; `changed` = reworded, re-rated or split; `dropped` = rows that left the main table. Print it even when every count is zero. This line exists because of the caution above -- agreeing with most challenges is a signal about YOURSELF -- and that signal is only usable if it is counted and shown rather than noticed privately. Do not editorialise about the numbers or defend them; print the line and stop.
 
   ANSWERING MEANS GOING AND LOOKING. When the user challenges a threat, RE-READ the files its Evidence column cites before you respond, and report what you found there. Do not defend the row from memory and do not restate its Description in different words -- restating the row is precisely the failure this gate exists to catch, because the row is the thing under question.
 

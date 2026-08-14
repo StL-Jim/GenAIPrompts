@@ -51,3 +51,23 @@ common.md rule S. This exists because a field run whose Claude Code harness drov
 could not run the skill at all -- the phase files showed PowerShell-native call syntax
 and multi-line inline PowerShell, neither of which survives being pasted into bash. Run
 it whenever a script or a call site changes.
+
+## Diagram fixtures
+
+Two diagram data files feed `scripts/render-drawio.ps1`. Both are HAND-MAINTAINED --
+there is no generator, and editing them means editing the JSON.
+
+- `real-repo-diagram-data.json` -- derived by hand from the astrolog-chart-automation
+  repo (18 nodes, 18 edges; a 9-member tier against a 1-member tier). This is the
+  PRIMARY fixture. Real structure finds layout defects a designed sample cannot: five
+  rounds against a synthetic sample found fewer defects than two rounds against this,
+  because a fixture built to exercise the layout cannot surprise it.
+- `sample-diagram-data.json` -- smaller (11 nodes, 13 edges), kept because it renders
+  a differently shaped grid and costs nothing to check alongside the real one.
+
+`make-sample-diagram.py` used to generate the second file. It was removed once the
+JSON was committed: nothing referenced the generator, and regenerating a fixture that
+had never been regenerated was not worth 291 lines.
+
+The rendered `.drawio` and exported `.png` are gitignored -- they are output,
+reproducible from these JSON files.

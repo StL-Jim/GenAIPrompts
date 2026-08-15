@@ -541,7 +541,8 @@ command does not happen.
 ## Reference files
 
 - `common.md` -- operating rules; read first, binds you and every subagent
-- `global-rules.md`, `schemas.md`, `tool-usage.md` -- carved source sections
+- `global-rules.md`, `schemas.md`, `tool-usage.md` -- methodology in full: the rules that bind
+  every finding, the finding/attack-path schemas, and command safety
 - `phase-1-discovery.md`, `phase-2.md`, `phase-3a.md`, `phase-4a.md`, `phase-3b-4b.md`,
   `phase-5.md`, `phase-6.md` -- per-phase methodology
 - `gate-2.md` -- findings review protocol

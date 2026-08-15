@@ -39,14 +39,9 @@ Do not paraphrase or summarise these at read time -- follow what they say.
 Read `global-rules.md` and `schemas.md` before producing any finding. They are not optional
 background; they define the fields you must populate and the severity bar you must apply.
 
-### Things the methodology names that do not exist here
-
-The methodology came from a single-document prompt and sometimes points at parts of that document
-which this skill reorganised into files. These are not missing files:
-
-- **"the STATE FILE SYSTEM section"** -- the state schema, the artifact list and the session-start
-  behaviour live in `SKILL.md`, and the workspace bootstrap is `scripts/init-workspace.ps1`. You do
-  not need either: state is orchestrator-owned (rule X).
+Where the methodology says "the STATE FILE SYSTEM section", that is not a missing file. The state
+schema, the artifact list and the session-start behaviour live in `SKILL.md`, and the workspace
+bootstrap is `scripts/init-workspace.ps1`. You need neither: state is orchestrator-owned (rule X).
 
 ## Operating Rules (every subagent reads these before any work)
 

@@ -22,12 +22,14 @@ is now done by Claude Code skills under `skills/`, which are the maintained vers
   Phase 3 emits the HTML with disposition controls in it and exports dispositions.csv
   directly, so a separate prompt has nothing left to do.
 
-## What is deliberately NOT here
+- `code-security-audit.md` -- the monolithic code audit prompt. Superseded by
+  `skills/code-security-audit/`. It outlived the other three because it was a BUILD INPUT: the
+  skill's methodology was carved from it by line range, and `carve.ps1` verified by sha256 that
+  neither side had drifted. That check was retired on 2026-08-15 -- it proved the skill matched a
+  document nobody executed, at the cost of making a third of the skill's files un-editable by
+  hand. Nothing reads this file now.
 
-`code-security-audit.md` stays in the repository root. It is not a legacy copy -- it is a
-BUILD INPUT. `tests/code-security-audit/carve.ps1` reads it by name and verifies sha256
-hashes over specific line ranges, so the audit skill's reference files can never silently
-drift from it. Editing that file requires regenerating the carve in the same change.
+## What is deliberately NOT here
 
 `docs/executor-limitations.md` and `.superpowers/sdd/` also stay where they are. They are
 dated records of what was actually true during specific field runs. Rewriting them to

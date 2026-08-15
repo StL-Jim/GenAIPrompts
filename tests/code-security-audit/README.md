@@ -68,20 +68,20 @@ stamp, because a partially-updated skill is the hardest kind of wrong to diagnos
 Runs init, manifest, partition-plan and readplan against a real repository and prints the plan.
 Creates `audit_state\` in the target repo and modifies nothing else.
 
-### `carve.ps1` -- methodology fidelity
+### `carve.ps1` -- removed 2026-08-15
 
-The skill's methodology is not transcribed from `code-security-audit.md`; it is EXTRACTED by line
-range. This script does the extraction (`-Emit`) and verifies it (default, read-only).
+The skill's methodology was originally EXTRACTED by line range from `code-security-audit.md`, and
+`carve.ps1` verified by sha256 that neither side had drifted. That made the port provable while the
+conversion was in doubt.
 
-Two independent checks: the sha256 in each carve marker against a fresh computation (catches the
-source prompt moving underneath the skill), and the text between markers against freshly carved
-source (catches a reference file being hand-edited).
+It was retired once the skill became the thing that runs and the prompt was archived: the check was
+proving conformance to a document nobody executes, and the cost was that roughly a third of the
+reference files could not be hand-edited without failing the suite -- a bad property for a toolchain
+its owner maintains himself.
 
-It also reports SOURCE COVERAGE: every line of the source prompt must be accounted for as CARVED,
-ABSORBED (rewritten into SKILL.md because it describes orchestration) or FILLER. An unaccounted
-line means methodology may have been dropped, and fails the run.
-
-**If it reports drift, do not hand-edit the reference file.** Fix the source prompt and re-emit.
+The reference files ARE the methodology now. Edit them directly. What still guards them is the
+hygiene section below: ASCII-only, no NUL bytes, and a version stamp present and identical across
+every skill file.
 
 ### `test-scripts.ps1` -- deterministic script behaviour
 

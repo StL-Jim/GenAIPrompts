@@ -262,7 +262,7 @@ audit -- the precise outcome it exists to prevent.
 | verify-deliverables | YOU (script) | -- | After Phase 5, BEFORE showing him anything |
 | Phase 6 | 1 subagent | `phase-6.md` | COORDINATED only |
 
-## Worker count is DERIVED, not chosen
+## How the work is divided is DERIVED, not chosen
 
 `partition-plan.ps1` sizes slices by AUDITABLE SOURCE -- about 300 KB or 40 files each, whichever
 binds first -- and they are dispatched in waves of at most 10 at a time. The slice count itself is
@@ -274,13 +274,13 @@ in full is the read floor: at most 60 files per worker, chosen by role and by da
 rather than by volume. `readplan.ps1` computes it, and afterwards reconciles it against the
 harness's own transcript of the worker's Read calls.
 
-Measured on a real repo: weighting by file count gave five partitions, two of which held no
+Measured on a real repo: sizing by file count instead gave five slices, two of which held no
 auditable source at all -- a 354-file directory of data files and a 67-file directory of generated
 reports each got a worker, while the entire auditable surface was 41 files. **More workers does not
-mean more source read.** The surface is the limit. If a repo genuinely needs ten workers, the plan
-will say so.
+mean more source read.** The auditable surface is the limit, and the plan states how many slices it
+found and how many waves they take.
 
-Roots with no auditable source get no worker and are LISTED in the plan. Show that list at GATE 1:
+Roots with no auditable source get no slice and are LISTED in the plan. Show that list at GATE 1:
 if one of them should have been audited, the classifier missed it, and that is worth catching
 before the run rather than after.
 

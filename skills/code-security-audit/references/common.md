@@ -47,11 +47,6 @@ which this skill reorganised into files. These are not missing files:
 - **"the STATE FILE SYSTEM section"** -- the state schema, the artifact list and the session-start
   behaviour live in `SKILL.md`, and the workspace bootstrap is `scripts/init-workspace.ps1`. You do
   not need either: state is orchestrator-owned (rule X).
-- **`CHANGELOG.md`** -- in the repository, not in the installed skill. Version history is not
-  needed to run a phase.
-- **rule W-d** -- the write-verification step, defined inside rule W below. It is referenced
-  by name throughout; it means: after every write, confirm the file exists, is non-zero, and
-  starts as expected.
 
 ## Operating Rules (every subagent reads these before any work)
 

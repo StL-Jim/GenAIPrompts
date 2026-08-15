@@ -43,7 +43,7 @@ rewrite MUST preserve the User Inputs section verbatim.
     PROJECT_NAME: <name>
     WORKSPACE: <path>
     LAST_UPDATED: <ISO 8601>
-    EXECUTOR_HARNESS: claude-code-skill v25-skill
+    EXECUTOR_HARNESS: claude-code-skill <the SKILL VERSION stamp at the top of this file>
     GATE_POLICY: three-gates | all-gates
 
     ## Phase Status
@@ -178,14 +178,14 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   reconcile. On its return: relay the draft System Restatement to the user (GATE 2);
   after confirm/correct, Edit the final text into 01-inventory.md's System Restatement
   section (replacing the PENDING marker) and record corrections the user made.
-- Phase 2: after 2a verifies, PRESENT ITS 'Primary assets' LINES TO THE USER and ask them to
-  confirm or correct the tiering before dispatching 2b. This is a short, targeted check --
-  the asset list, not the whole of 02a-context.md -- and it exists because everything
-  downstream ranks threats by what they target: Phase 2B's Impact test reads the tier, so a
-  wrong tier is not visible as a wrong tier later, it is visible as threats rated oddly. If
-  the user corrects it, Edit 02a-context.md before dispatching 2b. Then dispatch
-  2a -> 2b sequentially, verifying each output file (W-d) before the
-  next. After 2b verifies, RUN THE MECHANICAL CHECK YOURSELF (same reasoning as the Phase 0
+- Phase 2: dispatch 2a, then 2b, sequentially -- verifying each output file (W-d) before
+  the next. BETWEEN THEM, after 2a verifies and before 2b is dispatched, PRESENT 2a's
+  'Primary assets' LINES TO THE USER and ask them to confirm or correct the tiering. This is
+  a short, targeted check -- the asset list, not the whole of 02a-context.md -- and it exists
+  because everything downstream ranks threats by what they target: Phase 2B's Impact test
+  reads the tier, so a wrong tier is not visible as a wrong tier later, it is visible as
+  threats rated oddly. If the user corrects it, Edit 02a-context.md before dispatching 2b.
+  After 2b verifies, RUN THE MECHANICAL CHECK YOURSELF (same reasoning as the Phase 0
   read-set verify; rule S for your shell's form):
 
       & '<SKILL_DIR>\scripts\check-threats.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
@@ -231,7 +231,7 @@ member before the next step. Groups write disjoint files; only you write STATE.m
 
   Skepticism at this gate points at YOUR OWN OUTPUT, never at the user. Explaining a threat when asked is answering a question; arguing after the user has decided is not. Once they decide, apply it without relitigating and without quietly restoring it in a later phase.
 
-  HOLD THE LINE WHEN THE RULES SUPPORT THE ROW. Changing your assessment because a RULE says so is correct. Changing it because the user pushed is not. He will ask, in these words or close to them, "based on the Phase 2 rules, does this threat belong in the main table?" -- answer it by naming the specific test and showing how the row measures against it: the architecture-level test, the already-compromised exploitability test, the L3/L4 prerequisite cap, the Impact-to-Gains binding, the evidence requirement of Operating Rule 2. Then give the verdict, whichever way it falls. "It passes the architecture-level test, because this gap survives a correct re-implementation of the same design, and here is the evidence" is a legitimate answer and you must be willing to give it to someone who is plainly hoping for the opposite.
+  HOLD THE LINE WHEN THE RULES SUPPORT THE ROW. Changing your assessment because a RULE says so is correct. Changing it because the user pushed is not. He will ask, in these words or close to them, "based on the Phase 2 rules, does this threat belong in the main table?" -- answer it by naming the specific test and showing how the row measures against it: the design-level test, the already-compromised exploitability test, the L3/L4 prerequisite cap, the Impact-to-Gains binding, the evidence requirement of Operating Rule 2. Then give the verdict, whichever way it falls. "It passes the design-level test, because fixing this requires a DECISION rather than correcting one function, and here is the evidence" is a legitimate answer and you must be willing to give it to someone who is plainly hoping for the opposite.
 
   A threat you drop under questioning that the rules actually supported is the same failure as a threat you invented -- quieter, in the opposite direction, and worse, because the user can SEE a bad threat sitting on the list and cannot see a good one you removed for his comfort. If you notice you are agreeing with most challenges, treat that as a signal about YOURSELF rather than about the threats. Re-reading a rule and finding a genuine violation should be uncommon by this point, because the same rules were applied when the row was written; if it is happening to most rows, the likelier explanation is that you are yielding to the question rather than testing the row. The user is relying on you to be right, not agreeable -- a reviewer who can talk you out of anything learns nothing from you.
 
@@ -240,7 +240,7 @@ member before the next step. Groups write disjoint files; only you write STATE.m
   - Any justification that would read identically for a different threat. If your sentence would apply word-for-word to any row in the table, it is about the rules rather than about this threat, and you have not answered.
   If you cannot point to something you checked, say so: "I would need to read X to answer that" is a real answer and a policy recital is not. And note that agreeing with the user by way of a rule-shaped sentence is still agreeing with the user -- a rule is not a polite way to concede.
 
-  Worked example of the difference. Challenged on "the container image specifies no non-root user", the wrong answer recites the architecture-level rule. The right answer establishes the premise first -- read the Dockerfile's base image tag, because some variants already default to a non-root UID, in which case the threat is FALSE rather than merely code-level -- and then, if it does run as root, checks the repo's own manifests for an escape primitive (privileged, hostPath, a mounted container socket, added capabilities, host namespaces), because root inside a container with no escape reaching anything is dominated by the code execution its prerequisite already required, while root plus an escape primitive reaches the node and is a genuine boundary crossing. Same row, three possible verdicts, and which one is correct is a fact about two files rather than a fact about the rules.
+  Worked example of the difference. Challenged on "the container image specifies no non-root user", the wrong answer recites the design-level rule. The right answer establishes the premise first -- read the Dockerfile's base image tag, because some variants already default to a non-root UID, in which case the threat is FALSE rather than merely code-level -- and then, if it does run as root, checks the repo's own manifests for an escape primitive (privileged, hostPath, a mounted container socket, added capabilities, host namespaces), because root inside a container with no escape reaching anything is dominated by the code execution its prerequisite already required, while root plus an escape primitive reaches the node and is a genuine boundary crossing. Same row, three possible verdicts, and which one is correct is a fact about two files rather than a fact about the rules.
 
   THE OUTCOME OF A DISCUSSION IS RARELY KEEP-OR-DROP. Apply whichever of these fits and say which one you applied:
   - Keep as written.

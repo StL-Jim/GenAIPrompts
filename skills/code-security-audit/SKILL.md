@@ -264,9 +264,15 @@ audit -- the precise outcome it exists to prevent.
 
 ## Worker count is DERIVED, not chosen
 
-`partition-plan.ps1` sizes partitions by AUDITABLE SOURCE and derives the worker count from it
-(roughly one worker per 60 auditable files, capped at 10). Do not override it upward hoping for
-depth.
+`partition-plan.ps1` sizes slices by AUDITABLE SOURCE -- about 300 KB or 40 files each, whichever
+binds first -- and they are dispatched in waves of at most 10 at a time. The slice count itself is
+NOT capped: a repository needing 15 slices gets 15, across two waves. Do not override the sizing
+upward hoping for depth.
+
+That budget is what a worker can REASON OVER, not a promise every byte is read. What must be read
+in full is the read floor: at most 60 files per worker, chosen by role and by dangerous-API match
+rather than by volume. `readplan.ps1` computes it, and afterwards reconciles it against the
+harness's own transcript of the worker's Read calls.
 
 Measured on a real repo: weighting by file count gave five partitions, two of which held no
 auditable source at all -- a 354-file directory of data files and a 67-file directory of generated

@@ -121,7 +121,7 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   # Exclude the readset sidecar files readplan.ps1 writes alongside the partition lists.
   $partFiles = @(Get-ChildItem -LiteralPath (Join-Path $state 'partitions') -Filter *.txt |
     Where-Object { $_.BaseName -notmatch '\.readset(-deferred)?$' })
-  Check "[$mode] partition count within cap of 10" ($partFiles.Count -le 10) "got $($partFiles.Count)"
+  Check "[$mode] fixture yields a sane slice count (<= 10)" ($partFiles.Count -le 10) "got $($partFiles.Count)"
   Check "[$mode] at least one partition created" ($partFiles.Count -ge 1)
 
   # Partitions are now weighted by AUDITABLE SOURCE, so roots holding none get no worker

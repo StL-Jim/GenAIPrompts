@@ -8,9 +8,10 @@
 # This is a PROPOSAL. GATE 1 exists so the owner approves it before N workers run against
 # it -- a wrong partition wastes every worker downstream and is trivially cheap to fix here.
 #
-# The cap is 5 by design, not by capacity: beyond ~5 the orchestrator's ability to track
-# which worker covered what becomes unreliable, and losing that traceability costs more than
-# the parallelism gains. A large codebase gets BIGGER partitions, not more of them.
+# PARALLELISM is capped; the WORK is not. Beyond a certain number of concurrent workers the
+# orchestrator's ability to track which one covered what becomes unreliable, so MaxParallel
+# bounds how many run AT ONCE. A large codebase gets MORE WAVES, not bigger slices -- slice
+# size is set by what one subagent can reason over, and that does not grow with the repo.
 param(
   [Parameter(Mandatory=$true)][string]$Workspace,
   [Parameter(Mandatory=$true)][string]$ProjectName,

@@ -93,11 +93,6 @@ the moment the walk ends:
 2. Run it again without `-WhatIf`.
 3. Then `renumber-findings.ps1`, then Phase 5.
 
-**Never ask him to run it.** He has said plainly he will not run scripts and should not have to:
-his job at a gate is judgement about the system, never operating the toolchain. A step that
-depends on him typing a command is a step that does not happen. This applies to every script in
-`scripts/` -- they are yours to run and yours to report the results of, in plain language.
-
 If it fails, it fails closed and writes nothing. Report what it said and stop; do not hand-edit
 the registry to work around it, because a decision applied by hand is one nothing verified.
 

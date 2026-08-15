@@ -213,9 +213,9 @@ Concretely, and these are not examples to reason from but the actual answers:
 - The methodology ends a phase with `STOP` and a banner telling the user to type 'proceed'. **You have
   no user.** Write your files, return the banner in your summary, end your turn. Rule X-a.
 - The methodology tells you to update `STATE.md` or `partition_status.md`. **You do not.** The
-  orchestrator owns both. Rule X.
+  orchestrator owns both.
 - The methodology tells you to ask the user something. **You cannot.** Return the question in your
-  summary. Rule X.
+  summary.
 
 If you find yourself weighing whether a methodology instruction about file placement, stopping, state
 updates, or user interaction overrides this file: it does not. That question has one answer and

@@ -151,6 +151,47 @@ X-a. How to read the methodology's STOP and "Type 'proceed'" instructions. It wa
    says about what to analyse, what to write, and what evidence is required is
    unaffected and binds fully.
 
+
+D. Get the current date before writing files. Run `Get-Date -Format "yyyy-MM-ddTHH:mm"` so
+   artifacts can be timestamped. The date is NOT part of a finding ID; it is for
+   `LAST_UPDATED`, archive directory names, and report headers.
+
+I. Finding IDs are unique across the WHOLE RUN, not per partition. The orchestrator assigns
+   each worker a disjoint ID block in its briefing. Use the block you were given, and never
+   renumber another worker's findings. (The `F-NNN` format itself is in `schemas.md`.)
+
+N. Numbers are computed, never recalled. Every count, total, or reconciliation figure stated
+   in any banner, report, or artifact MUST be the output of a command executed in this
+   session -- show the command beside the number or paste its output verbatim. A number
+   stated from memory is a rule violation even when it happens to be right: a recalled number
+   is indistinguishable from a fabricated one. If no command can compute a number, say so
+   explicitly instead of inventing one.
+
+P. Production scope only. Findings apply to production code paths and configurations. Dev, QA,
+   staging and test artifacts may be noted in the inventory but do not generate findings.
+   Critical distinction: admin-only, internal, or operational tools that RUN IN production and
+   touch production data ARE in scope -- "admin-only" is not the same as "non-production."
+
+T. Never analyse the threat model's run-state directory. The workspace may contain output from
+   the companion STRIDE skill (`{PROJECT_NAME}-threat-model/`). Those are workflow artifacts,
+   not source code or system documentation, regardless of how their filenames or content look.
+   They do not generate audit findings and are never cited as evidence about the system.
+
+   NARROW EXCEPTION, COORDINATED mode only: the threat model's deliverable is the audit's INPUT
+   for cross-referencing (`threat_id` / `threat_match`) and for Phase 6. Reading it for that
+   purpose is the point of coordinated mode, not a violation. What remains forbidden is treating
+   it as evidence about the code, or letting it seed discovery -- the audit must reach its
+   findings independently so it can CONTRADICT the threat model. An audit that inherits the
+   model's inventory inherits its blind spots and can no longer disprove its coverage.
+
+   `audit_state/` is this skill's OWN output. Reading it is required, not forbidden.
+
+Z. AI-generation disclosure on deliverables. Every HUMAN-FACING deliverable carries a
+   conspicuous notice that it was AI-generated: `05_consolidated_report.html`,
+   `executive_briefing.html`, and `threat_audit_comparison.html`. Working/intermediate files
+   (the `.md` state files under `audit_state/`) are AI-CONSUMED, not deliverables, and do not
+   carry it.
+
 ## PRECEDENCE -- read this before anything else conflicts
 
 Two kinds of instruction reach you, and they are not equal on the same subject.
@@ -184,68 +225,3 @@ A previous field run split on exactly this: some workers wrote `findings.md` and
 `findings_registry.md`, because a sentence here appeared to make the methodology win on
 everything. The merge reads only the former, so half the findings vanished silently -- each
 worker's own write verification passed, because its own write did succeed.
-
-## Rules carried from the source prompt
-
-These restate GLOBAL RULES in `global-rules.md` for emphasis because field failures cluster here.
-They are methodology, so where one of them differs from a phase file's Methodology section, that
-section wins --
-that precedence applies to THIS SECTION ONLY and never to the mechanics above.
-
-1. **Evidence or it didn't happen.** For `class = Confirmed`, `ev` MUST include at least one exact
-   line quoted from the cited source. A citation without a quoted line is not verification. Never
-   invent code that does not exist in the repo.
-
-2. **No hallucinated CVEs or versions.** Only reference a CVE if you literally see the identifier
-   in the source. CWE references are allowed because they are a stable taxonomy; CVEs are not.
-
-3. **Severity scope: Critical or High only.** The audit never emits Medium, Low or Info findings.
-   Those values exist in the `sev` enum only because the enum is shared with other contexts. If a
-   candidate finding does not reach High, it is not a finding -- do not record it at a lower
-   severity to keep it.
-
-4. **Finding IDs are `F-NNN`.** Zero-padded three digits, assigned in discovery order, stable
-   within a run. This matches the sibling ID schemes (`C-NNN`, `DS-NNN`, `EXT-NNN`, `TB-NNN`,
-   `EX-NNN`, `AP-NNN`). Do NOT use a date-prefixed form. IDs are unique across the whole run, not
-   per partition -- the orchestrator assigns each worker a disjoint ID block in its briefing, so use
-   the block you were given and never renumber another worker's findings.
-
-5. **Get the current date before writing files.** Run `Get-Date -Format "yyyy-MM-ddTHH:mm"` so
-   artifacts can be timestamped. The date is NOT part of a finding ID (see rule 4); it is for
-   `LAST_UPDATED`, archive directory names, and report headers.
-
-6. **Never analyse the threat model's run-state directory.** The workspace may contain output from
-   the companion STRIDE prompt (`{PROJECT_NAME}-threat-model/`). Those are workflow artifacts, not
-   source code or system documentation, regardless of how their filenames or content look. They do
-   not generate audit findings and are never cited as evidence about the system.
-
-   NARROW EXCEPTION, COORDINATED mode only: the threat model's deliverable is the audit's INPUT for
-   cross-referencing (`threat_id` / `threat_match`) and for Phase 6. Reading it for that purpose is
-   the point of coordinated mode, not a violation. What remains forbidden is treating it as evidence
-   about the code, or letting it seed discovery -- the audit must reach its findings independently
-   so it can CONTRADICT the threat model. An audit that inherits the model's inventory inherits its
-   blind spots and can no longer disprove its coverage.
-
-   `audit_state/` is this skill's OWN output. Reading it is required, not forbidden.
-
-7. **ASCII-only output for text artifacts.** All generated content destined for `.md`, `.html` and
-   `.csv` files MUST use ASCII characters only. Stylistic Unicode punctuation (em-dashes, en-dashes,
-   smart quotes, right-arrows, ellipses) causes encoding misinterpretation in viewers that default
-   to Windows-1252. Pure ASCII renders correctly everywhere.
-
-8. **Numbers are computed, never recalled.** Every count, total, or reconciliation figure stated in
-   any banner, report, or artifact MUST be the output of a command executed in this session -- show
-   the command beside the number or paste its output verbatim. A number stated from memory is a rule
-   violation even when it happens to be right: a recalled number is indistinguishable from a
-   fabricated one. If no command can compute a number, say so explicitly instead of inventing one.
-
-9. **AI-generation disclosure on deliverables.** Every HUMAN-FACING deliverable carries a
-   conspicuous notice that it was AI-generated: `05_consolidated_report.html`,
-   `executive_briefing.html`, and `threat_audit_comparison.html`. Working/intermediate files
-   (the `.md` state files under `audit_state/`) are AI-CONSUMED, not deliverables, and do not
-   carry it.
-
-10. **Production scope only.** Findings apply to production code paths and configurations. Dev, QA,
-    staging and test artifacts may be noted in the inventory but do not generate findings. Critical
-    distinction: admin-only, internal, or operational tools that RUN IN production and touch
-    production data ARE in scope -- "admin-only" is not the same as "non-production."

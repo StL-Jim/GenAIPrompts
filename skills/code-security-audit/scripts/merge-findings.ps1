@@ -122,7 +122,7 @@ if (-not (Test-Path Variable:allExcludedText)) { $allExcludedText = '' }
 # GATE 2 COUNTS
 #
 # Every number Gate 2 states must be computed command output, never recalled
-# (common.md rule 8). This is where those numbers come from.
+# (common.md rule N). This is where those numbers come from.
 # ---------------------------------------------------------------------------
 # The optional leading bullet is not cosmetic tolerance -- it is a bug fix. A field worker
 # rendered the compact schema as a markdown bullet list (`- id: F-001`), which is a reasonable

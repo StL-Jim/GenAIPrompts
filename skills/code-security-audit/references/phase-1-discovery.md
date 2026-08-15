@@ -52,7 +52,7 @@ it does no import analysis and says so. If you do adjust it, keep
 reconciliation count, because a file that falls out of every partition is a file no worker reviews.
 
 Do not skip the scripts and describe the repo from memory. Every number you report must be command
-output (`common.md` rule 8).
+output (`common.md` rule N).
 
 ## Displacement warning
 

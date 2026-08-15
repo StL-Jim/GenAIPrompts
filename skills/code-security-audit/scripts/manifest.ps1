@@ -25,7 +25,7 @@ if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Ou
 #
 #  - `audit_state*` -- this skill's OWN output. Excluding it from the manifest is not in
 #    tension with the skill being allowed to READ it. Read permission is a rule (common.md
-#    rule 6); the manifest is an inventory of the system under review. Include audit_state
+#    rule T); the manifest is an inventory of the system under review. Include audit_state
 #    here and Phase 3A workers would audit findings_registry.md as though it were
 #    application code, generating findings about the audit's own output.
 #  - `{PROJECT_NAME}-threat-model*` -- the companion STRIDE prompt's output. In COORDINATED

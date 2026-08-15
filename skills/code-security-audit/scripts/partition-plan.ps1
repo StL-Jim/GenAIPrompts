@@ -549,7 +549,7 @@ $statusPath = Join-Path $outDir 'partition_status.md'
 $status | Set-Content -LiteralPath $statusPath -Encoding ASCII
 
 # ---------------------------------------------------------------------------
-# REPORT (every number here is computed, per common.md rule 8)
+# REPORT (every number here is computed, per common.md rule N)
 # ---------------------------------------------------------------------------
 "Manifest total: $($manifest.Count)"
 "Service-root groups found: $($groups.Keys.Count)"

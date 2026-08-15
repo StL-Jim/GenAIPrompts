@@ -28,7 +28,7 @@ the reviewable artifact; gate before anything is derived from it.
 ## Step 1 -- report the counts, then stop
 
 Every number comes from `merge-findings.ps1` output. Do not state a count from memory
-(`common.md` rule 8).
+(`common.md` rule N).
 
 Report: total findings; the split by severity and by class; the per-partition breakdown; and in
 COORDINATED mode the `threat_match` counts, calling out `contradicts-exclusion` specifically --

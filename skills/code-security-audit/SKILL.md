@@ -19,11 +19,8 @@ under assessment). PROJECT_NAME = leaf directory name. AUDIT_STATE = `{WORKSPACE
 state does not persist between tool calls -- neither variables nor working directory -- so substitute
 literal paths into every call.
 
-YOUR SHELL MAY BE POWERSHELL OR BASH. Phase files show script calls in PowerShell form. If your shell
-is bash (Git Bash on Windows), translate every one to:
-`powershell.exe -NoProfile -ExecutionPolicy Bypass -File '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'`
-Never paste a multi-line PowerShell block into bash. This is `common.md` rule S and it binds every
-subagent too.
+Your shell may be bash, and the phase files show script calls in PowerShell form. `common.md`
+rule S has both invocation forms and binds every subagent -- read it before your first script call.
 
 ## Session Start (every session, first action)
 

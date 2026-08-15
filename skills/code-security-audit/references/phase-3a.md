@@ -254,7 +254,7 @@ did not: print INCOMPLETE and list what you are unsure about.
   instruction to record your partition as `security_complete`. Report completion in your summary; the
   orchestrator records it.
 - If you hit something only the user can decide, do not guess: write what you have, and return the
-  question in your summary for the orchestrator to relay (rule X).
+  question in your summary for the orchestrator to relay.
 
 ## Methodology
 

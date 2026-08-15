@@ -133,14 +133,9 @@ S. Running the skill's scripts (READ THIS BEFORE YOUR FIRST SCRIPT CALL). All me
    the -File form above. Every mechanical step that matters already ships as a script --
    prefer the script over reconstructing its logic inline.
 
-X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
-   a decision only the user can make, STOP, write any partial output to disk, and
-   return the question in your completion summary -- the orchestrator relays it.
-   STATE.md is orchestrator-owned. Do not read-modify-write it. Your completion summary
-   is <= 15 lines of your own prose, EXCLUDING the completion banner and any text your
-   phase file instructs you to return verbatim (those are never truncated): the banner,
-   files written with byte sizes (tool-computed), any question or warning for the user,
-   and -- if incomplete -- exactly what remains.
+X. Subagent conduct. Keep your completion summary to 15 lines of YOUR OWN prose. Text your
+   phase file tells you to return verbatim -- the completion banner above all -- does not
+   count toward that and is never truncated to fit.
 
 X-a. How to read the methodology's STOP and "Type 'proceed'" instructions. It was written
    for a single human-driven session in an IDE, so it ends each
@@ -174,13 +169,13 @@ restated at the point of conflict.
 
 Concretely, and these are not examples to reason from but the actual answers:
 
-- Carved text lists `audit_state/findings_registry.md` among your outputs. **You do not write it.**
+- The methodology lists `audit_state/findings_registry.md` among your outputs. **You do not write it.**
   Write `audit_state/workers/<your_partition_id>/findings.md`. Rule W-p.
-- Carved text ends a phase with `STOP` and a banner telling the user to type 'proceed'. **You have
+- The methodology ends a phase with `STOP` and a banner telling the user to type 'proceed'. **You have
   no user.** Write your files, return the banner in your summary, end your turn. Rule X-a.
-- Carved text tells you to update `STATE.md` or `partition_status.md`. **You do not.** The
+- The methodology tells you to update `STATE.md` or `partition_status.md`. **You do not.** The
   orchestrator owns both. Rule X.
-- Carved text tells you to ask the user something. **You cannot.** Return the question in your
+- The methodology tells you to ask the user something. **You cannot.** Return the question in your
   summary. Rule X.
 
 If you find yourself weighing whether a methodology instruction about file placement, stopping, state

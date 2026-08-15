@@ -111,8 +111,7 @@ it.
 
 ## Overrides of the carved methodology below
 
-- **Its STOP and "type proceed" banner:** no user to prompt. Write your files, verify each write
-  (rule W-d), return the completion banner verbatim, end your turn.
+- **Its STOP and "type proceed" banner:** no user to prompt. Write your files, return the completion banner verbatim, end your turn.
 - **STATE.md:** orchestrator-owned. Do NOT mark Phase 3B/4B done; report it and the orchestrator
   records it.
 

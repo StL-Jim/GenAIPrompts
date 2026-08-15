@@ -52,7 +52,9 @@ R. Reading files. Use the native tools: Read for a single file, Glob for filenam
    feeds an accounting artifact (findings registry, partition status, evidence index, any
    tool-computed number) must flow tool -> variable -> file without display and without
    caps; a cap is safe only if a later UNCAPPED mechanical step covers the same ground.
-   Never use cat, grep, find, head, tail, or other POSIX aliases in PowerShell.
+   In PowerShell, cat/grep/find/head/tail are ALIASES with different semantics -- use
+   Select-String and Get-Content instead. On a bash harness they are the real commands and
+   behave as expected.
 
    NEVER CAP A READ OF A DISCOVERY ARTIFACT. Do not pipe `01_discovery.md`,
    `resource_inventory.md`, `partition_plan.md`, `findings_registry.md` or any
@@ -66,12 +68,15 @@ R. Reading files. Use the native tools: Read for a single file, Glob for filenam
 W. Writing output files. Output goes under `audit_state/` (sole exception:
    `security_architecture_audit.md` at the workspace root -- see Required Inputs). Use
    the Write tool for new files (full content, overwrites), the Edit tool for surgical
-   changes to existing output. Create directories with New-Item -ItemType Directory
-   -Force. (W-d) After every write, verify: Get-Item <file> | Select-Object Length,
-   LastWriteTime and Get-Content <file> -TotalCount 3. Missing, zero bytes, or
-   unexpected first lines -> rewrite. Never use >, >>, echo, cat, tee, bash heredocs,
-   or mkdir -p to write output files -- they bypass the ASCII and verification
-   contracts.
+   changes to existing output. Both create missing parent directories, so you never need a
+   shell to make one. A failed write is reported to you as a tool error -- there is no
+   separate verification step to perform. Never use >, >>, echo, cat, tee or bash heredocs
+   to write output files: they bypass the ASCII contract.
+
+   What the tool cannot tell you is whether you STOPPED EARLY. A write that runs out of
+   output budget mid-file succeeds -- it faithfully writes what you produced. Nothing about
+   the result looks wrong. So when a file is long, the thing to check is that its LAST
+   section is present and complete, not its first.
 
    ALWAYS READ BEFORE WRITE, and UPDATE rather than blindly overwrite. If new evidence
    invalidates a prior conclusion, update the earlier state file and note the correction.
@@ -151,7 +156,6 @@ X-a. How to read the methodology's STOP and "Type 'proceed'" instructions. It wa
    session and you have no user to prompt. Where the methodology instructs you to STOP and
    print a proceed banner, you instead:
    (a) finish writing every output file that phase lists,
-   (b) verify each write per rule W-d,
    (c) return the completion banner verbatim in your summary, and
    (d) end your turn.
    Do NOT print a proceed prompt and wait -- nothing will answer it. Do NOT continue into

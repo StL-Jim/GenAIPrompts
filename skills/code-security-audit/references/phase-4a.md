@@ -84,8 +84,7 @@ outputs. Do not write them regardless (`common.md` rule W-p).
 
 ## Overrides of the carved methodology below
 
-- **Its STOP and "type proceed" banner:** no user to prompt. Write your files, verify each write
-  (rule W-d), return the completion banner verbatim, end your turn.
+- **Its STOP and "type proceed" banner:** no user to prompt. Write your files, return the completion banner verbatim, end your turn.
 - **STATE.md and partition_status.md:** orchestrator-owned. Do NOT mark your partition `done`;
   report it and the orchestrator records it.
 - **COORDINATED mode:** note in prose where an observation lines up with a threat in the model. Do

@@ -114,8 +114,7 @@ multiplied by twenty.
 The methodology is reproduced verbatim from a prompt written for a single human-driven IDE session.
 Three dispatch details differ here. Nothing about WHAT to analyse changes.
 
-- **Its STOP and "type proceed" banner:** you have no user to prompt. Write every output file, verify
-  each write (rule W-d), return the completion banner verbatim in your summary, and end your turn.
+- **Its STOP and "type proceed" banner:** you have no user to prompt. Write every output file, return the completion banner verbatim in your summary, and end your turn.
   See `common.md` rule X-a.
 - **STATE.md and partition_status.md:** orchestrator-owned. Do NOT update either, despite the
   "Before printing the banner, update audit_state/STATE.md" instruction. `partition-plan.ps1` seeds

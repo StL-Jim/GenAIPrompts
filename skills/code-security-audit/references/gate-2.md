@@ -237,8 +237,7 @@ SUBAGENT OUTPUT, never at the user.
 ## Step 6 -- close the gate, then renumber
 
 State, with computed numbers: how many findings were triaged, how many kept, how many suppressed
-and under which reason, and how many are `unsure`. Confirm `gate2_progress.md` was written and
-verified (rule W-d).
+and under which reason, and how many are `unsure`. Confirm `gate2_progress.md` was written.
 
 Also report any coverage shortfall or `CLAIMED-NOT-OBSERVED` result from `readplan.ps1 -Verify`.
 He is deciding whether this findings list is worth acting on, and "these came from a partition

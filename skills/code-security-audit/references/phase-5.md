@@ -191,8 +191,7 @@ Both are in the carved text and both are easy to violate by habit:
 
 ## Overrides of the carved methodology below
 
-- **STOP and "type proceed" banners:** subagents have no user to prompt. Write the file, verify it
-  (rule W-d), return the banner verbatim in the summary, end the turn (`common.md` rule X-a).
+- **STOP and "type proceed" banners:** subagents have no user to prompt. Write the file, return the banner verbatim in the summary, end the turn (`common.md` rule X-a).
 - **STATE.md:** orchestrator-owned. No subagent updates it.
 - **`create_new_file`** in the carved text means whatever file-write tool this harness provides; use
   the Write tool per `common.md` rule W. The instruction that matters is one file per call, which

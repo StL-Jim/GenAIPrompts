@@ -249,8 +249,7 @@ did not: print INCOMPLETE and list what you are unsure about.
 
 ## Overrides of the carved methodology below
 
-- **Its STOP and "type proceed" banner:** you have no user to prompt. Write your files, verify each
-  write (rule W-d), return the completion banner verbatim in your summary, end your turn.
+- **Its STOP and "type proceed" banner:** you have no user to prompt. Write your files, return the completion banner verbatim in your summary, end your turn.
 - **STATE.md and partition_status.md:** orchestrator-owned. Do NOT update either, despite the
   instruction to record your partition as `security_complete`. Report completion in your summary; the
   orchestrator records it.

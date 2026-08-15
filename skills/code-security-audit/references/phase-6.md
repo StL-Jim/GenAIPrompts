@@ -46,7 +46,7 @@ threat model examined this exact concern and concluded it was handled, and the a
 
 ## Overrides of the carved methodology below
 
-- **Its STOP and "type proceed" banner:** no user to prompt. Write the HTML, verify it (rule W-d),
+- **Its STOP and "type proceed" banner:** no user to prompt. Write the HTML,
   return the completion banner verbatim in your summary, end your turn (`common.md` rule X-a).
 - **STATE.md:** orchestrator-owned. Do not mark Phase 6 done; report it and the orchestrator records
   it.

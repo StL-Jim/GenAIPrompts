@@ -328,7 +328,7 @@ Run it after GATE 2. It compares the judge's rulings against the decisions he ac
 
 This exists because he wants to stop reading every finding before forwarding it to a development
 team, and that has to be earned by measurement across several runs rather than decided. Report the
-scorecard to him in plain language; never ask him to run it (rule V).
+scorecard to him in plain language; never ask him to run it.
 
 ## Verify the deliverables before showing him any of them
 
@@ -394,7 +394,7 @@ owner needs to be able to tell them apart when he reads the findings.
 - A `SELF-REPORTED` suffix means no transcript was found and the number came from the worker's own
   log. Report it to the user as provisional; do not present it as verified.
 
-Never hand the user this command to run (rule V). You run it, you report it in plain language.
+Never hand the user this command to run. You run it, you report it in plain language.
 
 ## Deviation from the source prompt, stated plainly
 
@@ -536,7 +536,7 @@ Never ask him to certify one. `gate-2.md` says precisely what to ask and what no
 
 Scripts are invoked by you or by subagents. If correctness can be checked by running something, YOU
 run it and report the result in plain language. A verification that depends on a human remembering a
-command does not happen. (`common.md` rule V.)
+command does not happen.
 
 ## Reference files
 

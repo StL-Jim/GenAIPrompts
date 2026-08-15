@@ -133,14 +133,6 @@ S. Running the skill's scripts (READ THIS BEFORE YOUR FIRST SCRIPT CALL). All me
    the -File form above. Every mechanical step that matters already ships as a script --
    prefer the script over reconstructing its logic inline.
 
-V. Never delegate verification to the user, and never ask the user to run a script.
-   If a run's correctness can be checked by running something, YOU run it and report the
-   result in plain language. Do not hand the user a command line, a script invocation, or
-   a "you can confirm this yourself by..." instruction as a substitute for checking -- a
-   verification that depends on a human remembering a command does not happen, so a check
-   offered that way is the same as no check at all. The user's job at a gate is to exercise
-   judgment about the SYSTEM, never to operate the toolchain.
-
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and
    return the question in your completion summary -- the orchestrator relays it.

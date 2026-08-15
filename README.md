@@ -1,261 +1,198 @@
 # Security Threat Modeling and Code Audit Toolchain
 
-Four LLM-driven prompts for security analysis of a source code repository. Each prompt can be used independently; some combinations produce additional value.
+Two LLM-driven workflows for security analysis of a source code repository, run from Claude Code:
 
-The prompts:
+- **STRIDE threat model** -- an architectural threat model: what could go wrong in the design, who would attack it, what to mitigate. Delivered as a Claude Code skill at `skills/stride-threat-model/`.
+- **Code security audit** -- a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance. Currently the prompt `code-security-audit.md`; a skill conversion exists on the `audit-skill` branch and is under test.
 
-- **STRIDE Threat Modeling Prompt** (`stride-threat-model-prompt.md`) -- produces an architectural threat model: what could go wrong in the design, who would attack it, what to mitigate.
-- **Code Security Audit Prompt** (`code-security-audit.md`) -- produces a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance.
-- **Threat Model Comparison Prompt** (`threat-model-comparison.md`) -- compares two threat model runs (older archived vs current) to identify persistent threats, threats that disappeared, threats that are new, and ambiguous matches.
-- **Threat Model Disposition Prompt** (`threat-model-disposition.md`) -- interactive prompt for capturing stakeholder review decisions about threats (False Positive, Risk Accepted, etc.) into a structured file.
+Either can be used alone. Run together, the audit binds to the threat model and reports which anticipated threats were confirmed in code -- the most valuable combination.
 
-Tested with Claude Sonnet 4.5 on AWS Bedrock via the Continue.dev VS Code extension.
+Two earlier prompts, threat-model comparison and threat-model disposition, have been retired to `archive/`. See `archive/README.md` for why. The disposition workflow now lives inside the threat model's own HTML report, which carries the controls and an export button.
 
-## stride-threat-model skill (Claude Code)
+## Requirements
 
-The STRIDE threat model is also available as a Claude Code skill at `skills/stride-threat-model/` -- a multi-agent conversion of `stride-threat-model-prompt.md` (frozen at v24, 2026-07-16a). This is the future home of the threat-model workflow; the monolith prompt stays the source of record until the skill is field-validated.
+- Claude Code, with subagent (Task) support -- the skill dispatches a fresh subagent per phase
+- Windows PowerShell 5.1 (the deterministic steps are PowerShell scripts)
+- An LLM with at least a 200K token context window
+- draw.io Desktop or the VS Code Draw.io Integration extension, for viewing and exporting the diagrams
+- A git repository checked out locally -- the workspace root is the code under assessment
 
-What the skill changes versus pasting the monolith:
-- An orchestrator (`SKILL.md`) runs the workflow and is the only thing that talks to you. It dispatches a fresh subagent per phase, so each phase gets its own context window (progressive disclosure replaces the paste-the-whole-prompt model, and the hand-copy version-drift problem goes away).
-- Phase 1 runs as three PARALLEL partition passes (docs / IaC / app source) plus a reconciliation agent; Phase 3 exports and Phase 4 diagrams run in parallel.
-- Instead of typing `proceed` at every phase, there are THREE review gates: after Phase 0 (scope), after Phase 1 (System Restatement confirm), and after Phase 2C (before exports). Everything else auto-proceeds. A GATE_POLICY of `all-gates` in STATE.md restores a pause after every phase (recommended for the first run on a new machine/model).
-- Deterministic mechanical work (file manifest, discovery sweep, drawio validation) is done by PowerShell scripts in `scripts/`, not by the model.
-- Enhancements beyond v24 (see `designs/2026-07-21-carve-verification.md`): redesigned Phase 4 diagrams (trust zones derived from component tiers, bounded/roomier deterministic layout); a Phase 0 guard so output is never written to or resumed from an archived `-yyyyMMdd` run directory; and a Phase 0 archive-comparison step that cross-checks this run's discovered resources against the most recent archived run for completeness and surfaces any regression at the scope gate.
-
-Install (both machines):
+## Install the threat model skill
 
 ```bash
 git pull
 bash skills/stride-threat-model/install.sh
 ```
 
-(`install.ps1` is the PowerShell equivalent if you prefer.) Both copy the skill into
-`~/.claude/skills/stride-threat-model`, resolving `$HOME` on whatever machine runs them,
-and both print the installed version stamp and path so you can confirm what landed.
+`install.ps1` is the PowerShell equivalent. Both copy the skill into
+`~/.claude/skills/stride-threat-model`, resolving `$HOME` on whatever machine runs them, and
+both print the installed version stamp and path so you can confirm what landed.
 
-Use the installer rather than `cp -r`: it REPLACES the target directory, whereas `cp`
-merges into it, so a file removed from the repo would linger in the installed copy and
-still be read by a later run. Then, from a Claude Code session with your target repository as the working directory, ask it to run the STRIDE threat model (the skill triggers on "run the threat model" / "STRIDE analysis" / resume requests). Outputs land in `{PROJECT_NAME}-threat-model/` exactly as the monolith produces them; STATE.md resume works across sessions, and a half-finished monolith run and the skill share the same output layout.
+Use the installer rather than `cp -r`: it REPLACES the target directory, whereas `cp` merges
+into it, so a file removed from the repo would linger in the installed copy and still be read
+by a later run.
 
-Requires Claude Code with subagent (Task) support and Windows PowerShell 5.1. The monolith prompt remains fully usable in Continue.dev; the two produce the same artifact layout. `scripts/concat-monolith.ps1` can rebuild the monolith from the per-phase skill files.
+## Running the threat model
 
+From a Claude Code session with your target repository as the working directory, ask it to run
+the STRIDE threat model. The skill triggers on "run the threat model", "STRIDE analysis", and
+resume requests.
 
-## How These Prompts Relate
+An orchestrator (`SKILL.md`) runs the workflow and is the only participant that talks to you.
+It dispatches a fresh subagent per phase, so each phase gets its own context window. Phase 1
+runs as three parallel partition passes (docs / IaC / application source) plus a reconciliation
+agent; Phase 3 exports and Phase 4 diagrams also run in parallel.
 
-Use individually:
-- **Threat modeling alone:** new project where you want architectural threat identification.
-- **Audit alone (standalone mode):** existing codebase where you want code-level defect finding without architectural context.
-- **Comparison alone:** you have two threat models from different runs and want to know what changed.
-- **Disposition alone:** you have a threat model and want to capture stakeholder review decisions.
+Review gates, rather than typing `proceed` at every phase:
 
-Use in combinations:
-- **Threat modeling + audit (coordinated mode):** the audit detects the threat model and produces a comparison output showing which anticipated threats were confirmed in code and which code defects the threat model did not anticipate. The threat model also routes code-shaped concerns it deliberately excludes (Code-level rows in its Excluded Threats Ledger) to the audit as seeded leads, and the audit reports back whether each was verified. This is the most valuable combination.
-- **Threat modeling + disposition:** capture stakeholder decisions about the threat model so they're recorded in a structured file.
-- **Threat modeling + disposition + repeat runs:** on subsequent threat model runs, the prompt detects archived dispositions and transfers them forward, so reviewers don't re-make decisions they've already made.
-- **All four:** full toolchain. Track threats over time, capture decisions, audit against code, see what changed.
+- **GATE 1** after Phase 0 -- approve the scope proposal
+- **GATE 2** after Phase 1 -- confirm or correct the System Restatement (mandatory, never skipped)
+- **GATE 3** after Phase 2B -- the threat review, where you can walk threats individually
+- a short confirm after Phase 2A on which assets were tiered `Primary`, before anything downstream ranks threats by what they target
 
-If you only want some of these, just use those. There's no requirement to run all four. Skip the others entirely.
+Everything else auto-proceeds. Setting `GATE_POLICY: all-gates` in STATE.md restores a pause
+after every phase -- recommended for a first run on a new machine or model.
 
-## Requirements
+Phases:
 
-- VS Code with the Continue.dev extension
-- An LLM with at least a 200K token context window (designed for Sonnet 4.5 via Bedrock; other capable models should work)
-- Windows 11 with PowerShell (some operations use PowerShell)
-- draw.io Desktop or the VS Code Draw.io Integration extension (for viewing/exporting diagrams from the threat model)
-- A git repository checked out locally -- the workspace root is the code under assessment
-
-## Running the Threat Modeling Prompt
-
-1. Open the source repository you want to threat-model in VS Code. The workspace root must be the repo root.
-2. Open the Continue.dev chat panel.
-3. Paste the contents of `stride-threat-model-prompt.md` into the chat.
-4. Follow the prompts. The agent pauses at the end of each phase and waits for you to type `proceed` before continuing.
-
-A full run typically takes 60-90 minutes. Phases:
-
-- **Phase 0** -- Initialization and scope proposal. You will be asked about deployment exposure (internet-facing, internal, hybrid), application criticality, existing mitigating controls, data sensitivity, and compliance requirements.
-- **Phase 1** -- Architectural inventory: components, data stores, external integrations, trust boundaries.
-- **Phase 2** -- STRIDE threat enumeration, split into three sub-phases (2A context, 2B threats, 2C consolidation) for resilience.
-- **Phase 3** -- Markdown, HTML, and CSV exports. At the start of Phase 3, the prompt checks for an archived threat model directory containing a dispositions.csv file (from the disposition capture prompt). If found, prior dispositions are matched against current threats and pre-populated into the exports.
+- **Phase 0** -- initialization and scope proposal. You are asked about deployment exposure, application criticality, existing mitigating controls, data sensitivity, and compliance requirements.
+- **Phase 1** -- architectural inventory: components, data stores, external integrations, actors, trust boundaries.
+- **Phase 2** -- STRIDE threat enumeration, split into 2A context, 2B threats, 2C consolidation.
+- **Phase 3** -- HTML, CSV, and stakeholder-explainer exports. Phase 3 checks for an archived threat model directory containing a `dispositions.csv` and pre-populates matched decisions.
 - **Phase 4** -- draw.io diagrams (Context, Container, Component, DFD).
 
-Outputs land in `{PROJECT_NAME}-threat-model/` inside the workspace, where `{PROJECT_NAME}` is the workspace's leaf directory name.
+Outputs land in `{PROJECT_NAME}-threat-model/`, where `{PROJECT_NAME}` is the workspace's leaf
+directory name. Key outputs:
 
-Key outputs:
-- `outputs/threat-model.html` -- primary stakeholder deliverable with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button that saves review decisions for future runs (the canonical Markdown lives at `02-threats.md`; Phase 3 no longer emits a redundant copy)
-- `outputs/threats.csv` -- comprehensive CSV for Excel import or scripted analysis
-- `outputs/architecture-threat-explanation.html` -- per-threat architecture-vs-code explainer, a leave-behind for answering stakeholder pushback on findings
+- `outputs/threat-model.html` -- the primary stakeholder deliverable, with interactive disposition fields, a RevisedPriority control per threat, and an 'Export dispositions.csv' button. The canonical Markdown is `02-threats.md`.
+- `outputs/threats.csv` -- for Excel import or scripted analysis
+- `outputs/architecture-threat-explanation.html` -- per-threat architecture-vs-code explainer, for answering stakeholder pushback
 - `diagrams/*.drawio` -- the four architectural diagrams
 
-## Running the Code Security Audit Prompt
+Deterministic work -- file manifest, discovery sweep, threat-table validation, diagram layout,
+drawio validation -- is done by PowerShell scripts in `scripts/`, not by the model.
 
-1. Open the source repository you want to audit in VS Code. The workspace root must be the repo root.
-2. Open the Continue.dev chat panel.
-3. Paste the contents of `code-security-audit.md` into the chat.
-4. Follow the prompts. The agent pauses at the end of each phase and waits for you to type `proceed`.
+## Running the code security audit
 
-A full run typically takes 60-90 minutes; longer for monorepos that partition into multiple worker reviews. Phases:
+Paste the contents of `code-security-audit.md` into a Claude Code session whose working
+directory is the repository under audit, and follow the prompts. The agent pauses at the end of
+each phase.
 
-- **Phase 1** -- Global discovery and coordination mode detection. If a threat model directory exists in the workspace, the audit binds to it (coordinated mode); otherwise it runs standalone.
-- **Phase 2** -- Risk prioritization across detected services and partitions.
-- **Phase 3A** -- Worker security review (one per partition). OWASP Top 10 and NIST 800-53 mapping. In coordinated mode, findings are cross-referenced against the threat model's threats.
-- **Phase 4A** -- Worker architecture review.
-- **Phase 5** -- Consolidation. Produces consolidated report HTML, executive briefing HTML, and (in coordinated mode) the Markdown intermediate for the comparison output.
-- **Phase 6** -- Comparison HTML render. **Coordinated mode only** -- skipped entirely in standalone mode.
+Phases:
 
-Outputs land in `audit_state/` inside the workspace.
+- **Phase 1** -- global discovery and coordination mode detection. If a threat model directory exists in the workspace, the audit binds to it (coordinated mode); otherwise it runs standalone.
+- **Phase 2** -- risk prioritization across detected services and partitions.
+- **Phase 3A** -- worker security review, one per partition, with OWASP Top 10 and NIST 800-53 mapping. In coordinated mode, findings are cross-referenced against the threat model.
+- **Phase 4A** -- worker architecture review.
+- **Phase 5** -- consolidation: consolidated report HTML, executive briefing HTML, and in coordinated mode the Markdown intermediate for the comparison output.
+- **Phase 6** -- comparison HTML render. Coordinated mode only.
 
-Key outputs (coordinated mode):
-- `audit_state/threat_audit_comparison.html` -- **the headline deliverable** when a threat model exists. Read this first.
-- `{PROJECT_NAME}-threat-model/threat_audit_comparison.html` -- reciprocal copy in the threat model directory
-- `audit_state/05_consolidated_report.html` -- complete audit report with all findings
-- `audit_state/executive_briefing.html` -- Critical/High findings, executive-facing format
+Outputs land in `audit_state/`. In coordinated mode the headline deliverable is
+`audit_state/threat_audit_comparison.html`, with a reciprocal copy in the threat model
+directory; in standalone mode it is `audit_state/05_consolidated_report.html`. Both modes also
+produce `audit_state/executive_briefing.html`.
 
-Key outputs (standalone mode):
-- `audit_state/05_consolidated_report.html` -- the headline deliverable in standalone mode
-- `audit_state/executive_briefing.html` -- Critical/High summary
+`code-security-audit.md` is also a BUILD INPUT, not only a prompt: `tests/code-security-audit/carve.ps1`
+on the `audit-skill` branch reads it by name and verifies sha256 hashes over specific line
+ranges, so the skill's reference files can never silently drift from it. Editing it requires
+regenerating the carve in the same change.
 
-## Running the Threat Model Comparison Prompt
+## How the two work together
 
-This prompt compares two threat model runs against the same codebase. Run it whenever you have two threat models worth comparing.
+The audit detects a threat model in the workspace and produces a comparison showing which
+anticipated threats were confirmed in code and which code defects the threat model did not
+anticipate. The threat model also routes code-shaped concerns it deliberately excludes
+(`Code-level` rows in its Excluded Threats Ledger) to the audit as seeded leads, and the audit
+reports back whether each was verified.
 
-The workflow:
+If you only want architectural threat identification, run the threat model alone. If you only
+want code-level defect finding, run the audit alone in standalone mode -- no threat model
+required.
 
-1. **Prepare the directories.** The CURRENT threat model lives at `{PROJECT_NAME}-threat-model/` as usual. An archived prior threat model should be present at `{PROJECT_NAME}-threat-model-YYYY-MM-DD/` (or any dated suffix following that pattern). Use a consistent naming convention so the comparison prompt can find archives by pattern.
+## Working with the threat model HTML report
 
-2. **Open the workspace in VS Code.** Both threat model directories should be visible from the workspace root.
+The report contains interactive `<select>` dropdowns for Disposition, a RevisedPriority control,
+and `<textarea>` fields for Rationale on every threat, plus an 'Export dispositions.csv' button.
+Fill these in during stakeholder review, then click Export and save the CSV into the run's output
+directory -- that file is what future runs read to carry decisions forward. Print to PDF
+(Ctrl+P -> Save as PDF) for the dated artifact of record.
 
-3. **Paste the prompt.** Open the Continue.dev chat panel and paste the contents of `threat-model-comparison.md` into the chat.
+Values entered in the browser are not saved into the HTML file itself. The exported CSV and the
+PDF are the two ways to persist them.
 
-4. **Follow the discovery step.** The prompt's first action is identifying which two directories to compare. If there's exactly one archive, it confirms with you. If there are multiple archives, it lists them and asks which one. Respond with your choice.
+The CSV schema is ThreatID, Title, Component, OWASP, Description, OriginalPriority,
+RevisedPriority, Disposition, DispositionRationale, Reviewer, ReviewDate. OWASP and Description
+are carried specifically to raise match rates when a later run transfers dispositions forward.
 
-5. **Let it run.** The comparison runs as a single phase -- no STOP/proceed checkpoints needed. Typically completes in one session.
+## Working with the audit comparison output
 
-A full run typically takes 15-30 minutes, much shorter than the threat modeling or audit prompts because there is no code analysis -- just synthesis across two threat model directories.
-
-Outputs land in `{PROJECT_NAME}-threat-model/`:
-
-- `threat_model_comparison.md` -- the long, comprehensive comparison (typically 30+ pages when printed). Reference material for the security architect. Seven sections: executive summary, persistent threats, threats only in older model, threats only in newer model, ambiguous matches, inventory and assumption changes, coverage and trend analysis.
-- `threat_model_comparison_summary.md` -- the brief summary (2-3 pages). Verdict, counts at a glance, action items prioritized by severity, "things to verify mitigation," inventory changes, pointers back to the long document. Suitable for developers and stakeholders who need actionable information without reading the full comparison.
-- `threat_model_comparison_summary.html` -- HTML version of the brief summary with severity color coding. Suitable for stakeholder distribution.
-
-## Running the Threat Model Disposition Prompt
-
-This prompt captures stakeholder review decisions about a threat model into a structured CSV file. Run it during stakeholder review meetings to record decisions as they happen.
-
-The workflow:
-
-1. **Have a threat model on disk.** The prompt requires `{PROJECT_NAME}-threat-model/02-threats.md` to exist.
-2. **Open the workspace in VS Code.** The threat model HTML report should ideally also be open in a browser so the reviewers can see threats as they're discussed.
-3. **Paste the prompt.** Open the Continue.dev chat panel and paste the contents of `threat-model-disposition.md`.
-4. **Follow the session start.** The prompt asks who's reviewing and presents progress against the threat model.
-5. **Walk through threats.** Type a threat ID (e.g., `07`) to begin dispositioning it. The agent presents threat context and a numbered menu of disposition options. Respond with format like `1 - rationale text` or `3 - accepted for this release, revise to Priority 2`. Only the main (Confirmed/Likely) threat table is dispositioned; Inferred threats and Excluded Threats Ledger rows are not.
-6. **End the session.** Type `done` when finished. The agent presents a summary.
-
-A full session typically takes 30-60 minutes for a threat model of 20-25 threats. Sessions are resumable -- if interrupted, re-running the prompt picks up where the prior session left off.
-
-The disposition file `{PROJECT_NAME}-threat-model/dispositions.csv` is the output. Columns: ThreatID, Title, Component, OWASP, Description, OriginalPriority, RevisedPriority, Disposition, DispositionRationale, Reviewer, ReviewDate. This is the toolchain's canonical dispositions schema -- the threat model HTML's export button emits the same columns, and OWASP/Description are carried so future runs can semantically match dispositions to threats.
-
-The file becomes input to the threat modeling prompt on subsequent runs. When you re-run the threat modeling prompt after archiving the current threat model (by renaming the directory with a date suffix), Phase 3 of the new run detects the archived dispositions.csv and transfers matched dispositions forward.
-
-## Resuming Across Sessions
-
-The threat modeling and audit prompts maintain a state file in their output directory that tracks completed phases. If a session ends before all phases finish (context window exhaustion, network issue, end of day), start a new session and paste the same prompt. The agent reads the state file and resumes at the next pending phase.
-
-Starting a fresh session at each phase boundary is recommended even without a failure -- the rehydration steps make it free, and instruction adherence is measurably better in a fresh session than late in a long-running one. This matters most for the heavy phases (threat model 2B/3/4; audit 3A on large partitions, 5, and 6).
-
-The disposition prompt saves to disk after every disposition is captured, so interrupted sessions can resume by re-running the prompt. It picks up at whichever threat hasn't been dispositioned yet.
-
-The threat model comparison prompt does not use a state file because it runs as a single phase and is short enough to complete in one session. If a comparison run fails partway through, re-run the prompt from the beginning.
-
-## Working With the Threat Model HTML Report
-
-The HTML report contains interactive `<select>` dropdowns for Disposition, a RevisedPriority control, and `<textarea>` fields for Rationale on every threat, plus an 'Export dispositions.csv' button. These can be filled in directly in the browser during stakeholder review.
-
-Two paths for capturing review decisions:
-
-**Path A: Fill in the HTML directly during review, then export.** Walk through threats with stakeholders, set the dropdowns and rationale in the browser, then click 'Export dispositions.csv' and save the file into the run's output directory -- that CSV is what future threat model runs read to carry decisions forward. Print to PDF (Ctrl+P -> Save as PDF) for the dated artifact of record. Values entered in the browser are not saved into the HTML file itself; the export button and the PDF are the two ways to persist them.
-
-**Path B: Use the disposition prompt to capture decisions to a CSV file alongside the meeting.** This is faster for capture, produces a structured file, and feeds back into subsequent threat model runs to preserve decisions across re-runs. See "Running the Threat Model Disposition Prompt" above.
-
-Both paths produce the same canonical dispositions.csv, so both feed future runs. Path A needs no agent session during the meeting; Path B is faster capture and adds reviewer attribution plus a polished HTML disposition report.
-
-## Working With the Audit Comparison Output
-
-The comparison output (`threat_audit_comparison.html`) is structured into six sections:
+`threat_audit_comparison.html` has six sections:
 
 1. **Executive Summary** -- one-paragraph synthesis plus counts table.
-2. **Threats Confirmed by Audit** -- threats the model anticipated AND the audit found in code. Highest-priority for remediation.
-3. **Threats Not Confirmed by Audit** -- threats the model anticipated but the audit did not find. Each entry includes the agent's reasoning category: well-mitigated, audit didn't reach this code, architectural only, or unable to determine.
-4. **Audit Findings Not Anticipated by Threat Model** -- code defects the threat model missed. Often the most valuable section because it reveals threat modeling gaps.
-5. **Partial Matches** -- threats where the audit confirmed part but not all.
+2. **Threats Confirmed by Audit** -- anticipated AND found in code. Highest priority.
+3. **Threats Not Confirmed by Audit** -- each with the reasoning category: well-mitigated, audit didn't reach this code, architectural only, or unable to determine.
+4. **Audit Findings Not Anticipated by Threat Model** -- often the most valuable section, because it reveals threat-modeling gaps.
+5. **Partial Matches** -- the audit confirmed part but not all.
 6. **Coverage Analysis** -- coverage percentages and priority/severity correlation.
 
-There is deliberately no "Recommended Next Steps" or scheduled-roadmap section. Findings carry severity and fix guidance; sequencing and scheduling are left to the team that owns the code, which has the business context to prioritize.
+There is deliberately no "Recommended Next Steps" section. Findings carry severity and fix
+guidance; sequencing belongs to the team that owns the code.
 
-Each entry in sections 2, 3, 4, and 5 contains full content from the threat model and findings registry -- you do not need to open other files to act on a single entry.
+The complete finding list is `audit_state/findings_registry.md` -- the canonical source, in a
+format that is git-diffable, greppable, and parseable into a ticketing system.
 
-## Working With the Threat Model Comparison Output
+## Working with the diagrams
 
-The comparison prompt produces three files. The right one to start with depends on who's reading:
+Diagram layout is computed by `skills/stride-threat-model/scripts/render-drawio.ps1`, not written
+by the model. The model supplies a data file describing what belongs on each diagram -- which
+component sits in which tier, which flows exist, which are unprotected -- and the script does
+every coordinate. Nodes are placed into a grid, large tiers wrap across grid columns rather than
+running down the page, and edges travel only through node-free gutters so an edge cannot cross a
+component.
 
-**For developers and stakeholders:** open `threat_model_comparison_summary.html` (or the Markdown equivalent). The verdict at the top tells you in plain language what changed. The "Things to investigate or remediate" list gives action items sorted by severity. The "Things to verify mitigation" list flags threats that disappeared from the newer model without explicit evidence -- worth investigating if you want to confirm they're actually fixed.
+If a diagram still needs adjustment, edit the `.drawio` directly in draw.io. The data file
+(`04-diagram-data.json`) is the input to regenerate from, and the rendered `.drawio` is output.
 
-**For the security architect:** start with the brief summary for the verdict and counts, then open `threat_model_comparison.md` for full reference detail. Use the Reading Guide at the top of the long document to navigate -- you don't need to read all 30+ pages linearly. Section 6 (Inventory and Assumption Changes) is often the second-most-useful section after the executive summary because it surfaces architectural shifts between runs.
+Any change to the layout rules themselves is verified by rendering a fixture and looking at the
+exported PNG. That loop is the only method that has reliably caught layout defects -- most of
+them were two individually correct rules interacting at a case neither anticipated, which is
+exactly what reading the spec cannot catch.
 
-The comparison cannot directly assess code-level mitigation. The reasoning categories acknowledge this. Threats absent in the newer model that have the category "Absent from newer model, no explicit exclusion noted" are NOT claims of mitigation -- they're observations that the agent has no observable evidence either way. If you want to confirm a threat was actually mitigated in code, that requires the audit prompt or manual code review.
+## Resuming across sessions
 
-## Working With the Audit Findings Registry
+Both workflows maintain a state file in their output directory tracking completed phases. If a
+session ends before all phases finish, start a new session and ask to resume; the state file is
+read and work continues at the next pending phase.
 
-The complete list of audit findings is in `audit_state/findings_registry.md`. This is the canonical source -- every finding in the consolidated report comes from here. The Markdown format is git-diffable, grep-able, and parseable by external tools if you want to feed findings into a ticketing system.
+Starting a fresh session at each phase boundary is recommended even without a failure -- the
+rehydration steps make it free, and instruction adherence is measurably better in a fresh session
+than late in a long-running one. This matters most for the heavy phases.
 
-The schema includes severity, confidence, OWASP/NIST mapping, evidence with file:line references, fix guidance, and verification steps. In coordinated mode, each finding also has `threat_id` and `threat_match` fields linking it to the threat model.
+## Output encoding
 
-## Working With the Diagrams (Threat Model Only)
+Output is ASCII-only by default -- no em-dashes, smart quotes, or other Unicode in Markdown, HTML
+or CSV -- so files render correctly across environments without BOM or encoding fallback issues.
 
-LLMs generate diagram XML without visual feedback during generation, so diagram quality varies between runs. Some runs produce clean, well-laid-out diagrams; others have missing components, missing trust boundaries, or cramped layouts.
+## Known limitations
 
-Recommended remediation workflow when a diagram comes out poorly:
+Real characteristics of the toolchain, not bugs.
 
-1. Open the `.drawio` file in draw.io Desktop or the VS Code extension
-2. Export to PNG (File → Export As → PNG)
-3. In a new Continue.dev session, attach the PNG and ask the agent to review it against the inventory file, looking for missing components, missing trust boundaries, missing data flows, overlaps, or unclear layout
-4. The agent edits the `.drawio` file directly to address specific issues
+- **Run-to-run variation in findings.** Both workflows produce different findings between runs against the same code. The threat model's ceiling is roughly 20-25 threats -- a ceiling, not a target; a clean, well-scoped run may legitimately produce far fewer, and code-level candidates are routed to the audit via the Excluded Threats Ledger rather than padded into the table. This is LLM sampling, not a defect.
 
-This visual-feedback loop is more effective than re-running Phase 4 hoping for better luck, because the LLM CAN review an image once it has one -- it just can't see the diagram during initial generation.
+- **Disposition matching is probabilistic.** When a run detects an archived `dispositions.csv` and transfers matched dispositions forward, matching is conservative and high-confidence. In practice about 50-70% transfer even when most underlying threats are unchanged, and results vary across re-runs. Verify transferred dispositions during the next review session; expect to re-disposition some threats each time.
 
-## Output Encoding
+- **Large codebases can exhaust context.** The phase splits and state-file resume mitigate this. If you still hit limits, scope to one service in a monorepo rather than the whole repo.
 
-All four prompts produce ASCII-only output by default (no em-dashes, smart quotes, or other Unicode in Markdown/HTML/CSV) so files render correctly across Windows and other environments without BOM or encoding fallback issues.
+- **The audit comparison output can be large.** 20-25 threats against 25-30 findings produces 100-200KB of Markdown and a similarly long HTML report. Expect coordinated mode to need a full additional session for Phase 6 alone.
 
-If you are sharing outputs with stakeholders on Mac or Linux, files render correctly without modification.
+- **Coordinated audits require a threat model in the workspace.** Delete or rename the threat model directory between runs and the audit falls back to standalone, with no comparison output.
 
-## Known Limitations
+## Repository layout
 
-These are real characteristics of the toolchain, not bugs. Knowing them helps set expectations.
-
-- **Run-to-run variation in findings.** The threat modeling and audit prompts produce different findings between runs against the same code. The threat model produces up to 20-25 threats -- a ceiling, not a target; a clean, well-scoped run may legitimately produce far fewer, and code-level candidates are deliberately routed to the audit via the Excluded Threats Ledger rather than padded into the table. The audit lands in a 20-30 finding range. This is expected behavior driven by LLM sampling -- not a bug. For higher determinism, run twice and compare. The comparison prompt is the right tool for evaluating that variation across runs.
-
-- **Disposition matching reliability varies.** When the threat modeling prompt detects an archived dispositions.csv and transfers matched dispositions to the new run, the matching is conservative (high confidence required) and probabilistic. In practice, about 50-70% of prior dispositions transfer to a new run, even when most underlying threats are unchanged. The matching may also produce different results across re-runs of the same prompt against the same data. Two implications: do not rely on disposition transfer as automatic; verify transferred dispositions during the next stakeholder review session; expect to re-disposition some threats each time even if the codebase is unchanged. (The canonical schema carries OWASP and Description columns specifically to raise match rates; earlier schema versions omitted them, which structurally suppressed matching.)
-
-- **The threat model comparison cannot assess code-level mitigation.** It observes only what's in the threat model artifacts. Threats absent in a newer model may or may not be mitigated in code. For code-level confirmation, use the audit prompt against the current codebase.
-
-- **Large codebases can exhaust context.** The phase splits and state-file resume mechanism mitigate this. If you still hit limits, scope the analysis to one service in a monorepo rather than the entire repo.
-
-- **Diagram quality is the weakest output of the threat model.** Plan to use the PNG review loop for any diagram that will leave your team.
-
-- **The audit comparison output can be large.** A comparison with 20-25 threats and 25-30 findings produces 100-200KB of Markdown and a similarly long HTML report. Phase 5/6 split handles this, but expect the audit's coordinated mode to take a full additional session for Phase 6 alone.
-
-- **Coordinated audits require a threat model in the workspace.** If you delete or rename the threat model directory between threat model and audit runs, the audit will run in standalone mode without producing the comparison output.
-
-- **The threat model comparison requires both a current and an archived threat model.** Archives must be named with a suffix pattern like `{PROJECT_NAME}-threat-model-YYYY-MM-DD/` so the comparison prompt can find them.
-
-## You Don't Need to Use All Four
-
-If you only want architectural threat identification, use the threat modeling prompt alone. The other three are optional.
-
-If you only want code-level defect finding, use the audit prompt alone in standalone mode. You don't need a threat model present.
-
-If you want both but no time-over-time tracking or disposition workflow, use threat modeling + audit (coordinated mode). Skip the comparison and disposition prompts entirely.
-
-The full toolchain becomes valuable when you're running these periodically on the same codebase and want to track progress, capture decisions, and avoid re-reviewing the same threats. If that's not your use case, smaller subsets work fine.
+- `skills/stride-threat-model/` -- the threat model skill: `SKILL.md` orchestrator, `references/` methodology, `scripts/` deterministic steps
+- `code-security-audit.md` -- the audit prompt, and the carve source for the audit skill
+- `tests/` -- deterministic regression suites for the skills' scripts
+- `designs/` -- design records for changes that needed one. These state intent at a point in time; verify against `skills/` before citing anything as current behaviour.
+- `docs/executor-limitations.md` -- a dated field record of what an executor would not do unless the harness forced it
+- `archive/` -- frozen, superseded prompts. Not maintained. See `archive/README.md`.
+- `CHANGELOG.md` -- version history for both workflows

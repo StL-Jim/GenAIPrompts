@@ -1,0 +1,12 @@
+# Shell scripts MUST check out with LF endings on every machine.
+#
+# Without this, git's core.autocrlf rewrites them to CRLF on a Windows checkout. Git Bash
+# tolerates that; a stricter bash does not -- a line ending in `\` followed by CR is not a
+# line continuation, so the next line becomes a syntax error. That is not hypothetical here:
+# tests/*/test-bash-invocation.sh could not run at all, and it is the test that exists to
+# prove a bash-driven harness can invoke the skills. skills/stride-threat-model/install.sh
+# had the same problem, and it is the command the README tells the owner to run.
+*.sh text eol=lf
+
+# PowerShell is invoked by path on Windows and is not sensitive to this, so it is left to
+# the platform default rather than pinned.

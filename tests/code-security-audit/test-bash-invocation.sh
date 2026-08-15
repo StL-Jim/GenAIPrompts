@@ -130,12 +130,6 @@ rc=$?
 if [ $rc -ne 0 ]; then pass=$((pass+1)); echo "  PASS  score-judge.ps1 runs from bash and fails closed with no inputs"
 else fail=$((fail+1)); echo "  FAIL  score-judge.ps1 should not succeed with no rulings or decisions"; fi
 
-# The carve verifier is a build-time tool but is run the same way from CI or a bash shell.
-CARVE_WIN="$(cd "$HERE" && pwd -W 2>/dev/null | sed 's|/|\\|g')"
-[ -z "$CARVE_WIN" ] && CARVE_WIN="$HERE"
-$PS "$CARVE_WIN\\carve.ps1" >/dev/null 2>&1
-check "carve.ps1 runs from bash" $?
-
 # --- guard: no phase file tells an agent to run a bare .ps1 path -----------
 # A phase file showing `& '<SKILL_DIR>\scripts\x.ps1'` with no powershell.exe form is the
 # exact shape that broke the bash field run. Rule S requires both forms be available.

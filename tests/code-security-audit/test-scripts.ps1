@@ -355,13 +355,6 @@ foreach ($mode in @('STANDALONE','COORDINATED')) {
   Check "[$mode] recovers to green after faults removed" ($r.Code -eq 0) "exit $($r.Code)"
 }
 
-# ------------------------------------------------------------ carve check ---
-Write-Host ""
-Write-Host "=== CARVE ===" -ForegroundColor Cyan
-$c = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'carve.ps1') 2>&1
-Check 'carve verification passes' ($LASTEXITCODE -eq 0)
-Check 'source coverage has no unaccounted lines' (($c | Out-String) -match 'UNACCOUNTED\s+0')
-
 # ---------------------------------------------------------------- hygiene ---
 Write-Host ""
 Write-Host "=== HYGIENE ===" -ForegroundColor Cyan

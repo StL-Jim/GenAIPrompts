@@ -200,9 +200,8 @@ Both are in the carved text and both are easy to violate by habit:
 - The budget discipline in the opening paragraphs applies to each subagent individually: minimal
   preamble, no planning prose, go straight to producing the file.
 
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=657-932 sha256=3ba245ebcb4249e31600a89469034946bd5d8674ff5d57bcdd181cb60c55d120 -->
 ### PHASE 5 -- CONSOLIDATION
 
 CRITICAL execution discipline for this phase: produce the consolidated outputs with minimal preamble. Do NOT write extensive planning notes, do NOT describe what the final report will contain in prose before producing it, do NOT enumerate which findings will appear before generating the actual content. Acknowledge in one short line that all required state files are present, then go directly to producing the output files.
@@ -478,4 +477,3 @@ The audit is complete.
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

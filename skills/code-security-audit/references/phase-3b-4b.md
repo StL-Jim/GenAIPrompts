@@ -116,9 +116,8 @@ it.
 - **STATE.md:** orchestrator-owned. Do NOT mark Phase 3B/4B done; report it and the orchestrator
   records it.
 
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=617-654 sha256=b1c3419d11e379e9f18e03be3b805cba4813862bcb53f3540bbe401ba5924ed3 -->
 ### PHASE 3B / 4B -- SHARED COMPONENT REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -156,4 +155,3 @@ Type 'proceed' to begin Phase 5 (Consolidation).
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

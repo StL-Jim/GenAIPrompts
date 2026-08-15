@@ -146,9 +146,8 @@ Three dispatch details differ here. Nothing about WHAT to analyse changes.
   the orchestrator can put it to the user at GATE 1. Do not block the phase on it and do not
   write a placeholder into any artifact.
 
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=276-381 sha256=e3dc8d4011701c28d40e6f89b4f04c9455b0c5059e7c125a6809ae27bba909d2 -->
 ### PHASE 1 -- GLOBAL DISCOVERY
 INPUT:
 - audit_state/00_workspace_context.md (if present)
@@ -254,4 +253,3 @@ Type 'proceed' to begin Phase 2 (Risk Prioritization).
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

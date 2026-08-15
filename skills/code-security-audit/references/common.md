@@ -29,10 +29,10 @@ updates it by design. Never write it into `audit_state/`, and never clobber it.
 
 ## Reference files
 
-The audit methodology is carved VERBATIM from `code-security-audit.md` and lives in sibling files.
-Do not paraphrase or summarise carved text, and do not edit inside the
-`<!-- BEGIN VERBATIM CARVE ... -->` / `<!-- END VERBATIM CARVE -->` markers -- a build-time
-verifier compares those regions against the source prompt by sha256 and fails on any change.
+The audit methodology lives in sibling files. It was originally carved verbatim from
+`code-security-audit.md`; that source is no longer authoritative and these files are now the
+methodology itself. Edit them directly. Do not paraphrase or summarise them at read time --
+follow what they say.
 
 - `global-rules.md` -- GLOBAL RULES, monorepo strategy, auto-discovery requirements
 - `schemas.md` -- finding schema, attack path schema, C4 input schema, code fixes, risk scoring
@@ -178,9 +178,8 @@ X-a. How to read the carved text's STOP and "Type 'proceed'" instructions. The c
 Two kinds of instruction reach you, and they are not equal on the same subject.
 
 **METHODOLOGY -- what to analyse, what evidence is required, what counts as a finding, how to
-score it.** The carved text between `<!-- BEGIN VERBATIM CARVE -->` and `<!-- END VERBATIM CARVE -->`
-markers is authoritative. It is lifted word-for-word from the audit prompt. Do not paraphrase it,
-do not soften it, and do not substitute your own judgement for it.
+score it.** The Methodology section of each phase file is authoritative. Do not paraphrase it, do
+not soften it, and do not substitute your own judgement for it.
 
 **MECHANICS -- WHERE files go, WHO writes them, WHEN you stop, WHO talks to the user.** The
 framing above the carve markers is authoritative, and the rules in this file are authoritative.

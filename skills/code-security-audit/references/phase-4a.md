@@ -91,9 +91,8 @@ outputs. Do not write them regardless (`common.md` rule W-p).
 - **COORDINATED mode:** note in prose where an observation lines up with a threat in the model. Do
   NOT populate `threat_id` or `threat_match` -- those are finding fields and you produce no
   findings.
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=559-614 sha256=30a16a0190330ce192b56801ca2730526e364084985dc69690b9495a5e5ef44f -->
 ### PHASE 4A -- WORKER ARCHITECTURE + FUNCTIONAL REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -149,4 +148,3 @@ Type 'proceed' to continue.
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

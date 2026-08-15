@@ -4,7 +4,6 @@ harness names. They mean this harness's file-write and in-place-edit tools -- Wr
 the code under audit, and write the audit's own files with a file tool rather than shell
 redirection.
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1221-1265 sha256=1de5750b41a0488bd1d808a405a2c51e88978d77d56e706e80cafe97e1cba0db -->
 TOOL USAGE
 
 IF tools are available:
@@ -50,4 +49,3 @@ SUCCESS CRITERIA
 - no loss of state across phases
 - actionable remediation
 - idempotent outputs
-<!-- END VERBATIM CARVE -->

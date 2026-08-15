@@ -97,9 +97,8 @@ belongs on subagent OUTPUT, never on the user.
   carved text is explicit that a short count should be reported honestly rather than looped over --
   respect that. Do not re-derive the table to force an exact match.
 
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=384-422 sha256=58ae393614b7174ad252615333b22f63501417e89f00d01c1210ac68ff8498d8 -->
 ### PHASE 2 -- GLOBAL RISK PRIORITIZATION
 INPUT:
 - audit_state/01_discovery.md
@@ -138,4 +137,3 @@ Type 'proceed' to begin Phase 3A for partition '<first_partition_id>'.
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

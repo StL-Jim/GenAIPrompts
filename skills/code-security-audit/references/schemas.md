@@ -1,4 +1,3 @@
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1031-1220 sha256=bd371de2a76de49463dcf42c8df1e1253c1f4dae877dff573dec048ed84c79f2 -->
 FINDING SCHEMA (COMPACT)
 Use this compact schema for findings_registry.md and worker findings:
 
@@ -188,4 +187,3 @@ Note: the first example scores at the ceiling; most real Critical/High findings 
 Use explicit reasoning in findings; do not hand-wave the score.
 
 ---
-<!-- END VERBATIM CARVE -->

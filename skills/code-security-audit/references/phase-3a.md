@@ -257,9 +257,8 @@ did not: print INCOMPLETE and list what you are unsure about.
 - If you hit something only the user can decide, do not guess: write what you have, and return the
   question in your summary for the orchestrator to relay (rule X).
 
-## Methodology (verbatim -- do not edit inside the markers)
+## Methodology
 
-<!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=425-556 sha256=baacab8a5a1898fe3b918da4335c566cf49583913c47a850d764f18dbde1483b -->
 ### PHASE 3A -- WORKER SECURITY REVIEW
 INPUT:
 - audit_state/coordination_mode.md
@@ -391,4 +390,3 @@ Type 'proceed' to continue.
 ```
 
 STOP
-<!-- END VERBATIM CARVE -->

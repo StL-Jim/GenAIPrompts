@@ -10,6 +10,15 @@ lost to anyone reading without git.
 
 ## stride-threat-model skill (`skills/stride-threat-model/SKILL.md`)
 
+- v27-skill (2026-08-15a) -- the Phase 2B exclusion test is DESIGN-level, not architecture-level.
+  It used to ask "is this architecture?", and almost nothing is, so design flaws fell out to the
+  code audit where a reviewer reading one function finds nothing wrong with them. It now asks
+  whether fixing the finding requires a DECISION: an injection or a hardcoded secret needs only
+  code that does what the design already said and stays excluded; a session lifetime, an
+  authorization check's placement or an identifier scheme cannot be fixed without deciding
+  something and stays in. NOT EVIDENCE-BACKED -- it rests on the argument that design flaws are
+  real threats with no other owner, not on an observed miss. Under evaluation.
+
 - v26-skill (2026-08-10a) -- diagrams rebuilt on a GRID with a GUTTER ROUTER: nodes sit in cells of a
   global grid, a tier with more than 5 members wraps across grid columns instead of running down the
   page, short tiers are centred vertically, and every edge travels only through node-free gutters so

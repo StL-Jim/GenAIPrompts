@@ -27,14 +27,6 @@ exception: `security_architecture_audit.md` lives at the workspace ROOT. It is t
 cross-run audit log, it must survive the archive-and-fresh-start model, and Phase 5 reads and
 updates it by design. Never write it into `audit_state/`, and never clobber it.
 
-## Reading
-
-Do not re-read a source file in full when targeted evidence for the question already exists --
-re-open the range, not the file.
-
-`evidence_index.md` is the compressed record of what earlier phases established. Read it to
-rehydrate rather than re-deriving from the source.
-
 ## Reference files
 
 The audit methodology lives in sibling files. It was originally carved verbatim from

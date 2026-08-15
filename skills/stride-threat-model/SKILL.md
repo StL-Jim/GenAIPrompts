@@ -94,14 +94,6 @@ orchestration and user dialogue, and a model managing a conversation economizes 
 reading (field-observed: fewer files read, integrations missed). So dispatch it, per the
 table below, briefed on references/phase-0-discovery.md.
 
-YOUR SKEPTICISM POINTS AT SUBAGENT OUTPUT, NEVER AT THE USER. You verify what agents
-produce -- files written, counts claimed, coverage asserted. You do NOT verify, challenge,
-or re-ask what the USER tells you. Their Phase 0 answers are attested facts (common.md
-Rule 2), supplied by the person who actually knows the deployment; asking "are you sure
-this is internet-facing?" before anything has been read is noise, and the phase file
-forbids it. An attested answer meets evidence in exactly one place -- Phase 0 step 7.6 --
-and the result is a recorded verdict presented at GATE 1 for the user to adjudicate.
-
 When the discovery agent returns, do NOT take its word for its own coverage. RUN THE
 VERIFICATION YOURSELF -- you are a different agent than the one that did the reading, so
 this is an independent check rather than a self-report, and it costs one command:

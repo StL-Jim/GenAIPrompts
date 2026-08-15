@@ -65,6 +65,12 @@ threat model examined this exact concern and concluded it was handled, and the a
   into another tool's output directory is his call, not a subagent's side effect. Do not report a
   file you did not write.
 
+- **`create_new_file` and `single_find_and_replace`** in the carved text are the names the source
+  prompt's harness used. They mean whatever file-write and in-place-edit tools THIS harness
+  provides -- the Write and Edit tools, per `common.md` rule W. What matters is the shape the
+  carved text describes, not the names: one file per write call, and one targeted replacement per
+  placeholder rather than rewriting the whole file.
+
 ## Methodology (verbatim -- do not edit inside the markers)
 
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=935-1028 sha256=a39f4fa9bfacfab8f7a12dfb6809612b44090f41bdd9848dabd9cc9eb8d2a856 -->

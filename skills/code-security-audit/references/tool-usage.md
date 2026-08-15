@@ -1,3 +1,9 @@
+Reading note: `create_new_file` and `single_find_and_replace` below are the source prompt's
+harness names. They mean this harness's file-write and in-place-edit tools -- Write and Edit, per
+`common.md` rule W. The rule being stated is about the TARGET of a write, not the tool: never edit
+the code under audit, and write the audit's own files with a file tool rather than shell
+redirection.
+
 <!-- BEGIN VERBATIM CARVE src=code-security-audit.md lines=1221-1265 sha256=1de5750b41a0488bd1d808a405a2c51e88978d77d56e706e80cafe97e1cba0db -->
 TOOL USAGE
 

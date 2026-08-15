@@ -29,10 +29,7 @@ updates it by design. Never write it into `audit_state/`, and never clobber it.
 
 ## Reference files
 
-The audit methodology lives in sibling files. It was originally carved verbatim from
-`code-security-audit.md`; that source is no longer authoritative and these files are now the
-methodology itself. Edit them directly. Do not paraphrase or summarise them at read time --
-follow what they say.
+Do not paraphrase or summarise these at read time -- follow what they say.
 
 - `global-rules.md` -- GLOBAL RULES, monorepo strategy, auto-discovery requirements
 - `schemas.md` -- finding schema, attack path schema, C4 input schema, code fixes, risk scoring

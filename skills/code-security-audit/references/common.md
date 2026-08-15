@@ -27,6 +27,14 @@ exception: `security_architecture_audit.md` lives at the workspace ROOT. It is t
 cross-run audit log, it must survive the archive-and-fresh-start model, and Phase 5 reads and
 updates it by design. Never write it into `audit_state/`, and never clobber it.
 
+## Reading
+
+Do not re-read a source file in full when targeted evidence for the question already exists --
+re-open the range, not the file.
+
+`evidence_index.md` is the compressed record of what earlier phases established. Read it to
+rehydrate rather than re-deriving from the source.
+
 ## Reference files
 
 The audit methodology lives in sibling files. It was originally carved verbatim from
@@ -36,16 +44,16 @@ follow what they say.
 
 - `global-rules.md` -- GLOBAL RULES, monorepo strategy, auto-discovery requirements
 - `schemas.md` -- finding schema, attack path schema, C4 input schema, code fixes, risk scoring
-- `tool-usage.md` -- tool usage, output discipline, success criteria
+- `tool-usage.md` -- which commands are safe to run, and what must never be modified
 - `phase-*.md` -- the phase you were dispatched to run
 
 Read `global-rules.md` and `schemas.md` before producing any finding. They are not optional
 background; they define the fields you must populate and the severity bar you must apply.
 
-### Things the carved text names that do not exist here
+### Things the methodology names that do not exist here
 
-The carved methodology was lifted from a single-document prompt and sometimes points at parts of
-that document which this skill reorganised. These are not missing files:
+The methodology came from a single-document prompt and sometimes points at parts of that document
+which this skill reorganised into files. These are not missing files:
 
 - **"the STATE FILE SYSTEM section"** -- the state schema, the artifact list and the session-start
   behaviour live in `SKILL.md`, and the workspace bootstrap is `scripts/init-workspace.ps1`. You do
@@ -95,7 +103,7 @@ W-p. STAY INSIDE YOUR OWN PARTITION DIRECTORY. If you are a partition worker (Ph
    GLOBAL `audit_state/findings_registry.md`, `audit_state/attack_paths.md`, or
    `audit_state/evidence_index.md`.
 
-   The carved methodology lists those global files among your outputs. It was written for
+   The methodology lists those global files among your outputs. It was written for
    SEQUENTIAL workers with a stop between each, where accumulating into a shared file was
    safe. You are running in PARALLEL with sibling workers. Concurrent read-modify-write on
    one file silently discards whichever sibling wrote first, and nothing detects it --
@@ -104,7 +112,7 @@ W-p. STAY INSIDE YOUR OWN PARTITION DIRECTORY. If you are a partition worker (Ph
    The orchestrator assembles the global artifacts from every worker's directory after all
    workers return, using `scripts/merge-findings.ps1`. Your per-partition files ARE the
    contribution; writing them is sufficient and complete. This overrides only WHERE those
-   outputs land. Everything the carved text says about their CONTENT binds fully.
+   outputs land. Everything the methodology says about their CONTENT binds fully.
 
    Shell state does not persist. Every PowerShell block runs in a FRESH shell --
    variables set in one block are gone in the next, and the working directory does not
@@ -158,10 +166,10 @@ X. Subagent conduct. You are a subagent: you cannot ask the user anything. If yo
    files written with byte sizes (tool-computed), any question or warning for the user,
    and -- if incomplete -- exactly what remains.
 
-X-a. How to read the carved text's STOP and "Type 'proceed'" instructions. The carved
-   methodology was written for a single human-driven session in an IDE, so it ends each
+X-a. How to read the methodology's STOP and "Type 'proceed'" instructions. It was written
+   for a single human-driven session in an IDE, so it ends each
    phase with `STOP` and a banner telling the user to type 'proceed'. You are not in that
-   session and you have no user to prompt. Where carved text instructs you to STOP and
+   session and you have no user to prompt. Where the methodology instructs you to STOP and
    print a proceed banner, you instead:
    (a) finish writing every output file that phase lists,
    (b) verify each write per rule W-d,
@@ -169,8 +177,8 @@ X-a. How to read the carved text's STOP and "Type 'proceed'" instructions. The c
    (d) end your turn.
    Do NOT print a proceed prompt and wait -- nothing will answer it. Do NOT continue into
    the next phase; the orchestrator dispatches that. Do NOT update STATE.md (rule X).
-   This overrides only the DISPATCH mechanics of the carved STOP. Everything the carved
-   text says about what to analyse, what to write, and what evidence is required is
+   This overrides only the DISPATCH mechanics of that STOP. Everything the methodology
+   says about what to analyse, what to write, and what evidence is required is
    unaffected and binds fully.
 
 ## PRECEDENCE -- read this before anything else conflicts
@@ -178,13 +186,14 @@ X-a. How to read the carved text's STOP and "Type 'proceed'" instructions. The c
 Two kinds of instruction reach you, and they are not equal on the same subject.
 
 **METHODOLOGY -- what to analyse, what evidence is required, what counts as a finding, how to
-score it.** The Methodology section of each phase file is authoritative. Do not paraphrase it, do
-not soften it, and do not substitute your own judgement for it.
+score it.** THE METHODOLOGY IS: the `## Methodology` section of each phase file, plus
+`global-rules.md`, `schemas.md` and `tool-usage.md` in full. It is authoritative. Do not
+paraphrase it, do not soften it, and do not substitute your own judgement for it.
 
 **MECHANICS -- WHERE files go, WHO writes them, WHEN you stop, WHO talks to the user.** The
-framing above the carve markers is authoritative, and the rules in this file are authoritative.
-The carved text was written for a single human-driven session running one phase at a time. You
-are a subagent running in parallel with siblings. Where the carved text describes mechanics that
+notes above each `## Methodology` section are authoritative, and the rules in this file are
+authoritative. The methodology was written for a single human-driven session running one phase at
+a time. You are a subagent running in parallel with siblings. Where it describes mechanics that
 assume the older shape, the framing wins -- always, without exception, and without needing to be
 restated at the point of conflict.
 
@@ -199,19 +208,20 @@ Concretely, and these are not examples to reason from but the actual answers:
 - Carved text tells you to ask the user something. **You cannot.** Return the question in your
   summary. Rule X.
 
-If you find yourself weighing whether a carved instruction about file placement, stopping, state
+If you find yourself weighing whether a methodology instruction about file placement, stopping, state
 updates, or user interaction overrides this file: it does not. That question has one answer and
 this section is it.
 
 A previous field run split on exactly this: some workers wrote `findings.md` and some wrote
-`findings_registry.md`, because a sentence here appeared to make the carved text win on
+`findings_registry.md`, because a sentence here appeared to make the methodology win on
 everything. The merge reads only the former, so half the findings vanished silently -- each
 worker's own write verification passed, because its own write did succeed.
 
 ## Rules carried from the source prompt
 
 These restate GLOBAL RULES in `global-rules.md` for emphasis because field failures cluster here.
-They are methodology, so where one of them differs from the carved text, the carved text wins --
+They are methodology, so where one of them differs from a phase file's Methodology section, that
+section wins --
 that precedence applies to THIS SECTION ONLY and never to the mechanics above.
 
 1. **Evidence or it didn't happen.** For `class = Confirmed`, `ev` MUST include at least one exact

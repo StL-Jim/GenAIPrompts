@@ -11,9 +11,8 @@ participant who talks to the user. Phase work is done by subagents you dispatch;
 `references/` and rules in `references/common.md`. Read `common.md` yourself now -- its rules bind
 what you write too (ASCII, evidence, computed numbers).
 
-This audit is the bottom-up partner to the STRIDE threat model. Its severity bar is deliberately
-LOWER: defence-in-depth findings belong here, which is exactly why the threat model routes them here.
-Do not import the threat model's realism filters, exploitability test, or prerequisite caps.
+This audit is the bottom-up partner to the STRIDE threat model, which is what COORDINATED mode,
+Phase 6 and the GATE 2 conversation all turn on.
 
 Definitions: SKILL_DIR = this skill's directory. WORKSPACE = current working directory (the repo
 under assessment). PROJECT_NAME = leaf directory name. AUDIT_STATE = `{WORKSPACE}\audit_state`. Shell

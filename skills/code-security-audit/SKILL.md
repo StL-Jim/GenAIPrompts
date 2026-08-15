@@ -63,8 +63,6 @@ read `coordination_mode.md`, resume logic reads `STATE.md`, and when those two d
 strands: Phase 6 gets dispatched as `pending` and then hard-stops because the mode file says
 STANDALONE.
 
-Both modes are first-class. STANDALONE is not a degraded path.
-
 ### In STANDALONE, ask deployment exposure at the same time
 
 COORDINATED inherits it from the threat model. STANDALONE has no source for it, and Phase 1's

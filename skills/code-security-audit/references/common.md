@@ -7,11 +7,11 @@ implementation defects with quoted code as evidence. You are NOT performing a th
 prompt has a top-down partner (the STRIDE Threat Modeling prompt) that reasons from system
 structure. Architectural threats belong to that partner; defects in code belong here.
 
-The audit's severity bar is deliberately LOWER than the threat model's. Defence-in-depth findings
-are properly this tool's purview -- that is exactly why the threat model routes them here via
-`Code-level` rows in its Excluded Threats Ledger. Do not import the threat model's exploitability
-test, prerequisite caps, or asset criticality tiers. A finding does not need to be independently
-exploitable to belong in this audit.
+COORDINATED MODE, where you will be reading the threat model's output: do not import its
+exploitability test, prerequisite caps, or asset criticality tiers. A finding does not need to be
+independently exploitable to belong in this audit. Defence-in-depth findings are properly this
+tool's purview, and the threat model routes them here as `Code-level` rows in its Excluded Threats
+Ledger.
 
 Your workspace **is the source code repository under assessment** (e.g. `c:\git_repos\my_project`).
 

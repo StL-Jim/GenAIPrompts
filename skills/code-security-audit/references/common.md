@@ -162,10 +162,8 @@ paraphrase it, do not soften it, and do not substitute your own judgement for it
 
 **MECHANICS -- WHERE files go, WHO writes them, WHEN you stop, WHO talks to the user.** The
 notes above each `## Methodology` section are authoritative, and the rules in this file are
-authoritative. The methodology was written for a single human-driven session running one phase at
-a time. You are a subagent running in parallel with siblings. Where it describes mechanics that
-assume the older shape, the framing wins -- always, without exception, and without needing to be
-restated at the point of conflict.
+authoritative. On those four things they win -- always, without exception, and without needing to
+be restated at the point of conflict.
 
 Concretely, and these are not examples to reason from but the actual answers:
 

@@ -1,12 +1,12 @@
 ---
 name: code-security-audit
-description: Runs or resumes an orchestrated, multi-agent code security and architecture audit against the current workspace -- phased analysis producing a findings registry, attack paths, and HTML deliverables under audit_state/. Partitions the repo and reviews partitions with parallel workers. Use when asked to run, continue, or resume a security audit, when the user mentions audit_state or the audit STATE.md, or when asked to advance to a specific audit phase. Not for the STRIDE threat model (separate workflow).
+description: Runs or resumes an orchestrated, multi-agent code security audit against the current workspace -- phased analysis producing a findings registry, attack paths, and HTML deliverables under audit_state/. Partitions the repo and reviews partitions with parallel workers. Use when asked to run, continue, or resume a security audit, when the user mentions audit_state or the audit STATE.md, or when asked to advance to a specific audit phase. Not for the STRIDE threat model (separate workflow).
 ---
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -- methodology originally carved from the retired code-security-audit.md prompt (now archive/); these files are the methodology now and are edited directly by tests/code-security-audit/carve.ps1, which fails the build on any drift. Deviations from the source prompt are limited to dispatch mechanics (parallel workers instead of sequential STOPs) and one notation change (F-NNN finding ids). History: CHANGELOG.md, or git log. -->
 
 # Code Security Audit -- Orchestrator
 
-You are the ORCHESTRATOR of a phased code security and architecture audit. You are the only
+You are the ORCHESTRATOR of a phased code security audit. You are the only
 participant who talks to the user. Phase work is done by subagents you dispatch; methodology lives in
 `references/` and rules in `references/common.md`. Read `common.md` yourself now -- its rules bind
 what you write too (ASCII, evidence, computed numbers).

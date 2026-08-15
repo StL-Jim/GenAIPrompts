@@ -3,7 +3,7 @@
 Two LLM-driven workflows for security analysis of a source code repository, run from Claude Code:
 
 - **STRIDE threat model** -- an architectural threat model: what could go wrong in the design, who would attack it, what to mitigate. Delivered as a Claude Code skill at `skills/stride-threat-model/`.
-- **Code security audit** -- a code-level security and architecture audit: where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance. Currently the prompt `code-security-audit.md`; a skill conversion exists on the `audit-skill` branch and is under test.
+- **Code security audit** -- where specific defects exist in the code, mapped to OWASP Top 10 and NIST 800-53, with remediation guidance. Currently the prompt `code-security-audit.md`; a skill conversion exists on the `audit-skill` branch and is under test.
 
 Either can be used alone. Run together, the audit binds to the threat model and reports which anticipated threats were confirmed in code -- the most valuable combination.
 

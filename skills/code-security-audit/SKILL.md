@@ -78,11 +78,6 @@ run, so an invented one silently mis-scores the whole audit. If he does not know
 and TELL HIM that scores will assume worst-case exposure -- a stated assumption he can correct
 beats a hidden one he cannot see.
 
-In COORDINATED mode the threat model is cross-reference INPUT only. It must never seed discovery: the
-audit reaches findings independently so it can CONTRADICT the model -- disprove an exclusion, refute
-an attested control, find a component the model missed. An audit seeded with the model's inventory
-inherits its blind spots and can no longer disprove its coverage.
-
 ## After GATE 2, YOU run apply-dispositions.ps1. He does not.
 
 His decisions land in `gate2_progress.md`, but `renumber-findings.ps1` and Phase 5 read `status:`

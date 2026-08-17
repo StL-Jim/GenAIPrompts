@@ -1,4 +1,4 @@
-<!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
+<!-- SKILL VERSION: v28-skill (2026-08-15) -->
 
 ### Phase 2B -- STRIDE Threat Enumeration
 
@@ -12,7 +12,7 @@ STATE.md is orchestrator-owned. Do not read-modify-write it. Re-read source code
 
 #### Threat Prioritization (apply during enumeration)
 
-Include ONLY threats meeting all six criteria: CRITICAL or HIGH risk severity calculation outcome (exclude Medium/Low); Medium or High likelihood (exclude Low/Very Low); EXPLOITABLE per the already-compromised test below (the attacker gains something the prerequisite did not already give them); realistic based on known attack patterns rather than theoretical exploits; actionable through reasonable controls; and design-level per the test below.
+Include ONLY threats meeting all six criteria: CRITICAL or HIGH risk severity calculation outcome (exclude Medium/Low); Medium or High likelihood (exclude Low/Very Low); EXPLOITABLE per the already-compromised test below (the attacker gains something the prerequisite did not already give them); realistic based on known attack patterns rather than theoretical exploits; actionable through reasonable controls -- weigh the DEFENDER's cost against the risk actually removed, because a control costing weeks that only inconveniences an attacker who already holds infrastructure access is hardening, not a fix; and design-level per the test below.
 
 Design-level test. A threat must be expressible as actor -> path -> asset -> missing or weak control at component, data-flow, or trust-boundary granularity. Litmus: would this finding survive a correct re-implementation of the same design? Design decisions are IN scope -- session lifetime, where the authorization check sits, the identifier scheme, what gets logged, whether a flow is encrypted -- none of them architecture, all of them surviving a rebuild of the same design, and none of them visible to SAST. If rewriting one function without changing any decision eliminates it (an injection in one function, missing sanitization at one handler, a hardcoded secret), it is a code-audit finding, not a threat-model finding -- record it in the Excluded Threats Ledger with reason `Code-level` and move on; the partner code audit consumes that ledger. A present flaw may still anchor a threat when it evidences a systemic gap (e.g., no central parameterization standard on the app-to-data-tier flow): state the threat at the design level and cite the flaw as supporting evidence.
 
@@ -94,20 +94,7 @@ Confirmed and Likely are the only two confidence levels, and both go in the main
 
 The verification effort is bounded: spend the rigor on candidates aiming for Confirmed or Likely. A candidate you cannot ground in the System Map is cheap by definition -- do not burn budget trying to verify it; record it as an `Unverified` ledger row and move on.
 
-Realistic threat assessment -- for each candidate threat, ask:
-1. Is this an OWASP Top 10 item? (If yes, prioritize and tag in the table.)
-2. Has this attack been seen in the wild? (CVE databases, incident reports.)
-3. Is it exploitable given our architecture, not just theoretically possible?
-4. Attacker ROI: effort vs. value of compromise?
-5. Are we a likely target? (Financial and government systems carry higher value.)
-6. Does the implementation effort really buy that much more security? Weigh the DEFENDER's cost against the risk actually removed -- a control costing weeks that only inconveniences an attacker who already holds infrastructure access is hardening, not a fix. (Question 4 asks the same of the attacker's effort; this asks it of yours.)
-7. Do existing controls reduce this to acceptable residual risk? (If yes, exclude -- but ONLY when the control is verified in code or IaC. If the only evidence for the control is a Phase 0 attestation, the candidate is NOT excludable as mitigated: route it to the Excluded Threats Ledger as `Attested-mitigated (unverified)` per Operating Rule 2's attestation asymmetry.)
-
-Categories to NOT include: theoretical attacks with no known exploits; threats already fully mitigated by existing code/IaC-verified controls (attested-only mitigation routes to the ledger as `Attested-mitigated (unverified)` instead); generic vulnerabilities common to all systems (e.g., "DDoS is possible"); out-of-scope threats (physical security, end-user device security).
-
 Prioritize for government/financial systems: authentication bypass and credential theft; authorization failures and privilege escalation; PII/sensitive data exfiltration; supply chain attacks (compromised dependencies); secrets exposure (keys, passwords in logs/code); availability attacks on critical services.
-
-De-prioritize unless specific evidence justifies inclusion: APT requiring nation-state resources; zero-day exploits in third-party managed services (AWS, Login.gov); social engineering of end users; physical attacks on data centers.
 
 #### Phase 2B Work
 

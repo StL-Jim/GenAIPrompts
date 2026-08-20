@@ -106,12 +106,7 @@ V. Never delegate verification to the user. If a run's correctness can be checke
 X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
    a decision only the user can make, STOP, write any partial output to disk, and
    return the question in your completion summary -- the orchestrator relays it.
-   YOU DO WRITE FILES. Every output your phase file names is yours to produce with the
-   Write and Edit tools -- nobody writes them for you, and a phase that returns prose
-   describing what it would have written has failed. Exactly ONE file is off limits:
-   STATE.md is orchestrator-owned, so do not read-modify-write it. That single exception
-   is the entire restriction and it does not generalise to anything else.
-   Your completion summary is <= 15
+   STATE.md is orchestrator-owned. Do not read-modify-write it. Your completion summary is <= 15
    lines of your own prose, EXCLUDING the completion banner and any text your phase
    file instructs you to return verbatim (those are never truncated): the banner,
    files written with byte sizes (tool-computed), any question or warning for the

@@ -133,13 +133,7 @@ large repo: it prints one line per pattern with a match count and elapsed second
 print `SATURATED` on a pervasive pattern -- expected progress, not a failure. Speed there
 is fine; speed in the READING is the warning sign.
 
-Briefing template -- fill the <>, launch as a general-purpose agent, one per phase. Send
-it AS WRITTEN: fill the placeholders, add the table's extra line, and stop. Do not
-summarize or paraphrase the rules it points at. Rule X is addressed to the SUBAGENT, not
-to you, and it contains both a "cannot" (ask the user) and a "do not write" scoped to one
-file (STATE.md) -- restating it in your own words is how a subagent ends up briefed that
-it cannot write files at all, which is the opposite of what rule X says and stops the
-phase producing any output. Point at the rules; do not summarize them.
+Briefing template -- fill the <>, launch as a general-purpose agent, one per phase:
 
     You are executing phase <N> of a STRIDE threat model run.
     SKILL_DIR: <abs>  WORKSPACE: <abs>  PROJECT_NAME: <name>  OUTPUT_ROOT: <abs>

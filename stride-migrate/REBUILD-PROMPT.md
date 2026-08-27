@@ -102,8 +102,6 @@ rules that the orchestrated form replaces, plus five rules that exist only in th
 
 Write it in exactly this order:
 
-    <!-- SKILL VERSION: v25-rebuild (<today's date>) -->
-
     ## Required Inputs
     <-- monolith "## Required Inputs", verbatim -->
 
@@ -146,10 +144,15 @@ throughout the phase files, so renumbering them would break every citation.
 
 ## 5. Build the phase reference files
 
-Each file below starts with the same two lines, then the carved content:
+Each file below starts with this one line, then the carved content:
 
-    <!-- SKILL VERSION: v25-rebuild (<today's date>) -->
     <!-- Read references/common.md before this file. -->
+
+DO NOT put a version stamp in these files, or in common.md. SKILL.md carries the only stamp
+in the skill, and it is the one the orchestrator prints and records in STATE.md. A stamp
+repeated across fifteen files is fifteen things to update on every change and fifteen chances
+to leave one stale -- and a stale stamp is worse than none, because it makes a file look
+current when it is not.
 
 ### phase-0.md
 
@@ -394,13 +397,16 @@ Do all of these and report each result. Do not report success on any check you d
    `phase-1-shared`, `phase-1-reconcile`, `phase-3-html`, `phase-3-csv`, `phase-3-explainer`,
    `phase-3-dispositions`, `partition-manifest`, `archive-compare`. None of those files exist
    in this rebuild. Every hit is a broken pointer.
-4. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
+4. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
+   that may define one is SKILL.md. References inside SKILL.md to "the stamp above" are
+   fine; a stamp line in any references/ file is not.
+5. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
    order given in section 5, and that `check-threats.ps1` expects the same 21 in the same
    order.
-5. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
-6. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
+6. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
+7. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
    either does its job or fails with a clear message -- not with a syntax error.
-7. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
+8. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
    of the scripts through the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`
    form in common.md rule S. This is where rebuilds usually break first.
 

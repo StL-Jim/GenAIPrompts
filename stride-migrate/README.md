@@ -60,7 +60,7 @@ Read Appendix D before running a threat model with it, not after.
 
 ## Verify before trusting
 
-Section 9 of the prompt is a nine-point verification, including two greps for dangling
+Section 9 of the prompt is an eight-point verification, including two greps for dangling
 references -- to dropped operating rules, and to phase files that no longer exist. Editing
 one place without re-reading what points at it is the recurring failure mode on this
 toolchain, so make the agent report each check individually. A rebuild that reports

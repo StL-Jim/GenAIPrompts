@@ -29,20 +29,43 @@ split exists so each phase gets a clean window. Do not collapse phases back toge
 
 ## 1. Preflight -- verify your inputs, then STOP if anything is missing
 
+All three inputs travel with this file. This document lives at `stride-migrate/REBUILD-PROMPT.md`
+in the GenAIPrompts repository, on the `stride-migrate` branch, and the paths below are
+relative to the REPOSITORY ROOT -- the parent of the directory this file is in. Nothing needs
+to be copied anywhere first.
+
 Confirm all four before writing anything. Report what you found.
 
-1. The monolith prompt file. Confirm it contains a line starting `# IDENTITY and PURPOSE`
-   and a line starting `## Phase 4 -- C4 Model and Data Flow Diagrams`. Record its path.
-   Report its version stamp if it has one (expected: v25, dated 2026-08-10).
-2. `render-drawio.ps1`. Confirm it exists and its first lines mention
-   `Phase 4 diagram renderer`.
-3. `validate-drawio.ps1`. Confirm it exists.
-4. The skills directory. Confirm `~/.claude/skills/` exists, or the equivalent on this
+1. **The monolith:** `archive/stride-threat-model-prompt.md`. Confirm it contains a line
+   starting `# IDENTITY and PURPOSE` and one starting
+   `## Phase 4 -- C4 Model and Data Flow Diagrams`. Report its version stamp (expected: v25,
+   dated 2026-08-10).
+2. **The renderer:** `skills/stride-threat-model/scripts/render-drawio.ps1`. Confirm its first
+   lines mention `Phase 4 diagram renderer`. Report its version stamp (expected: v26-skill,
+   2026-08-10a).
+3. **The validator:** `skills/stride-threat-model/scripts/validate-drawio.ps1`.
+4. **The skills directory.** Confirm `~/.claude/skills/` exists, or the equivalent on this
    machine, and report the absolute path you will install to.
 
 If the monolith is missing, STOP -- there is nothing to carve and this rebuild cannot
 proceed. If either .ps1 is missing, STOP and say which; do not attempt to write them
 yourself (see section 7.1 for why).
+
+### YOU WILL SEE EIGHT MORE SCRIPTS. DO NOT COPY THEM.
+
+`skills/stride-threat-model/scripts/` also contains `check-threats.ps1`, `readset.ps1`,
+`sweep.ps1`, `consolidate.ps1`, `init-workspace.ps1`, `manifest.ps1`, `partition-manifest.ps1`
+and `archive-compare.ps1`. They belong to the CURRENT skill, which is a later version than the
+one you are rebuilding, and they are not yours to take.
+
+Six of them you will write yourself from the specifications in Appendix C. Two of them
+(`partition-manifest.ps1`, `archive-compare.ps1`) this rebuild does not use at all.
+
+Copying them instead of writing them is the obvious shortcut and it is wrong here: they are
+built against the current skill's file layout and phase structure, not the v25 structure this
+rebuild produces, so a copied script will reference files that will not exist. If you believe
+copying is nonetheless correct, STOP and say so rather than doing it silently -- that is a
+decision for the person running this, not for you.
 
 
 ## 2. Rules that bind this rebuild

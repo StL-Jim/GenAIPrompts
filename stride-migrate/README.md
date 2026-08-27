@@ -15,10 +15,27 @@ review -- so the rebuild prompt carries all of it verbatim.
 
 ## How to use it
 
-Give `REBUILD-PROMPT.md` to Claude Code on the work machine, with the monolith and the two
-.ps1 files present. It runs a preflight, stops if anything is missing, then writes 16 files.
+Nothing needs to be copied or assembled. All three inputs are already on this branch:
+
+    archive/stride-threat-model-prompt.md                     the v25 monolith
+    skills/stride-threat-model/scripts/render-drawio.ps1      v26, current
+    skills/stride-threat-model/scripts/validate-drawio.ps1
+
+So on the work machine:
+
+    git fetch origin && git checkout stride-migrate
+
+then point Claude Code at `stride-migrate/REBUILD-PROMPT.md`. The preflight checks those three
+paths, stops if any is missing, then writes 16 files.
 
 Expect roughly 16 write approvals.
+
+**One thing the prompt has to fight.** That scripts directory also holds the eight scripts the
+rebuild is supposed to WRITE rather than copy. The obvious shortcut is to copy them, and it is
+wrong -- they belong to the current skill and are built against its file layout, not the v25
+layout this rebuild produces, so a copied script references files that will not exist. The
+preflight names all eight and forbids it explicitly, and tells the agent to stop and ask
+rather than decide otherwise on its own.
 
 ## What you get
 

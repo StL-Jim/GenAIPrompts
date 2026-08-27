@@ -48,8 +48,30 @@ Confirm all four before writing anything. Report what you found.
    machine, and report the absolute path you will install to.
 
 If the monolith is missing, STOP -- there is nothing to carve and this rebuild cannot
-proceed. If either .ps1 is missing, STOP and say which; do not attempt to write them
-yourself (see section 7.1 for why).
+proceed.
+
+**If either .ps1 is missing, do NOT stop, and do NOT write them yourself** (section 7.1 says
+why). They are not inputs to the carve; nothing is derived from their text. They are needed
+for exactly one thing: verifying the Phase 4 data-file schema by round-trip. So continue the
+rebuild, and handle Phase 4 like this:
+
+- Write `phase-4.md` against the schema exactly as given in section 7.1.
+- Mark it plainly, in the file itself, as `SCHEMA UNVERIFIED -- round-trip not run`.
+- Skip the two-node round-trip.
+- In your completion report, state that the renderer was absent, name the deferred check, and
+  give the user this instruction verbatim:
+
+      Copy render-drawio.ps1 and validate-drawio.ps1 into
+      <SKILL_DIR>\scripts\, then ask Claude Code to run the section 7.1
+      round-trip: write a two-node one-edge 04-diagram-data.json, run the
+      renderer, run the validator, and confirm a .drawio file appears and
+      parses. Then remove the SCHEMA UNVERIFIED marker from phase-4.md.
+
+The specific field most likely to be wrong is the EDGE LABEL. The node fields were confirmed
+against the renderer's parsing code; the edge label was inferred from the node handling and
+never confirmed. If it is wrong, flows render as unlabelled arrows -- a diagram that looks
+plausible and is missing information, which is the failure mode worth naming out loud because
+nothing else in the run will flag it.
 
 ### YOU WILL SEE EIGHT MORE SCRIPTS. DO NOT COPY THEM.
 
@@ -370,12 +392,19 @@ The data file schema, confirmed against the renderer's parsing code:
 `kind` and `tier` are closed vocabularies -- a value outside them will not render. The
 renderer computes every coordinate itself; do not put `x`, `y`, `w` or `h` in the data file.
 
-**Verify this schema against the script rather than trusting it.** You have
-`render-drawio.ps1` in front of you; read its `ConvertFrom-Json` section and the node and
-edge handling, and correct the schema above if it differs. Then prove it end to end: write a
-small two-node one-edge data file, run the renderer, run the validator, and confirm a
-`.drawio` file appears and parses. Do that BEFORE you write phase-4.md, so the file you write
-describes something you have actually seen work.
+**Verify this schema against the script rather than trusting it** -- IF the renderer is
+present. Read its `ConvertFrom-Json` section and its node and edge handling, and correct the
+schema above where it differs. Then prove it end to end: write a small two-node one-edge data
+file, run the renderer, run the validator, and confirm a `.drawio` file appears and parses. Do
+that BEFORE you write phase-4.md, so the file you write describes something you have actually
+seen work.
+
+Pay particular attention to the EDGE fields. The node fields above were confirmed against the
+parsing code; the edge label was inferred from the node handling and never confirmed. It is
+the single most likely thing here to be wrong.
+
+If the renderer is NOT present, do not stop and do not invent a substitute -- follow the
+absent-renderer path in section 1.
 
 ### 7.2 The six scripts you are recreating
 
@@ -427,6 +456,8 @@ Do all of these and report each result. Do not report success on any check you d
    order given in section 5, and that `check-threats.ps1` expects the same 21 in the same
    order.
 6. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
+   If the renderer was absent, report that instead -- naming the deferred check, not passing
+   over it. An unrun check is never a passed one.
 7. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
    either does its job or fails with a clear message -- not with a syntax error.
 8. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one

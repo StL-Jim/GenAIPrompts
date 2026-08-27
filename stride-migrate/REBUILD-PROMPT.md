@@ -598,31 +598,41 @@ Two things to check while you are still here, because both are cheap now and ann
 Do all of these and report each result. Do not report success on any check you did not run.
 
 1. **Every file exists and is non-empty.** List the tree with sizes.
-2. **No dangling rule citations.** Grep the reference files for `Rule 1`, `Rule 6`,
+2. **No carried-over harness or orchestration instructions.** The monolith was written for a
+   different harness and for ONE linear agent. Grep the whole tree for each of these and fix
+   every hit: `read_file`, `create_new_file`, `single_find_and_replace`, `Continue.dev`,
+   `Operating Rule 6`, `Operating Rule 7`, `type \`proceed\``, `wait for the user`,
+   `NEW session`, and `update STATE.md`. The first four are tool names that do not exist here;
+   the rest are instructions for an agent that talks to the user and owns STATE.md, which a
+   subagent does neither of. **`update STATE.md` must return exactly ONE hit, in phase-0.md**
+   -- Phase 0 runs in the orchestrator's session. Every other occurrence is a subagent being
+   told to write a file four other agents may be writing at the same time. Replace each with
+   an instruction to report the same information in its completion summary.
+3. **No dangling rule citations.** Grep the reference files for `Rule 1`, `Rule 6`,
    `Rule 7`, `Rule 11`, `Rule 12`, `Continue.dev`, `create_new_file`, `read_file`. Every hit
    is a reference to something this rebuild dropped. Fix each one.
-3. **No dangling file references.** Grep for `phase-1a`, `phase-1b`, `phase-1c`,
+4. **No dangling file references.** Grep for `phase-1a`, `phase-1b`, `phase-1c`,
    `phase-1-shared`, `phase-1-reconcile`, `phase-3-html`, `phase-3-csv`, `phase-3-explainer`,
    `phase-3-dispositions`, `partition-manifest`, `archive-compare`. None of those files exist
    in this rebuild. Every hit is a broken pointer.
-4. **The three post-v25 corrections landed.** Grep the WHOLE references/ directory -- not
+5. **The three post-v25 corrections landed.** Grep the WHOLE references/ directory -- not
    just phase-2b.md -- for `architecture-level`, case-insensitive: it must return NOTHING.
    phase-3.md is the one people miss. Then grep phase-2b.md for `Realistic threat assessment`,
    `Categories to NOT include` and `De-prioritize` -- all three must return nothing -- and
    phase-1.md for `## 4a. Actors`, which must be present. These are the changes a faithful
    carve silently reverts, so checking them is not optional.
-5. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
+6. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
    that may define one is SKILL.md. References inside SKILL.md to "the stamp above" are
    fine; a stamp line in any references/ file is not.
-6. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
+7. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
    order given in section 5, and that `check-threats.ps1` expects the same 21 in the same
    order.
-7. **The renderer round-trips AND the diagram was looked at.** RENDERER-SPEC.md section 11,
+8. **The renderer round-trips AND the diagram was looked at.** RENDERER-SPEC.md section 11,
    every item in its step 4. Report what you saw, not that it ran. "It rendered without error"
    is not an answer to "does any edge cross a component".
-8. **Each script runs.** Invoke each of the eight with a throwaway workspace and confirm it
+9. **Each script runs.** Invoke each of the eight with a throwaway workspace and confirm it
    either does its job or fails with a clear message -- not with a syntax error.
-9. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
+10. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
    of the scripts through the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`
    form in common.md rule S. This is where rebuilds usually break first.
 

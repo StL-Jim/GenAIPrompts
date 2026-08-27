@@ -44,12 +44,13 @@ won't exist. The preflight names all eight and forbids it.
 ## What you get
 
     stride-threat-model/
-      SKILL.md              references/  9 phase files      scripts/  8 scripts
+      SKILL.md              references/  9 files      scripts/  6 or 8 scripts
 
-Six scripts are rebuilt from specification. Two -- the draw.io renderer and its validator --
-are copied, because their correctness lives in about fifty empirically-tuned coordinates
-that only a rendered PNG can confirm. Everything else is checkable against a stated
-contract, which is why it can be respecified rather than transported.
+Six scripts are rebuilt from specification, plus the draw.io renderer and its validator if
+you copied them in -- those two are never regenerated, because their correctness lives in
+about fifty empirically-tuned coordinates that only a rendered PNG can confirm. Everything
+else is checkable against a stated contract, which is why it can be respecified rather than
+transported.
 
 Three scripts are deliberately not rebuilt: `partition-manifest.ps1` (nothing is
 partitioned), `archive-compare.ps1` (needs a prior archived run), `concat-monolith.ps1` (a

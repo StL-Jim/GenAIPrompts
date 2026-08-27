@@ -344,16 +344,27 @@ Source: monolith `## Phase 3 -- Multi-format Export`, in full, including its
 `### 3A -- HTML`, `### 3B -- CSV for Excel` and `### 3C -- Stakeholder Explainer`
 subsections and the `### Phase 3 Disposition Discovery` section.
 
-This single file is dispatched THREE times in parallel, each agent told to produce only one
-of 3A / 3B / 3C. Write the file so that instruction makes sense: each subsection must be
-self-contained enough that an agent can execute it without executing the other two. Add a
-line near the top:
+This single file is dispatched up to FOUR times, each agent told to produce exactly one thing:
+first the disposition MATCHING (alone, only when a dispositions.csv was found), then 3A, 3B
+and 3C in parallel. Write the file so that instruction makes sense: each of the four jobs must
+be self-contained enough that an agent can execute it without executing the others. Add a line
+near the top:
 
-    Your briefing names ONE of the three outputs below. Produce only that one. The other
-    two are being produced in parallel by other agents; do not write their files.
+    Your briefing names ONE job below. Produce only that one. The others are being produced
+    by other agents, some of them at the same time; do not write their files.
 
-Disposition Discovery is the ORCHESTRATOR's job, not this agent's -- it is already specified
-in SKILL.md. Keep the section here for reference but mark it clearly as orchestrator-owned.
+Split the `### Phase 3 Disposition Discovery` section into its two halves, because they have
+different owners:
+
+- The DISCOVERY half -- scanning for archived directories, the Case A / B / C branch, asking
+  the user -- is the ORCHESTRATOR's job and is already specified in SKILL.md. Keep it here for
+  reference and mark it clearly as orchestrator-owned.
+- The MATCHING half -- the matching procedure, the prior-review-outcome rule, and priority
+  revision handling -- is a JOB THIS FILE OWNS. It is the order-5 dispatch, it produces
+  `03-dispositions-matched.md`, and 3A and 3B consume that file rather than re-deriving it.
+
+Keep those separate and say which is which. Matching done twice by two agents can come out two
+different ways, and then the HTML and the CSV disagree about the same threat.
 
 ### phase-4.md
 
@@ -665,10 +676,16 @@ specification along with why.
     | 2 | phase-2a.md | -- | -- |
     | 3 | phase-2b.md | -- | -- |
     | 4 | phase-2c.md | -- | -- |
-    | 5 | phase-3.md | B (with the other two 3s, and 4) | Produce ONLY section 3A (HTML). Do not write the CSV or the explainer. |
-    | 5 | phase-3.md | B | Produce ONLY section 3B (CSV). Do not write the HTML or the explainer. |
-    | 5 | phase-3.md | B | Produce ONLY section 3C (stakeholder explainer). Do not write the HTML or the CSV. |
-    | 5 | phase-4.md | B | -- |
+    | 5 | phase-3.md | -- (only if a dispositions.csv was found) | Produce ONLY the disposition MATCHING described in Phase 3 Disposition Discovery. Write 03-dispositions-matched.md and nothing else -- no HTML, no CSV, no explainer. Dispositions file: <path> |
+    | 6 | phase-3.md | B (with the other two 3s, and 4) | Produce ONLY section 3A (HTML). Do not write the CSV or the explainer. If 03-dispositions-matched.md exists, apply it. |
+    | 6 | phase-3.md | B | Produce ONLY section 3B (CSV). Do not write the HTML or the explainer. If 03-dispositions-matched.md exists, apply it. |
+    | 6 | phase-3.md | B | Produce ONLY section 3C (stakeholder explainer). Do not write the HTML or the CSV. 03-dispositions-matched.md does NOT apply here -- this file explains threats, not dispositions. |
+    | 6 | phase-4.md | B | -- |
+
+    Order 5 exists so the matching is done ONCE. Do not let 3A and 3B each match the raw
+    dispositions.csv themselves: two agents matching the same file independently can reach
+    different answers, and then the HTML and the CSV report different dispositions for the
+    same threat, with nothing downstream to catch it.
 
     Launch a parallel group's agents in ONE message (multiple Agent calls). Wait for every
     member before the next step. Groups write disjoint files; only you write STATE.md.
@@ -770,15 +787,18 @@ specification along with why.
       - Case B (at least one matched directory has a dispositions.csv): pick the most
         recently modified one and report -- "Phase 3 Disposition Discovery: found
         dispositions.csv at <relative path> (last modified <timestamp>, <N> disposition
-        entries). Applying matched dispositions to exports." -- then pass that file's path
-        to the 3A and 3B agents in their briefing.
+        entries). Applying matched dispositions to exports." -- then dispatch the order-5
+        MATCHING agent with that file's path, and wait for it before launching group B.
       - Case C (matched directories exist but none has a dispositions.csv): ASK THE USER
         for a path or an explicit skip -- never skip silently. If the user supplies a
         path, VALIDATE it (expected header row, at least one data row) before passing it
         on; if invalid, re-prompt with the specific error. Only an explicit user
         instruction to proceed without disposition data skips validation.
+      In Case C, a user-supplied path goes to the same order-5 matching agent once validated.
       Dispositions apply to 3A (HTML) and 3B (CSV). They do NOT apply to 3C -- the
-      explainer explains threats, not dispositions.
+      explainer explains threats, not dispositions. Where no dispositions file was found at
+      all, skip order 5 entirely and dispatch group B directly; 03-dispositions-matched.md
+      simply will not exist, and 3A and 3B are already written to handle that.
       GATE 3 has already passed at this point; after discovery, dispatch group B.
     - Phase 4 return: paste the validation output from the agent's banner verbatim. If any
       file reports PARSE FAIL or nonzero bad refs, re-dispatch phase-4 for the failing

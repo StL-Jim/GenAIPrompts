@@ -35,6 +35,7 @@ skill will be written. The expected layout at the start:
 
     BUILD_ROOT/
       REBUILD-PROMPT.md              this file
+      RENDERER-SPEC.md               the Phase 4 renderer specification
       archive/
         stride-threat-model-prompt.md
 
@@ -58,13 +59,12 @@ dated 2026-08-10). If the stamp says anything other than v25, STOP and report it
 specification's section 5 split map was written against v25 and its heading anchors may not
 match another version.
 
-**Input 2 -- the renderer.** `render-drawio.ps1`; its first lines mention
-`Phase 4 diagram renderer`. Report its version stamp (expected: v26-skill, 2026-08-10a).
-OPTIONAL -- see the absent-renderer path below.
+**Input 2 -- the renderer specification.** `RENDERER-SPEC.md`, in BUILD_ROOT alongside this
+file. It specifies `render-drawio.ps1` and `validate-drawio.ps1`, which you BUILD -- they are
+not copied from anywhere. Confirm it is present and that it contains a section headed
+`## 9. The six defects`. REQUIRED: without it Phase 4 produces no diagrams.
 
-**Input 3 -- the validator.** `validate-drawio.ps1`. OPTIONAL, same.
-
-**Input 4 -- the build target.** There is nothing to confirm here, only to state: you will
+**Input 3 -- the build target.** There is nothing to confirm here, only to state: you will
 create `BUILD_ROOT/stride-threat-model/` and write the whole skill inside it. Report that
 absolute path.
 
@@ -76,46 +76,14 @@ outside BUILD_ROOT puts files somewhere the user's version control cannot see th
 If the monolith is missing, STOP -- there is nothing to carve and this rebuild cannot
 proceed.
 
-**If either .ps1 is missing, do NOT stop, and do NOT write them yourself** (section 7.1 says
-why). They are not inputs to the carve; nothing is derived from their text. They are needed
-for exactly one thing: verifying the Phase 4 data-file schema by round-trip. So continue the
-rebuild, and handle Phase 4 like this:
+**The two Phase 4 scripts are BUILT, not copied.** `RENDERER-SPEC.md` specifies both
+`render-drawio.ps1` and `validate-drawio.ps1` in full: the input contract, the geometry
+constants, the five-stage layout algorithm, edge routing, and a catalogue of six defects that
+were found only by rendering a diagram and looking at it. Build them per that document and
+prove them by its section 11.
 
-- Write `phase-4.md` against the schema exactly as given in section 7.1.
-- Mark it plainly, in the file itself, as `SCHEMA UNVERIFIED -- round-trip not run`.
-- Skip the two-node round-trip.
-- In your completion report, state that the renderer was absent, name the deferred check, and
-  give the user this instruction verbatim:
-
-      Copy render-drawio.ps1 and validate-drawio.ps1 into
-      <SKILL_DIR>\scripts\, then ask Claude Code to run the section 7.1
-      round-trip: write a two-node one-edge 04-diagram-data.json, run the
-      renderer, run the validator, and confirm a .drawio file appears and
-      parses. Then remove the SCHEMA UNVERIFIED marker from phase-4.md.
-
-The specific field most likely to be wrong is the EDGE LABEL. The node fields were confirmed
-against the renderer's parsing code; the edge label was inferred from the node handling and
-never confirmed. If it is wrong, flows render as unlabelled arrows -- a diagram that looks
-plausible and is missing information, which is the failure mode worth naming out loud because
-nothing else in the run will flag it.
-
-### IF YOU CAN SEE EIGHT MORE SCRIPTS, DO NOT COPY THEM.
-
-This applies only when you found the .ps1 files inside a full checkout of the GenAIPrompts
-repository. In that case `skills/stride-threat-model/scripts/` also contains
-`check-threats.ps1`, `readset.ps1`, `sweep.ps1`, `consolidate.ps1`, `init-workspace.ps1`,
-`manifest.ps1`, `partition-manifest.ps1` and `archive-compare.ps1`. They belong to the CURRENT
-skill, which is a later version than the one you are rebuilding, and they are not yours to
-take.
-
-Six of them you will write yourself from the specifications in Appendix C. Two of them
-(`partition-manifest.ps1`, `archive-compare.ps1`) this rebuild does not use at all.
-
-Copying them instead of writing them is the obvious shortcut and it is wrong here: they are
-built against the current skill's file layout and phase structure, not the v25 structure this
-rebuild produces, so a copied script will reference files that will not exist. If you believe
-copying is nonetheless correct, STOP and say so rather than doing it silently -- that is a
-decision for the person running this, not for you.
+Do not attempt to write them from section 7.1 alone -- section 7.1 gives you the data-file
+schema and nothing about geometry.
 
 
 ## 2. Rules that bind this rebuild
@@ -132,7 +100,7 @@ decision for the person running this, not for you.
   against.
 - **ASCII only, and no markdown emphasis in .md output.** This is Operating Rule 14 and it
   binds the files you are writing, not just the files the skill later produces.
-- **Count the writes.** This rebuild produces 16 files. Each is one write. Do not split a
+- **Count the writes.** This rebuild produces 18 files. Each is one write. Do not split a
   file across multiple writes, and do not write a file twice to "fix it up" -- get it right
   in one pass.
 
@@ -144,6 +112,7 @@ monolith from. Nothing is written outside BUILD_ROOT.
 
     BUILD_ROOT/
       REBUILD-PROMPT.md                 (this file, already here)
+      RENDERER-SPEC.md                  (already here)
       archive/                          (the monolith, already here)
       stride-threat-model/              <- everything below is what you create
         SKILL.md                      <- section 6, Appendix A
@@ -158,8 +127,8 @@ monolith from. Nothing is written outside BUILD_ROOT.
           phase-3.md                  <- section 5
           phase-4.md                  <- section 5, and see 7.1
         scripts/
-          render-drawio.ps1           <- COPY if present. Never regenerate.
-          validate-drawio.ps1         <- COPY if present. Never regenerate.
+          render-drawio.ps1           <- RENDERER-SPEC.md
+          validate-drawio.ps1         <- RENDERER-SPEC.md
           init-workspace.ps1          <- section 7, spec C-1
           manifest.ps1                <- section 7, spec C-2
           readset.ps1                 <- section 7, spec C-3
@@ -529,7 +498,7 @@ Keep from the monolith everything that is NOT geometry: which four diagrams are 
 what belongs in each, how components map to tiers, which flows are drawn, and the AI-generation
 notice required by Rule 16.
 
-The data file schema, confirmed against the renderer's parsing code:
+The data file schema, taken from every field the renderer actually reads:
 
     {
       "diagrams": [
@@ -539,35 +508,52 @@ The data file schema, confirmed against the renderer's parsing code:
           "notes": ["<optional free-text note lines, rendered in a NOTES box>"],
           "nodes": [
             { "id": "<unique within this diagram>",
-              "label": "<display name>",
+              "label": "<display name, rendered bold>",
               "kind":  "component | store | external | actor | process | dfdstore",
-              "tier":  "ACTORS | EDGE | APPLICATION | DATA | SECURED | EXTERNAL" }
+              "tier":  "ACTORS | EDGE | APPLICATION | DATA | SECURED | EXTERNAL",
+              "tech":  "<optional technology, renders as [Container: <tech>]>",
+              "description": "<optional one-line description>",
+              "threat": "<optional P1 or P2 -- red or orange border>" }
           ],
           "edges": [
-            { "source": "<node id>", "target": "<node id>", "label": "<flow label>" }
+            { "source": "<node id>", "target": "<node id>",
+              "protocol": "<the visible edge LABEL -- note the field name>",
+              "async":  true,
+              "secure": true }
           ]
         }
       ]
     }
 
-`kind` and `tier` are closed vocabularies -- a value outside them will not render. The
-renderer computes every coordinate itself; do not put `x`, `y`, `w` or `h` in the data file.
+`kind`, `tier` and `threat` are closed vocabularies -- a value outside them will not render.
+The renderer computes every coordinate itself; do not put `x`, `y`, `w` or `h` in the data file.
 
-**Verify this schema against the script rather than trusting it** -- IF the renderer is
-present. Read its `ConvertFrom-Json` section and its node and edge handling, and correct the
-schema above where it differs. Then prove it end to end: write a small two-node one-edge data
-file, run the renderer, run the validator, and confirm a `.drawio` file appears and parses. Do
-that BEFORE you write phase-4.md, so the file you write describes something you have actually
-seen work.
+Four of these are easy to get wrong and each one silently degrades the diagram rather than
+failing:
 
-Pay particular attention to the EDGE fields. The node fields above were confirmed against the
-parsing code; the edge label was inferred from the node handling and never confirmed. It is
-the single most likely thing here to be wrong.
+- **The edge label field is `protocol`, not `label`.** Call it `label` and every flow renders
+  unlabelled.
+- **`secure` is tested for FALSINESS, so an absent `secure` renders the edge red and thick** --
+  the "unencrypted or unauthenticated flow" signal. That default is deliberate; an unmarked
+  flow is not an assurance. But it means every protected flow must carry `"secure": true`
+  EXPLICITLY, or the whole diagram comes out red and says nothing.
+- **`threat` is what puts the threat in the threat diagram.** Without it the P1/P2 borders
+  never appear and the diagram is just an architecture drawing.
+- **`tech` and `description` are the second and third label lines.** Omit them and every box
+  shows a bare name, losing the C4 convention the diagrams are built on.
 
-If the renderer is NOT present, do not stop and do not invent a substitute -- follow the
-absent-renderer path in section 1.
+Write `phase-4.md` so the agent populates all of these, not just the required four.
 
-### 7.2 The six scripts you are recreating
+**Prove the schema end to end before writing phase-4.md.** Build the renderer per
+RENDERER-SPEC.md, write the sample data file from its section 11, render it, run the validator,
+and LOOK at the diagram. Only then write phase-4.md, so the file you write describes something
+you have actually seen work.
+
+You are BUILDING the renderer from `RENDERER-SPEC.md`, so this verification is not optional
+and cannot be deferred: build it, render the sample from RENDERER-SPEC.md section 11, LOOK at
+the result, and only then write phase-4.md.
+
+### 7.2 The eight scripts you are writing
 
 Specs are in Appendix C. These six differ from the renderer in a way that matters: their
 correctness is checkable against a stated contract. `check-threats.ps1` either flags a row
@@ -631,10 +617,10 @@ Do all of these and report each result. Do not report success on any check you d
 6. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
    order given in section 5, and that `check-threats.ps1` expects the same 21 in the same
    order.
-7. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
-   If the renderer was absent, report that instead -- naming the deferred check, not passing
-   over it. An unrun check is never a passed one.
-8. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
+7. **The renderer round-trips AND the diagram was looked at.** RENDERER-SPEC.md section 11,
+   every item in its step 4. Report what you saw, not that it ran. "It rendered without error"
+   is not an answer to "does any edge cross a component".
+8. **Each script runs.** Invoke each of the eight with a throwaway workspace and confirm it
    either does its job or fails with a clear message -- not with a syntax error.
 9. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
    of the scripts through the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`

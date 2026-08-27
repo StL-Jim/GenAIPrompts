@@ -19,20 +19,23 @@ Create a repository at work for this one skill, and copy two things into it:
 
     <work-repo>/
       REBUILD-PROMPT.md                    from stride-migrate/
+      RENDERER-SPEC.md                     from stride-migrate/
       archive/
         stride-threat-model-prompt.md      from archive/
 
 Then point Claude Code at `REBUILD-PROMPT.md`. It creates `stride-threat-model/` beside those,
-inside the repo, and writes 16 files there. Expect roughly 16 write approvals.
+inside the repo, and writes 18 files there. Expect roughly 18 write approvals.
 
 Everything is relative to the directory holding `REBUILD-PROMPT.md`. **The prompt writes
 nothing outside it** -- no `~/.claude/skills/`, no symlinks, no install step. You get a tracked
 source tree and install from it on your own terms. It also won't stage or commit anything; it
 just reports what's untracked at the end.
 
-Optionally copy `render-drawio.ps1` and `validate-drawio.ps1` in as well. They aren't required
--- nothing is derived from them -- but see the Phase 4 note below for what's deferred if they
-aren't there. A missing monolith DOES stop the rebuild; there's nothing to carve without it.
+**No PowerShell is copied.** `RENDERER-SPEC.md` specifies the draw.io renderer and its
+validator in full -- input contract, geometry constants, the five-stage layout algorithm, edge
+routing, and a catalogue of the six defects that were only ever found by rendering a diagram
+and looking at it. The rebuild builds both from that document. A missing monolith DOES stop the
+rebuild; there's nothing to carve without it.
 
 **If you build inside a full GenAIPrompts checkout instead**, the prompt handles that layout
 too, and it has to fight one thing: `skills/stride-threat-model/scripts/` holds the eight
@@ -44,13 +47,13 @@ won't exist. The preflight names all eight and forbids it.
 ## What you get
 
     stride-threat-model/
-      SKILL.md              references/  9 files      scripts/  6 or 8 scripts
+      SKILL.md              references/  9 files      scripts/  8 scripts
 
-Six scripts are rebuilt from specification, plus the draw.io renderer and its validator if
-you copied them in -- those two are never regenerated, because their correctness lives in
-about fifty empirically-tuned coordinates that only a rendered PNG can confirm. Everything
-else is checkable against a stated contract, which is why it can be respecified rather than
-transported.
+All eight scripts are built from specification. Six have contracts simple enough that meeting
+the contract is the whole job. The renderer and its validator are the hard pair -- their
+correctness lives in about fifty tuned coordinates -- which is why they get a document of their
+own, ending in a section that makes the agent render a sample and look at it before writing
+`phase-4.md`.
 
 Three scripts are deliberately not rebuilt: `partition-manifest.ps1` (nothing is
 partitioned), `archive-compare.ps1` (needs a prior archived run), `concat-monolith.ps1` (a
@@ -71,13 +74,12 @@ has the agent emit `04-diagram-data.json` (classification only) for the script t
 The JSON schema is in section 7.1, and the prompt instructs the agent to verify it against
 the script and prove it round-trips before writing `phase-4.md`.
 
-That round-trip is the only thing the two scripts are needed for during the rebuild. If they
-are absent, the rebuild continues, writes `phase-4.md` against the schema as given, and marks
-it `SCHEMA UNVERIFIED` inside the file -- then hands back an instruction to run the round-trip
-once you have copied them into `scripts/`. **Do run it.** The node fields were confirmed
-against the renderer's parsing code, but the EDGE LABEL was inferred and never confirmed. If
-it is wrong, flows render as unlabelled arrows: a diagram that looks plausible and is quietly
-missing information, which nothing else in the run will catch.
+The data-file schema in section 7.1 lists every field the renderer reads. Four of them degrade
+the diagram silently rather than failing if you get them wrong: the edge label field is called
+`protocol` (not `label`); `secure` is tested for falsiness, so an absent `secure` renders the
+edge red and thick; `threat` is what puts the P1/P2 borders on a threat diagram at all; and
+`tech`/`description` are the second and third label lines that make a box C4 rather than a bare
+name.
 
 ## What this is not
 

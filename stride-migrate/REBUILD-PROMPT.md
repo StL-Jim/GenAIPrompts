@@ -375,6 +375,106 @@ Source: monolith `## Phase 4 -- C4 Model and Data Flow Diagrams (draw.io)`, plus
 the rewrite is the whole point of carrying the renderer over.** See section 7.1.
 
 
+### Post-v25 corrections -- APPLY THESE WHILE CARVING, not afterwards
+
+The monolith was frozen at v25 and the skill kept moving. Most of what changed after it lives
+in SKILL.md, which you are writing from Appendix A rather than carving, so it comes across
+intact. Three changes do NOT, and carving the monolith faithfully would silently REVERT them.
+These were measured against the current skill, not guessed.
+
+Apply each one as you write the file named.
+
+**(1) phase-2b.md -- the exclusion test is DESIGN-level, not ARCHITECTURE-level.**
+
+The monolith says `Architecture-level test` in six places; the current skill says
+`design-level` in nine and the older wording nowhere. This is not a rename. The old test
+excluded anything that was not architecture, which threw away design decisions that no SAST
+tool will ever find. REPLACE the monolith's `Architecture-level test.` paragraph with this,
+verbatim:
+
+    Design-level test. A threat must be expressible as actor -> path -> asset -> missing or
+    weak control at component, data-flow, or trust-boundary granularity. Litmus: would this
+    finding survive a correct re-implementation of the same design? Design decisions are IN
+    scope -- session lifetime, where the authorization check sits, the identifier scheme, what
+    gets logged, whether a flow is encrypted -- none of them architecture, all of them
+    surviving a rebuild of the same design, and none of them visible to SAST. If rewriting one
+    function without changing any decision eliminates it (an injection in one function,
+    missing sanitization at one handler, a hardcoded secret), it is a code-audit finding, not
+    a threat-model finding -- record it in the Excluded Threats Ledger with reason `Code-level`
+    and move on; the partner code audit consumes that ledger. A present flaw may still anchor
+    a threat when it evidences a systemic gap (e.g., no central parameterization standard on
+    the app-to-data-tier flow): state the threat at the design level and cite the flaw as
+    supporting evidence.
+
+Then replace every remaining `architecture-level` in the file with `design-level`, and check
+that no sentence still says a threat must be architectural.
+
+**(2) phase-2b.md -- DELETE three filter passages the monolith still carries.**
+
+A later revision removed these as superseded; the monolith predates that and still has them.
+Carving faithfully puts them back, and they over-filter -- they restate tests that already
+exist elsewhere in the file, so a candidate can be killed twice by the same rule wearing two
+names. Delete, and do not replace:
+
+- the `Realistic threat assessment` question list
+- the `Categories to NOT include` list
+- the `De-prioritize` list
+
+The inclusion criteria, the exploitability test, the design-level test and the L3/L4 cap
+remain and are sufficient. If deleting these leaves a dangling reference, fix the reference --
+do not restore the passage.
+
+**(3) phase-1.md -- ADD section 4a, Actors. The monolith has no such section.**
+
+Actors exist only in the skill. Without them the context diagram has no one on it, every
+ThreatAgent is invented rather than traced, and Phase 2B's L0-L4 prerequisite levels are a
+claim about nothing. Insert this between section 4 (External Integrations) and section 5
+(Trust Boundaries) of the Architectural Inventory schema, verbatim:
+
+    ## 4a. Actors
+
+    Human and machine principals that reach this system's OWN entry points while it is
+    RUNNING. A principal that only BUILDS, DEPLOYS, HOSTS or OPERATES the system -- CI/CD
+    pipelines, deployment credentials, cluster RBAC, registry or secret-store permissions --
+    is not an actor however much power it holds: if it vanished, the system would stop being
+    UPDATED, not stop SERVING. Actors are NOT components -- they do not process, store or
+    mediate this system's data; they are the principals on the far side of its entry points --
+    so they take their own ID space and are not walked in Phase 2B.
+
+    They are recorded because three things downstream need them and currently have nowhere to
+    look: the context diagram draws every actor class, every threat names a ThreatAgent, and
+    Phase 2B's L0-L4 prerequisite privilege levels are a claim about WHICH actor is assumed.
+    An actor list that exists only as prose in the System Restatement cannot serve any of them
+    -- field symptom: context diagrams with no user on them at all, because the diagram spec
+    said "every human actor class from the inventory" and the inventory had no such section.
+
+    Each actor gets a stable ID: `A-<NNN>`, assigned by the same fixed-sort rule (discover all
+    first, sort alphabetically by canonical name, then number).
+
+    ### A-001: <Actor Name>
+    - Type: (anonymous-public | authenticated-user | privileged-user |
+      application-administrator | operator | service-account | partner-system | ...)
+    - Privilege level: (L0 unauthenticated | L1 authenticated ordinary user | L2
+      privileged/application administrator | L3 infrastructure access | L4 infrastructure
+      administrator) -- the SAME scale Phase 2B's ThreatAgent suffix uses, so a threat's
+      prerequisite can be traced to a real actor class rather than invented
+    - Reaches: which components it can talk to directly, by C-NNN
+    - Authenticates via: (session cookie | OIDC/SSO | API key | mTLS | none | ...)
+    - Evidence: [evidence: src/auth/roles.go:20-58]
+
+    Derive actors from what the code and docs actually show -- authentication roles and claim
+    types, endpoints with differing authorization requirements, admin interfaces, service
+    accounts that CALL this system's interfaces, and the Q6a platform profile for principals
+    the platform interposes in the request path. An application with an admin UI and a public
+    page has at least two actor classes; recording only "user" undercounts in exactly the way
+    that recording only active services undercounts components. If the system is
+    internet-facing, an `anonymous-public` L0 actor exists whether or not any code names it.
+
+Report all three as applied in your completion summary. If you could not apply one -- because
+the passage it names is not in your copy of the monolith -- say so explicitly rather than
+passing over it.
+
+
 ## 6. Build SKILL.md
 
 Write it exactly as given in Appendix A. Do not paraphrase it and do not reorder it. The
@@ -503,18 +603,22 @@ Do all of these and report each result. Do not report success on any check you d
    `phase-1-shared`, `phase-1-reconcile`, `phase-3-html`, `phase-3-csv`, `phase-3-explainer`,
    `phase-3-dispositions`, `partition-manifest`, `archive-compare`. None of those files exist
    in this rebuild. Every hit is a broken pointer.
-4. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
+4. **The three post-v25 corrections landed.** Grep phase-2b.md for `Architecture-level` and
+   for `Realistic threat assessment`, `Categories to NOT include`, `De-prioritize` -- all four
+   must return NOTHING. Grep phase-1.md for `## 4a. Actors` -- it must be present. These are
+   the changes a faithful carve silently reverts, so checking them is not optional.
+5. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
    that may define one is SKILL.md. References inside SKILL.md to "the stamp above" are
    fine; a stamp line in any references/ file is not.
-5. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
+6. **The threat table schema is intact.** Confirm phase-2b.md lists all 21 columns in the
    order given in section 5, and that `check-threats.ps1` expects the same 21 in the same
    order.
-6. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
+7. **The renderer round-trips.** The two-node test from 7.1, if you have not already done it.
    If the renderer was absent, report that instead -- naming the deferred check, not passing
    over it. An unrun check is never a passed one.
-7. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
+8. **Each script runs.** Invoke each of the six with a throwaway workspace and confirm it
    either does its job or fails with a clear message -- not with a syntax error.
-8. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
+9. **Shell form.** If your shell is bash rather than PowerShell, confirm you can invoke one
    of the scripts through the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`
    form in common.md rule S. This is where rebuilds usually break first.
 
@@ -1071,7 +1175,15 @@ truncation here loses threats after every gate has passed.
 Say this to the user when you report completion, so they know what they have.
 
 This is a **v25-era rebuild**. The skill it is reconstructed from continued to change after
-the monolith was frozen on 2026-08-10. Not included:
+the monolith was frozen on 2026-08-10 -- 19 commits' worth.
+
+Most of that landed in SKILL.md, which you wrote from Appendix A rather than carving, so it is
+present: the GATE 3 rewording, the dispatch and briefing changes, the write-capability fix,
+the version-stamp cut. Three further changes were identified by measuring the current skill
+against the monolith and are applied as the section 5 post-v25 corrections: the design-level
+test, the deleted filter passages, and section 4a Actors.
+
+What remains genuinely absent:
 
 1. **Parallel Phase 1.** The newer skill splits Phase 1 across three agents over a
    partitioned manifest and merges with a reconcile agent. Deliberately dropped -- see

@@ -261,7 +261,8 @@ STATE.md updated: Phase 1 marked done.
 Type 'proceed' to begin Phase 2 (Risk Prioritization).
 ```
 
-STOP===== END FILE: references/phase-1-discovery.md
+STOP
+===== END FILE: references/phase-1-discovery.md
 
 ===== BEGIN FILE: references/phase-2.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -402,7 +403,8 @@ STATE.md updated: Phase 2 marked done.
 Type 'proceed' to begin Phase 3A for partition '<first_partition_id>'.
 ```
 
-STOP===== END FILE: references/phase-2.md
+STOP
+===== END FILE: references/phase-2.md
 
 ===== BEGIN FILE: references/phase-3a.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -795,7 +797,8 @@ Resume Instruction set to: <the instruction written in the state update above>
 Type 'proceed' to continue.
 ```
 
-STOP===== END FILE: references/phase-3a.md
+STOP
+===== END FILE: references/phase-3a.md
 
 ===== BEGIN FILE: references/phase-4a.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -946,7 +949,8 @@ Resume Instruction set to: <the instruction written in the state update above>
 Type 'proceed' to continue.
 ```
 
-STOP===== END FILE: references/phase-4a.md
+STOP
+===== END FILE: references/phase-4a.md
 
 ===== BEGIN FILE: references/phase-3b-4b.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -1104,7 +1108,8 @@ STATE.md updated: Phase 3B/4B marked done.
 Type 'proceed' to begin Phase 5 (Consolidation).
 ```
 
-STOP===== END FILE: references/phase-3b-4b.md
+STOP
+===== END FILE: references/phase-3b-4b.md
 
 ===== BEGIN FILE: references/phase-5.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -1584,7 +1589,8 @@ STATE.md updated: Phase 5 marked done, Phase 6 not_applicable.
 The audit is complete.
 ```
 
-STOP===== END FILE: references/phase-5.md
+STOP
+===== END FILE: references/phase-5.md
 
 ===== BEGIN FILE: references/phase-6.md
 <!-- SKILL VERSION: v2-skill (2026-08-14a) -->
@@ -1754,5 +1760,6 @@ STATE.md updated: Phase 6 marked done.
 The audit is complete.
 ```
 
-STOP===== END FILE: references/phase-6.md
+STOP
+===== END FILE: references/phase-6.md
 

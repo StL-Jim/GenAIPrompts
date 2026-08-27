@@ -880,7 +880,8 @@ For each service or partition infer:
 - trust-boundary relevance
 - blast radius
 
----===== END FILE: references/global-rules.md
+---
+===== END FILE: references/global-rules.md
 
 ===== BEGIN FILE: references/tool-usage.md
 Reading note: `create_new_file` and `single_find_and_replace` below are the source prompt's
@@ -1106,5 +1107,6 @@ Note: the first example scores at the ceiling; most real Critical/High findings 
 
 Use explicit reasoning in findings; do not hand-wave the score.
 
----===== END FILE: references/schemas.md
+---
+===== END FILE: references/schemas.md
 

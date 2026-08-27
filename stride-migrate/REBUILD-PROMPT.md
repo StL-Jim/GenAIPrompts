@@ -601,7 +601,7 @@ Do all of these and report each result. Do not report success on any check you d
 2. **No carried-over harness or orchestration instructions.** The monolith was written for a
    different harness and for ONE linear agent. Grep the whole tree for each of these and fix
    every hit: `read_file`, `create_new_file`, `single_find_and_replace`, `Continue.dev`,
-   `Operating Rule 6`, `Operating Rule 7`, `type \`proceed\``, `wait for the user`,
+   `Operating Rule 6`, `Operating Rule 7`, the word `proceed`, `wait for the user`,
    `NEW session`, and `update STATE.md`. The first four are tool names that do not exist here;
    the rest are instructions for an agent that talks to the user and owns STATE.md, which a
    subagent does neither of. **`update STATE.md` must return exactly ONE hit, in phase-0.md**

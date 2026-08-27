@@ -38,9 +38,27 @@ correctness is checkable against a stated contract, and section 5 tells you how 
 
 ## 1. Preflight -- verify, then STOP if anything is missing
 
-1. `PART-A-core.md`, `PART-B-phases.md`, `PART-C-review.md` are all present and readable.
-   Report each one's size. Expected, approximately: 67 KB, 118 KB, 37 KB.
-2. The skills directory exists. Report the absolute path you will install to.
+**Everything is relative to the directory containing THIS file.** Call it BUILD_ROOT. It is
+normally the root of a git repository created for this one skill, and it is where the rebuilt
+skill will be written. The expected layout at the start:
+
+    BUILD_ROOT/
+      REBUILD-PROMPT.md      this file
+      PART-A-core.md
+      PART-B-phases.md
+      PART-C-review.md
+
+1. All three PART files are present in BUILD_ROOT and readable. Report each one's size.
+   Expected, approximately: 67 KB, 118 KB, 37 KB. If one is somewhere else, ASK THE USER for
+   the path rather than guessing or searching the filesystem.
+2. **The build target.** Nothing to confirm, only to state: you will create
+   `BUILD_ROOT/code-security-audit/` and write the whole skill inside it. Report that
+   absolute path.
+
+   Do NOT write to `~/.claude/skills/` and do not install anything. This rebuild produces a
+   tracked source tree, not an installation. Making the skill available to Claude Code is a
+   separate step the user handles afterwards, and it is deliberately not your job -- writing
+   outside BUILD_ROOT puts files somewhere the user's version control cannot see them.
 3. PowerShell is available. Run `powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion'`
    and report what it prints. The scripts are PowerShell regardless of what your own shell is.
 
@@ -68,34 +86,42 @@ from anything else -- there is no other source for them on this machine.
 
 ## 3. Target file tree
 
-    code-security-audit/
-      SKILL.md                        <- PART A
-      references/
-        common.md                     <- PART A
-        global-rules.md               <- PART A
-        tool-usage.md                 <- PART A
-        schemas.md                    <- PART A
-        phase-1-discovery.md          <- PART B
-        phase-2.md                    <- PART B
-        phase-3a.md                   <- PART B
-        phase-4a.md                   <- PART B
-        phase-3b-4b.md                <- PART B
-        phase-5.md                    <- PART B
-        phase-6.md                    <- PART B
-        gate-2.md                     <- PART C
-        judge.md                      <- PART C
-        critic.md                     <- PART C
-      scripts/
-        lib-classify.ps1              <- spec S-1   WRITE THIS FIRST
-        manifest.ps1                  <- spec S-2
-        init-workspace.ps1            <- spec S-3
-        partition-plan.ps1            <- spec S-4
-        readplan.ps1                  <- spec S-5
-        merge-findings.ps1            <- spec S-6
-        apply-dispositions.ps1        <- spec S-7
-        score-judge.ps1               <- spec S-8
-        renumber-findings.ps1         <- spec S-9
-        verify-deliverables.ps1       <- spec S-10
+All of it inside BUILD_ROOT, alongside this file and the three PART files. Nothing is written
+outside BUILD_ROOT.
+
+    BUILD_ROOT/
+      REBUILD-PROMPT.md               (this file, already here)
+      PART-A-core.md                  (already here)
+      PART-B-phases.md                (already here)
+      PART-C-review.md                (already here)
+      code-security-audit/            <- everything below is what you create
+        SKILL.md                      <- PART A
+        references/
+          common.md                   <- PART A
+          global-rules.md             <- PART A
+          tool-usage.md               <- PART A
+          schemas.md                  <- PART A
+          phase-1-discovery.md        <- PART B
+          phase-2.md                  <- PART B
+          phase-3a.md                 <- PART B
+          phase-4a.md                 <- PART B
+          phase-3b-4b.md              <- PART B
+          phase-5.md                  <- PART B
+          phase-6.md                  <- PART B
+          gate-2.md                   <- PART C
+          judge.md                    <- PART C
+          critic.md                   <- PART C
+        scripts/
+          lib-classify.ps1            <- spec S-1   WRITE THIS FIRST
+          manifest.ps1                <- spec S-2
+          init-workspace.ps1          <- spec S-3
+          partition-plan.ps1          <- spec S-4
+          readplan.ps1                <- spec S-5
+          merge-findings.ps1          <- spec S-6
+          apply-dispositions.ps1      <- spec S-7
+          score-judge.ps1             <- spec S-8
+          renumber-findings.ps1       <- spec S-9
+          verify-deliverables.ps1     <- spec S-10
 
 
 ## 4. Write the reference files
@@ -106,7 +132,9 @@ Work through PART A, then PART B, then PART C. Each block is delimited:
     ...content...
     ===== END FILE: <relative path>
 
-The markers are not part of the file. The path is relative to `code-security-audit/`.
+The markers are not part of the file. The path in each marker is relative to
+`BUILD_ROOT/code-security-audit/` -- so a block headed `references/phase-2.md` is written to
+`BUILD_ROOT/code-security-audit/references/phase-2.md`.
 
 The source files were checked and none contains either marker, so a marker line inside a
 block is impossible -- if you think you see one, you have lost your place.
@@ -158,11 +186,22 @@ Report the numbers. If the window in use here is not 200,000, redo the arithmeti
 S-5 with the real number and report both the old and new values.
 
 
-## 6. Install
+## 6. Finish in place -- do not install
 
-Place the tree at the skills path from preflight. Confirm the skill is listed and its
-description appears. If it is not listed, check SKILL.md's frontmatter first: the file must
-begin with `---` on line 1 and carry both `name:` and `description:`.
+The tree is already where it belongs: `BUILD_ROOT/code-security-audit/`. There is no install
+step, and you should not perform one. Do not copy the tree to `~/.claude/skills/`, do not
+create symlinks, and do not modify anything outside BUILD_ROOT. The user keeps this under
+version control and installs from it on their own terms; a helpful copy placed elsewhere
+becomes a second, untracked version that drifts silently.
+
+Two checks while you are still here, both cheap now and annoying later:
+
+- **SKILL.md frontmatter.** The file must begin with `---` on line 1 and carry both `name:`
+  and `description:`. That is what makes it loadable as a skill at all, and it is the first
+  thing to be wrong if it later fails to appear.
+- **Git.** If BUILD_ROOT is a git repository, run `git status` and report what is untracked,
+  so the user sees the full set of new files in one place. Do NOT stage, commit, or write a
+  `.gitignore` -- what gets committed is the user's decision, not yours.
 
 
 ## 7. Verify
@@ -648,6 +687,6 @@ scripts, and unevenly:
   says how to redo them.
 - The remaining seven are mechanical: their contracts fully determine them.
 
-**What is NOT included.** `install.ps1` and `install.sh` from the original skill -- you place
-the tree directly, so they have no job here. The archived monolith is also not used, for the
-reason given in section 0.
+**What is NOT included.** `install.ps1` and `install.sh` from the original skill -- this
+rebuild produces a tracked source tree and performs no installation, so they have no job here.
+The archived monolith is also not used, for the reason given in section 0.

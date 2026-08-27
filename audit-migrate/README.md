@@ -36,8 +36,26 @@ that no source file contains the block delimiters before writing.
 
 ## What the agent does with them
 
-Preflight, then 25 writes: 15 markdown files copied out of the PART files, and 10 PowerShell
-scripts written from their specs. Then a seven-point verification.
+Create a repository at work for this one skill and copy all four files into its root:
+
+    <work-repo>/
+      REBUILD-PROMPT.md
+      PART-A-core.md
+      PART-B-phases.md
+      PART-C-review.md
+      code-security-audit/      <- the agent creates this
+
+Then point Claude Code at `REBUILD-PROMPT.md`. Preflight, then 25 writes: 15 markdown files
+copied out of the PART files, and 10 PowerShell scripts written from their specs. Then a
+seven-point verification.
+
+Everything is relative to the directory holding `REBUILD-PROMPT.md`. **The prompt writes
+nothing outside it** -- no `~/.claude/skills/`, no symlinks, no install step. You get a tracked
+source tree and install from it on your own terms. It won't stage or commit anything either;
+it just reports what's untracked at the end.
+
+Same layout as `stride-migrate`, with one difference: there's no `archive/` to copy, because
+the audit rebuild doesn't use the monolith at all.
 
 ## The one thing to check when it's done
 

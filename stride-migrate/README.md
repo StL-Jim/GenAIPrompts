@@ -15,32 +15,31 @@ review -- so the rebuild prompt carries all of it verbatim.
 
 ## How to use it
 
-Nothing needs to be copied or assembled. All three inputs are already on this branch:
+Create a repository at work for this one skill, and copy two things into it:
 
-    archive/stride-threat-model-prompt.md                     the v25 monolith
-    skills/stride-threat-model/scripts/render-drawio.ps1      v26, current
-    skills/stride-threat-model/scripts/validate-drawio.ps1
+    <work-repo>/
+      REBUILD-PROMPT.md                    from stride-migrate/
+      archive/
+        stride-threat-model-prompt.md      from archive/
 
-So on the work machine:
+Then point Claude Code at `REBUILD-PROMPT.md`. It creates `stride-threat-model/` beside those,
+inside the repo, and writes 16 files there. Expect roughly 16 write approvals.
 
-    git fetch origin && git checkout stride-migrate
+Everything is relative to the directory holding `REBUILD-PROMPT.md`. **The prompt writes
+nothing outside it** -- no `~/.claude/skills/`, no symlinks, no install step. You get a tracked
+source tree and install from it on your own terms. It also won't stage or commit anything; it
+just reports what's untracked at the end.
 
-then point Claude Code at `stride-migrate/REBUILD-PROMPT.md`. The preflight checks those three
-paths, then writes 16 files.
+Optionally copy `render-drawio.ps1` and `validate-drawio.ps1` in as well. They aren't required
+-- nothing is derived from them -- but see the Phase 4 note below for what's deferred if they
+aren't there. A missing monolith DOES stop the rebuild; there's nothing to carve without it.
 
-Expect roughly 16 write approvals.
-
-A missing monolith stops the rebuild -- there is nothing to carve without it. A missing
-renderer does NOT: nothing is derived from those two scripts, so the rebuild continues and
-defers one check. See the Phase 4 note below if you plan to copy them in afterwards rather
-than checking out the branch.
-
-**One thing the prompt has to fight.** That scripts directory also holds the eight scripts the
-rebuild is supposed to WRITE rather than copy. The obvious shortcut is to copy them, and it is
-wrong -- they belong to the current skill and are built against its file layout, not the v25
-layout this rebuild produces, so a copied script references files that will not exist. The
-preflight names all eight and forbids it explicitly, and tells the agent to stop and ask
-rather than decide otherwise on its own.
+**If you build inside a full GenAIPrompts checkout instead**, the prompt handles that layout
+too, and it has to fight one thing: `skills/stride-threat-model/scripts/` holds the eight
+scripts the rebuild is supposed to WRITE rather than copy. Copying them is the obvious
+shortcut and it's wrong -- they belong to the current skill and are built against its file
+layout, not the v25 layout this rebuild produces, so a copied script references files that
+won't exist. The preflight names all eight and forbids it.
 
 ## What you get
 

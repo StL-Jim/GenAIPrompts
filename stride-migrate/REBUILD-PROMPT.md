@@ -29,23 +29,49 @@ split exists so each phase gets a clean window. Do not collapse phases back toge
 
 ## 1. Preflight -- verify your inputs, then STOP if anything is missing
 
-All three inputs travel with this file. This document lives at `stride-migrate/REBUILD-PROMPT.md`
-in the GenAIPrompts repository, on the `stride-migrate` branch, and the paths below are
-relative to the REPOSITORY ROOT -- the parent of the directory this file is in. Nothing needs
-to be copied anywhere first.
+**Everything is relative to the directory containing THIS file.** Call it BUILD_ROOT. It is
+normally the root of a git repository created for this one skill, and it is where the rebuilt
+skill will be written. The expected layout at the start:
 
-Confirm all four before writing anything. Report what you found.
+    BUILD_ROOT/
+      REBUILD-PROMPT.md              this file
+      archive/
+        stride-threat-model-prompt.md
 
-1. **The monolith:** `archive/stride-threat-model-prompt.md`. Confirm it contains a line
-   starting `# IDENTITY and PURPOSE` and one starting
-   `## Phase 4 -- C4 Model and Data Flow Diagrams`. Report its version stamp (expected: v25,
-   dated 2026-08-10).
-2. **The renderer:** `skills/stride-threat-model/scripts/render-drawio.ps1`. Confirm its first
-   lines mention `Phase 4 diagram renderer`. Report its version stamp (expected: v26-skill,
-   2026-08-10a).
-3. **The validator:** `skills/stride-threat-model/scripts/validate-drawio.ps1`.
-4. **The skills directory.** Confirm `~/.claude/skills/` exists, or the equivalent on this
-   machine, and report the absolute path you will install to.
+Identify each input by its CONTENT, not its path, and look in this order:
+
+1. `BUILD_ROOT/archive/`.
+2. `BUILD_ROOT/` itself.
+3. If this file happens to sit in a `stride-migrate/` directory inside the GenAIPrompts
+   repository, then also: `../archive/` for the monolith and
+   `../skills/stride-threat-model/scripts/` for the two .ps1 files.
+4. If still not found, ASK THE USER for the path. Do not guess and do not search the whole
+   filesystem.
+
+Report the absolute path of everything you found, so the user can see what you are building
+from.
+
+**Input 1 -- the monolith.** Expected filename `stride-threat-model-prompt.md`, but identify
+it by content: it contains a line starting `# IDENTITY and PURPOSE` and one starting
+`## Phase 4 -- C4 Model and Data Flow Diagrams`. Report its version stamp (expected: v25,
+dated 2026-08-10). If the stamp says anything other than v25, STOP and report it -- this
+specification's section 5 split map was written against v25 and its heading anchors may not
+match another version.
+
+**Input 2 -- the renderer.** `render-drawio.ps1`; its first lines mention
+`Phase 4 diagram renderer`. Report its version stamp (expected: v26-skill, 2026-08-10a).
+OPTIONAL -- see the absent-renderer path below.
+
+**Input 3 -- the validator.** `validate-drawio.ps1`. OPTIONAL, same.
+
+**Input 4 -- the build target.** There is nothing to confirm here, only to state: you will
+create `BUILD_ROOT/stride-threat-model/` and write the whole skill inside it. Report that
+absolute path.
+
+Do NOT write to `~/.claude/skills/` and do not install anything. This rebuild produces a
+tracked source tree, not an installation. Making the skill available to Claude Code is a
+separate step the user handles afterwards, and it is deliberately not your job -- writing
+outside BUILD_ROOT puts files somewhere the user's version control cannot see them.
 
 If the monolith is missing, STOP -- there is nothing to carve and this rebuild cannot
 proceed.
@@ -73,12 +99,14 @@ never confirmed. If it is wrong, flows render as unlabelled arrows -- a diagram 
 plausible and is missing information, which is the failure mode worth naming out loud because
 nothing else in the run will flag it.
 
-### YOU WILL SEE EIGHT MORE SCRIPTS. DO NOT COPY THEM.
+### IF YOU CAN SEE EIGHT MORE SCRIPTS, DO NOT COPY THEM.
 
-`skills/stride-threat-model/scripts/` also contains `check-threats.ps1`, `readset.ps1`,
-`sweep.ps1`, `consolidate.ps1`, `init-workspace.ps1`, `manifest.ps1`, `partition-manifest.ps1`
-and `archive-compare.ps1`. They belong to the CURRENT skill, which is a later version than the
-one you are rebuilding, and they are not yours to take.
+This applies only when you found the .ps1 files inside a full checkout of the GenAIPrompts
+repository. In that case `skills/stride-threat-model/scripts/` also contains
+`check-threats.ps1`, `readset.ps1`, `sweep.ps1`, `consolidate.ps1`, `init-workspace.ps1`,
+`manifest.ps1`, `partition-manifest.ps1` and `archive-compare.ps1`. They belong to the CURRENT
+skill, which is a later version than the one you are rebuilding, and they are not yours to
+take.
 
 Six of them you will write yourself from the specifications in Appendix C. Two of them
 (`partition-manifest.ps1`, `archive-compare.ps1`) this rebuild does not use at all.
@@ -111,27 +139,33 @@ decision for the person running this, not for you.
 
 ## 3. Target file tree
 
-    stride-threat-model/
-      SKILL.md                          <- section 6, Appendix A
-      references/
-        common.md                       <- section 4
-        phase-0.md                      <- section 5
-        phase-0-discovery.md            <- section 5
-        phase-1.md                      <- section 5
-        phase-2a.md                     <- section 5
-        phase-2b.md                     <- section 5
-        phase-2c.md                     <- section 5
-        phase-3.md                      <- section 5
-        phase-4.md                      <- section 5, and see 7.1
-      scripts/
-        render-drawio.ps1               <- COPY the one you have. Do not regenerate.
-        validate-drawio.ps1             <- COPY the one you have. Do not regenerate.
-        init-workspace.ps1              <- section 7, spec C-1
-        manifest.ps1                    <- section 7, spec C-2
-        readset.ps1                     <- section 7, spec C-3
-        sweep.ps1                       <- section 7, spec C-4
-        check-threats.ps1               <- section 7, spec C-5
-        consolidate.ps1                 <- section 7, spec C-6
+All of it inside BUILD_ROOT, alongside this file and the `archive/` directory you read the
+monolith from. Nothing is written outside BUILD_ROOT.
+
+    BUILD_ROOT/
+      REBUILD-PROMPT.md                 (this file, already here)
+      archive/                          (the monolith, already here)
+      stride-threat-model/              <- everything below is what you create
+        SKILL.md                      <- section 6, Appendix A
+        references/
+          common.md                   <- section 4
+          phase-0.md                  <- section 5
+          phase-0-discovery.md        <- section 5
+          phase-1.md                  <- section 5
+          phase-2a.md                 <- section 5
+          phase-2b.md                 <- section 5
+          phase-2c.md                 <- section 5
+          phase-3.md                  <- section 5
+          phase-4.md                  <- section 5, and see 7.1
+        scripts/
+          render-drawio.ps1           <- COPY if present. Never regenerate.
+          validate-drawio.ps1         <- COPY if present. Never regenerate.
+          init-workspace.ps1          <- section 7, spec C-1
+          manifest.ps1                <- section 7, spec C-2
+          readset.ps1                 <- section 7, spec C-3
+          sweep.ps1                   <- section 7, spec C-4
+          check-threats.ps1           <- section 7, spec C-5
+          consolidate.ps1             <- section 7, spec C-6
 
 Three scripts that exist in the newer skill are deliberately NOT rebuilt:
 `partition-manifest.ps1` (nothing is partitioned here -- see section 5, Phase 1),
@@ -428,13 +462,22 @@ Every script takes the same two mandatory parameters unless its spec says otherw
 Exit 0 on success, exit 1 on a failure the caller must act on.
 
 
-## 8. Install
+## 8. Finish in place -- do not install
 
-Place the tree at the skills path you confirmed in preflight. Then verify the skill is
-visible to Claude Code -- list available skills and confirm `stride-threat-model` appears
-with its description. If it does not appear, the frontmatter at the top of SKILL.md is the
-first thing to check: `name:` and `description:` must both be present, and the file must
-begin with the `---` fence on line 1.
+The tree is already where it belongs: `BUILD_ROOT/stride-threat-model/`. There is no install
+step in this rebuild, and you should not perform one. Do not copy the tree to
+`~/.claude/skills/`, do not create symlinks, and do not modify anything outside BUILD_ROOT.
+The user keeps this under version control and installs from it on their own terms; a helpful
+copy placed elsewhere becomes a second, untracked version that drifts silently.
+
+Two things to check while you are still here, because both are cheap now and annoying later:
+
+- **SKILL.md frontmatter.** The file must begin with the `---` fence on line 1 and carry both
+  `name:` and `description:`. This is what makes it loadable as a skill at all, and it is the
+  first thing to be wrong if it later fails to appear.
+- **Git.** If BUILD_ROOT is a git repository, run `git status` and report what is untracked,
+  so the user can see the full set of new files in one place. Do NOT stage, commit, or write
+  a `.gitignore` -- what gets committed is the user's decision, not yours.
 
 
 ## 9. Verify the rebuild

@@ -805,7 +805,15 @@ to `{OUTPUT_ROOT}\00-readset.txt`. A manifest file is in the read set if any of:
 - it is a build or dependency descriptor: `package.json`, `pom.xml`, `*.csproj`, `go.mod`,
   `requirements.txt`, `Cargo.toml`, `Gemfile`, `build.gradle*`, `*.sln`;
 - it is infrastructure: `*.tf`, `*.tfvars`, `Dockerfile*`, `docker-compose*.y*ml`, `*.y*ml`
-  under a `k8s`, `kubernetes`, `helm`, `charts`, `deploy`, or `.github/workflows` path;
+  under a `k8s`, `kubernetes`, `deploy`, or `.github/workflows` path; and Helm matched by its
+  own MARKER FILES -- `Chart.yaml`, a `helm/` directory, or a `templates/` directory beneath a
+  chart -- and NOT by a bare `charts/` prefix.
+
+  That last exclusion is not fussiness. A bare `charts/` prefix was tried in the partner code
+  audit and swept 252 chart DATA files (an astrology application) into the config class, which
+  bulk filtering then had to throw 226 of them back out. A DIRECTORY NAME IS NOT A ROLE; the
+  marker files are. Apply the same principle to any other directory name you are tempted to
+  match on;
 - it is a configuration or secrets-bearing file: `*.env*` (but NOT `*.env.test` /
   `*.env.dev` -- Rule 13 puts non-production out of threat scope), `*.ini`, `*.conf`,
   `*.properties`, `appsettings*.json`.

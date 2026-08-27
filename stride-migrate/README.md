@@ -26,9 +26,14 @@ So on the work machine:
     git fetch origin && git checkout stride-migrate
 
 then point Claude Code at `stride-migrate/REBUILD-PROMPT.md`. The preflight checks those three
-paths, stops if any is missing, then writes 16 files.
+paths, then writes 16 files.
 
 Expect roughly 16 write approvals.
+
+A missing monolith stops the rebuild -- there is nothing to carve without it. A missing
+renderer does NOT: nothing is derived from those two scripts, so the rebuild continues and
+defers one check. See the Phase 4 note below if you plan to copy them in afterwards rather
+than checking out the branch.
 
 **One thing the prompt has to fight.** That scripts directory also holds the eight scripts the
 rebuild is supposed to WRITE rather than copy. The obvious shortcut is to copy them, and it is
@@ -65,6 +70,14 @@ and found only by looking at an exported PNG. So the rebuild deletes the prose g
 has the agent emit `04-diagram-data.json` (classification only) for the script to render.
 The JSON schema is in section 7.1, and the prompt instructs the agent to verify it against
 the script and prove it round-trips before writing `phase-4.md`.
+
+That round-trip is the only thing the two scripts are needed for during the rebuild. If they
+are absent, the rebuild continues, writes `phase-4.md` against the schema as given, and marks
+it `SCHEMA UNVERIFIED` inside the file -- then hands back an instruction to run the round-trip
+once you have copied them into `scripts/`. **Do run it.** The node fields were confirmed
+against the renderer's parsing code, but the EDGE LABEL was inferred and never confirmed. If
+it is wrong, flows render as unlabelled arrows: a diagram that looks plausible and is quietly
+missing information, which nothing else in the run will catch.
 
 ## What this is not
 

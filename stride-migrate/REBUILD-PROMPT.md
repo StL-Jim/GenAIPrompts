@@ -406,8 +406,24 @@ verbatim:
     the app-to-data-tier flow): state the threat at the design level and cite the flaw as
     supporting evidence.
 
-Then replace every remaining `architecture-level` in the file with `design-level`, and check
-that no sentence still says a threat must be architectural.
+Then replace every remaining `architecture-level` with `design-level`, and check that no
+sentence still says a threat must be architectural.
+
+**THE RENAME REACHES TWO FILES, NOT ONE.** In the monolith the phrase appears nine times:
+seven inside the Phase 2B material, and TWO inside `### 3C -- Stakeholder Explainer`, which
+carves into phase-3.md. Missing those two is easy and the result is a report that argues each
+threat is "an architecture-level finding" under a methodology that no longer uses the term --
+the explainer is the document your stakeholders actually read, so it is the worst place for it
+to be stale. In phase-3.md, section 3C:
+
+- `explain why it is an architecture-level finding and not a code-level finding`
+  becomes `explain why it is a design-level finding and not a code-level finding`
+- `the argument you are making for each threat is the architecture-level test the threat had
+  to pass` becomes `... is the design-level test the threat had to pass`
+
+(Note: the current skill reads `an design-level finding` at the first of those, a slip left by
+the original rename. Write `a design-level finding`. This is the one place you should NOT
+match the current skill exactly.)
 
 **(2) phase-2b.md -- DELETE three filter passages the monolith still carries.**
 
@@ -603,10 +619,12 @@ Do all of these and report each result. Do not report success on any check you d
    `phase-1-shared`, `phase-1-reconcile`, `phase-3-html`, `phase-3-csv`, `phase-3-explainer`,
    `phase-3-dispositions`, `partition-manifest`, `archive-compare`. None of those files exist
    in this rebuild. Every hit is a broken pointer.
-4. **The three post-v25 corrections landed.** Grep phase-2b.md for `Architecture-level` and
-   for `Realistic threat assessment`, `Categories to NOT include`, `De-prioritize` -- all four
-   must return NOTHING. Grep phase-1.md for `## 4a. Actors` -- it must be present. These are
-   the changes a faithful carve silently reverts, so checking them is not optional.
+4. **The three post-v25 corrections landed.** Grep the WHOLE references/ directory -- not
+   just phase-2b.md -- for `architecture-level`, case-insensitive: it must return NOTHING.
+   phase-3.md is the one people miss. Then grep phase-2b.md for `Realistic threat assessment`,
+   `Categories to NOT include` and `De-prioritize` -- all three must return nothing -- and
+   phase-1.md for `## 4a. Actors`, which must be present. These are the changes a faithful
+   carve silently reverts, so checking them is not optional.
 5. **Exactly one version stamp.** Grep the whole tree for `SKILL VERSION`. The only file
    that may define one is SKILL.md. References inside SKILL.md to "the stamp above" are
    fine; a stamp line in any references/ file is not.

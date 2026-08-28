@@ -54,6 +54,144 @@ comparison and write up the four sets" is not repaired by removing the word it i
 `common.md` mentions `00-archive-comparison.md` once, in its output-directory listing, marked
 "when one exists". That is a conditional entry in a listing, not an invocation. Leave it.
 
+### Step 1b -- add two blocks to `references/phase-1.md`
+
+`phase-1.md` was produced by merging what the real skill splits across five files, so it
+cannot be drop-in replaced. Two self-contained blocks were lost in that merge and are added
+back here verbatim. Both are methodology, not plumbing.
+
+**Block 1 -- Element Classification.** Insert immediately BEFORE the `### Phase 1A` heading,
+because it binds all three passes. The real file says why it is reproduced rather than
+referenced: *"a partial-pass agent never reads phase-1-reconcile.md."* Without it, Phase 1
+decides component granularity, the DS-vs-EXT test and the secrets convergence rule by
+improvisation, and the three passes converge on nothing.
+
+```
+## Element Classification (binding on all Phase 1 passes)
+
+These definitions are reproduced here in full, not left as a pointer, because a
+partial-pass agent never reads phase-1-reconcile.md. The reconciliation agent later
+expands these same fields into that file's Section 1/2/3/4/5 inventory schema and
+assigns IDs -- classifying against this copy is what keeps partial records merging
+cleanly at reconciliation.
+
+### Component definition
+
+This is the MASTER inventory of architectural elements, and it directly gates threat coverage: Phase 2B walks STRIDE per component, so any element absent here is never threat-modeled. DEFINITION -- every architectural element that PROCESSES, STORES, or MEDIATES this system's data is a component: it gets a C-NNN ID and a Phase 2 STRIDE walk. This explicitly includes data stores, cloud/AWS managed services (S3, DynamoDB, Bedrock, SQS, ...), queues, caches, gateways, and identity providers -- NOT only active-process services. Do NOT undercount by treating data stores or managed services as a lower tier: the Data Stores and External Integrations sections are supplementary attribute detail about elements that ALSO appear as components, keyed to the same C-NNN -- every data store or integration MUST also be recorded as a component. Each architectural element appears exactly once (one C-NNN) and is walked once in Phase 2. (This definition is load-bearing: undercounting components is the single largest cause of incomplete threat enumeration -- a narrow "active-process only" reading has produced 3-4 components where the correct reading produces ~12-13 on the same system.)
+
+### Component granularity rule (parallel-partition convergence)
+
+Because Phase 1 runs as three PARALLEL partition agents, two partitions can classify
+the same code at different granularity -- e.g., the docs partition inferring one
+component per source file, while the source partition groups those same files as one
+component. Apply this rule so partitions converge without needing an adjudicator:
+multiple source modules/files that run inside the SAME deployable unit (one process /
+one container / one Lambda) and share one entry-point boundary are ONE component, not
+several. Split into separate components only when a module is independently
+deployable or has its own distinct entry point (its own HTTP listener, its own
+scheduled trigger, its own service manifest). In-process middleware and helpers (auth
+filters, storage clients, validators) are part of the component they run in --
+recorded via that component's Dependencies and Responsibilities fields, not as their
+own component. (This is consistent with the Component definition above, which keys on
+deployable/entry-pointed architectural elements; it makes explicit what the
+sequential single-agent design left implicit, since one agent deciding alone never
+hit this disagreement.)
+
+### DS-vs-EXT test (including the fetch trap)
+
+DS-vs-EXT TEST (apply it -- do not bin by feel; misclassification is a field-observed failure). Ask ONE question: WHO OPERATES IT? If this system operates the store and its CONTENT belongs to this system, it is a DATA STORE -- even on managed infrastructure (an S3 bucket or DynamoDB table this app owns on AWS is DS). If ANOTHER PARTY operates it and this system is a CLIENT reaching across the network to it, it is an EXTERNAL INTEGRATION -- even if what you do with it is purely read data. THE FETCH TRAP (the exact field failure): a website or API this system SCRAPES or FETCHES FROM (sec.gov, a partner feed, any remote source ingested into a KB or cache) is an EXTERNAL INTEGRATION, never a data store, no matter how one-way or read-only it feels. "We just pull data from it" describes the DIRECTION of a data flow (outbound fetch), not the CATEGORY of the element -- direction is an EXT attribute, not a reason to call it a store. Binning a fetched-from source as a data store is a security error, not a labeling nit: it erases the ingestion CHANNEL from the threat walk, and that channel is where TLS-verification, source-spoofing, and content-poisoning threats live -- for a RAG/KB system, remote-content-into-the-knowledge-base is the marquee threat surface. The fetched data landing somewhere (the KB, a staging bucket) IS a data store -- a SEPARATE element this system owns; record BOTH the external source (EXT) and the landing store (DS), joined by a data flow. When a single element genuinely seems both (a partner-operated store this system writes into), classify as External Integration.
+
+### Attribute fields per element class
+
+Populate these fields for each element you record (omit the ID line -- reconciliation assigns IDs).
+
+Component:
+- Type: (web-app | api-service | worker | database | cache | queue | managed-service | gateway | identity-provider | external-saas | cli | job | lambda | frontend-spa | ...)
+- Language/Framework:
+- Evidence: [evidence: path/to/main.go:1-40]
+- Responsibilities:
+- Entry points:
+- Dependencies (other components): [canonical names -- reconciliation converts these to C-NNN IDs]
+- Data handled: (PII | credentials | financial | health | telemetry | public | ...)
+- Runs as: (user/service account, container, lambda, ...)
+
+Data store:
+- Type: (postgresql | mysql | redis | dynamodb | s3 | elasticsearch | secrets-manager | filesystem | ...)
+- Data classification: (PII | credentials | financial | health | telemetry | public | ...)
+- Encryption at rest: (yes | no | unknown) -- cite IaC evidence
+- Encryption in transit: (yes | no | unknown) -- cite evidence
+- Access pattern: which components read/write, e.g. `read-write from C-003, read-only from C-005`
+- Evidence: [evidence: terraform/rds.tf:1-30]
+
+External integration:
+- Protocol: (HTTPS | gRPC | AMQP | SMTP | TCP | ...)
+- Authentication method: (API key | OAuth client credentials | mTLS | bearer token | basic auth | none | ...)
+- Direction: (inbound | outbound | both)
+- Data exchanged: (brief description and classification)
+- Evidence: [evidence: src/clients/payment_gateway.go:12-44]
+
+Trust boundary evidence:
+- Type: (Internet -> edge (WAF/LB/CDN) | edge -> application tier | application
+  tier -> data tier | application -> external SaaS | privileged admin plane vs.
+  user plane | tenant boundary (if multi-tenant) | build/deploy plane vs.
+  runtime plane | ...) -- a trust boundary exists wherever data crosses between
+  principals with different trust levels; at minimum consider these crossings,
+  and add others found
+- Boundary: (what is on each side of the crossing -- the principals, tiers, or
+  systems involved)
+- Establishing control: (the control that establishes the boundary, e.g. the
+  Terraform security group, the k8s NetworkPolicy) -- or, if none exists, state
+  the absence explicitly
+- Evidence: [evidence: path/to/terraform/security_group.tf:1-20]
+
+Documentation artifact:
+- Path:
+- Type: (design-doc | readme | adr | openapi | api-contract | diagram | other)
+- Key architectural assertions: (components, protocols, data stores, and
+  integrations named in the artifact)
+- Date: (if available)
+- Evidence: [evidence: docs/architecture.md]
+
+### Secrets and credentials (NOT a separate element class -- convergence rule)
+A secret, credential, key, or token surface (an API key, a shared auth secret, a
+cloud access key, a DB password, a bearer/session token) is NEVER its own element
+and NEVER gets a C-NNN/DS-NNN. Parallel partitions must handle these identically or
+they diverge (one agent componentizes a key, another folds it in -- a field-observed
+split). The rule: record each secret surface as a `Secrets referenced:` line on the
+component, data store, or trust-boundary-evidence element that OWNS, HOLDS, or USES it,
+naming the secret by its concrete identity with evidence (e.g. `Secrets referenced:
+AUTH_SECRET (shared static bearer secret) [evidence: services/api/auth.py:1]`). List
+every secret surface this way -- do not drop it and do not promote it to an element.
+The reconciliation agent keeps these attributes on their owning elements; Phase 2A's
+Secrets asset floor enumerates them from there, so a secret that is never listed on any
+element silently vanishes from the threat model.
+```
+
+**Block 2 -- attested in-path elements.** Insert into the `## 2. Components` section. Without
+it, a WAF or API gateway the user attested in Phase 0 Q3/Q6a never becomes a component, so
+the path from the edge to the application has a hole in it and no data flow crosses the
+control that is actually there.
+
+```
+ATTESTED IN-PATH ELEMENTS ARE COMPONENTS -- FROM Q3 AS WELL AS Q6a. Read BOTH Phase 0 answers in 00-scope.md, because the element you are looking for is more likely to be in Q3 than in Q6a.
+
+Q3 asks "list any mitigating controls already in place (WAF, API gateway, CDN, IDS/IPS, MFA, etc.)" -- WAF is its FIRST example and its sample answer is a WAF vendor. So a user naming their WAF answers Q3, correctly. If the component rule reads only Q6a, that WAF is filed as a CONTROL, never becomes an element, and can never be drawn: field-reported symptom, an Akamai WAF absent from every diagram because it was named in the mitigating-controls answer rather than the platform-path answer.
+
+THE TEST IS WHETHER IT SITS IN THE DATA PATH, not which question named it:
+- IN PATH -- traffic flows THROUGH it: WAF, CDN, API gateway, reverse proxy, load balancer, ingress controller, service mesh gateway. These MEDIATE this system's data, so they meet the component definition above and get a C-NNN.
+- NOT IN PATH -- gates or observes without being a hop: MFA, IDS/IPS, SIEM, EDR, vulnerability scanners. These stay controls only and get no C-NNN.
+
+BEING A COMPONENT DOES NOT MAKE IT A VERIFIED MITIGATION. These are three separate roles and collapsing them is the error to avoid. An attested WAF is simultaneously: an element on the map (drawn, its flows and boundaries visible); an attested control (renders in SecurityControl as `Attested -- <control> (unverified in code)`); and NOT a basis for a `Fully mitigated` exclusion, per Operating Rule 2's attestation asymmetry. Adding it to the inventory changes what the diagrams can show. It changes nothing about what threats may be suppressed.
+
+When Phase 0 Q6a recorded a platform traffic path -- e.g. "Akamai WAF -> reverse proxy -> app container; TLS terminates at the proxy" -- every element NAMED in that path (the WAF, the ingress/reverse proxy, the load balancer) MEDIATES this system's data and therefore meets the component definition above. Each gets a C-NNN, with `Evidence: [evidence: user-attested, Phase 0 Q6a]`.
+
+These elements are absent from the repository BY CONSTRUCTION -- they are platform, not application code -- so no amount of file reading in Phase 1 will ever discover them. Without this rule they never enter the inventory, never reach a diagram, and the path from the user to the application has a hole in the middle exactly where the security controls sit. Field symptom: a container diagram showing neither the WAF nor the ingress, so the attested plaintext hop between proxy and container -- a threat the model DID emit -- had no visible endpoints to connect.
+```
+
+Verify both: grep `phase-1.md` for `## Element Classification` and for `ATTESTED IN-PATH` --
+each must return exactly one hit.
+
+
 ### Step 2 -- rebuild sweep.ps1 and readset.ps1 to the contract below
 
 Both scripts already exist and BOTH ARE WRONG. They were written to a specification that does

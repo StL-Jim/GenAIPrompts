@@ -126,7 +126,12 @@ Classify every manifest file into exactly one class, FIRST MATCH WINS, in this o
 
     dependency    manifests: *.csproj, package.json, requirements*.txt, pom.xml, go.mod,
                   Gemfile, composer.json, Cargo.toml, build.gradle, pyproject.toml
-    docs          *.md, *.rst, *.adoc, *.txt, and docs/ documentation/ directories
+    docs          *.md, *.rst, *.adoc; docs/ and documentation/ directories; and the
+                  names README*, ARCHITECTURE*, DESIGN*, SECURITY*, THREAT*,
+                  CONTRIBUTING*, CHANGELOG*. NOT *.txt -- an extension is not a role,
+                  the same way a directory name is not. On one real repository .txt
+                  meant chart DATA and put 175 planet tables into the mandatory read
+                  floor, which docs is never signal-filtered out of.
     client-view   view/template file extensions (.cshtml .razor .erb .hbs .ejs .jinja2
                   .html and similar)
     entrypoint    main/app/index/server/program/startup/wsgi/asgi/bootstrap/entrypoint

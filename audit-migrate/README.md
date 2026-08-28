@@ -1,26 +1,5 @@
 # audit-migrate
 
-Rebuilds the code-security-audit skill on a machine that cannot install it from outside.
-
-## Why this is shaped differently from stride-migrate
-
-The STRIDE skill was CARVED from its monolith -- text moved verbatim, checked by checksum. So
-that rebuild is a split map: it points at monolith sections and says where each goes. 63 KB.
-
-**This skill was REWRITTEN.** The archived audit monolith is 91 KB; the skill built from it is
-362 KB. Comparing them directly, the monolith's `PHASE 2` is a terse `INPUT / ACTIONS / OUTPUT`
-block while the skill's `phase-2.md` is expansive prose with orchestrator framing, GATE 1, and
-the reasoning for the phase's existence. Sampling distinctive lines from each reference file
-against the monolith, `schemas.md` matched 5 of 5 and `global-rules.md` 2 of 2 -- and every
-phase file, `gate-2.md`, `judge.md` and `critic.md` matched zero.
-
-So the monolith cannot supply the methodology. A rebuild from it would hand you the v1 spec
-and silently drop the entire conversion: GATE 2, the judge, the critic, the partition
-machinery, the read-floor verification.
-
-The reference files are therefore carried verbatim, and the prompt says explicitly to ignore
-the monolith if it's present.
-
 ## The four files
 
 | File | Size | What it is |
@@ -71,9 +50,3 @@ stopped the audit dead.
 
 **If the completion report doesn't include those numbers, the rebuild isn't verified.**
 
-## Known risk
-
-The reference files are byte-for-byte. The risk is entirely in the ten scripts, and mostly in
-`lib-classify.ps1` -- the shared classifier that `partition-plan.ps1` and `readplan.ps1` both
-depend on and must agree with exactly. Its rules are principled and stated as principles, but
-the original constants came from measurement. Yours will be new. That's what 5.3 is for.

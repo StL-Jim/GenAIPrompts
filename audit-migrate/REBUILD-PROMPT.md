@@ -39,6 +39,11 @@ from anything else -- there is no other source for them on this machine.
 
 ## 2. Rules that bind this rebuild
 
+- **Do not consult the monolith.** The archived `code-security-audit.md` is an earlier,
+  thinner document -- this skill was REWRITTEN from it, not carved, so it cannot supply the
+  methodology. Rebuilding from it silently drops the whole conversion: GATE 2, the judge, the
+  critic, the partition machinery, the read-floor verification. Everything you need is in
+  PART A/B/C. If the monolith is present on this machine, ignore it.
 - **The PART files are verbatim.** Write each block exactly as given. Do not reformat,
   re-wrap, renumber, fix apparent typos, or shorten anything. If a passage looks wrong, note
   it in your final report and write it as given anyway.
@@ -660,4 +665,4 @@ scripts, and unevenly:
 
 **What is NOT included.** `install.ps1` and `install.sh` from the original skill -- this
 rebuild produces a tracked source tree and performs no installation, so they have no job here.
-The archived monolith is also not used, for the reason given in section 0.
+The archived monolith is also not used -- see the rule in section 2.

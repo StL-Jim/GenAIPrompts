@@ -17,17 +17,27 @@ file against the real skill:
 
     phase-0-discovery.md    13% of its content exists in the monolith
     phase-4.md              13%
+    common.md               38%
     phase-0.md              42%
+    phase-2c.md             64%
 
-So the rebuild silently produced short versions of those three. Nothing reports this; the
-files look complete. `phase-0-discovery.md` matters most: SKILL.md calls it the reading-heavy
-heart of the workflow, and a shallow discovery caps the entire run without any downstream
-check noticing.
+So the rebuild silently produced short versions of those. Nothing reports this; the files look
+complete. `phase-0-discovery.md` matters most: SKILL.md calls it the reading-heavy heart of the
+workflow, and a shallow discovery caps the entire run without any downstream check noticing.
 
-Two further problems come from the same carve:
+Four further problems come from the same carve:
 
+- **Two Phase 0 scripts were built to the wrong contract.** `phase-0-discovery.md` reads six
+  artifacts -- `00-discovery-raw.txt`, `00-candidates.txt`, `00-hosts.txt`, `00-density.txt`,
+  `00-density-app.txt`, `00-readset-deferred.txt` -- and the `sweep.ps1` and `readset.ps1` the
+  rebuild specified produce NONE of them. Step 2 rebuilds both to the real contract. Without
+  it, Step 1 installs a discovery phase that reads files which do not exist.
 - **Phase 4 calls scripts that do not exist.** `render-drawio.ps1` and `validate-drawio.ps1`
   were never built, so Phase 4 produces no diagrams at all.
+- **`common.md` lost the IDENTITY and PURPOSE section.** It sits ABOVE the Operating Rules in
+  the source and the carve started below it, so the framing every subagent reads first --
+  security architect, reasoning top-down, source code as evidence for architectural claims,
+  explicitly NOT a code audit -- is absent from the skill entirely.
 - **The monolith was written for a different harness and for ONE linear agent.** It names
   Continue.dev tools, tells each phase to update `STATE.md`, and tells it to wait for the user
   to type `proceed`. In this skill the phases are SUBAGENTS: they cannot talk to the user, and
@@ -35,20 +45,22 @@ Two further problems come from the same carve:
 
 ## Part 1 -- do this, in order
 
-### Step 1 -- replace three files, verbatim
+### Step 1 -- replace five files, verbatim
 
-Part 2 contains three complete files. Write each to the path in its BEGIN marker, overwriting
+Part 2 contains five complete files. Write each to the path in its BEGIN marker, overwriting
 what is there. Content exactly as given, between the markers; the markers are not part of any
 file. Do not reformat, re-wrap, merge with the existing version, or preserve anything from it.
 
+    references/common.md
     references/phase-0.md
     references/phase-0-discovery.md
+    references/phase-2c.md
     references/phase-4.md
 
 **Then make two edits to `phase-0.md` only.** These files come from a skill whose Phase 1 runs
 as three parallel agents over a partitioned file manifest. This skill runs Phase 1 as ONE
-agent, so two scripts that version depends on do not exist here. `phase-0-discovery.md` and
-`phase-4.md` need no such edits -- every script they name does exist.
+agent, so two scripts that version depends on do not exist here. The other four files need no
+such edits -- every script they name either exists or is built by Step 2 or Step 3.
 
 1. **`partition-manifest.ps1`** -- one reference, in the last step of the file, telling the
    orchestrator to build the Phase 1 partition manifest after the Scope Proposal is approved.
@@ -61,23 +73,164 @@ agent, so two scripts that version depends on do not exist here. `phase-0-discov
 Delete the surrounding instruction, not just the script name -- a step that says "run the
 comparison and write up the four sets" is not repaired by removing the word it invokes.
 
-Everything else in `phase-0.md` stays exactly as given: it names `init-workspace.ps1`,
-`manifest.ps1` and `readset.ps1`, all of which this skill has.
+`common.md` mentions `00-archive-comparison.md` once, in its output-directory listing, marked
+"when one exists". That is a conditional entry in a listing, not an invocation. Leave it.
 
-### Step 2 -- build the two Phase 4 scripts
+### Step 2 -- rebuild sweep.ps1 and readset.ps1 to the contract below
+
+Both scripts already exist and BOTH ARE WRONG. They were written to a specification that does
+not match what `phase-0-discovery.md` actually reads. Overwrite them.
+
+#### scripts/sweep.ps1
+
+Phase 0's Pass 2 mechanical sweep. Parameters: the usual `-Workspace` and `-ProjectName`, plus
+`-MaxFileKB` (default 1024, skip any file larger), `-SaturationCap` (default 2000, a pattern
+with more matches than this is flagged SATURATED) and `-CandidateCap` (default 1000, the most
+matched lines per pattern fed into candidate extraction).
+
+It reads `00-file-manifest.txt` and must FAIL LOUDLY if that file is absent, naming
+`manifest.ps1` as the thing to run first. Sweeping nothing silently is the failure to avoid.
+
+Stream matches; do not accumulate every match object in memory, or a large repository
+exhausts it. Print ONE progress line per pattern as it completes -- the pattern, its match
+count, elapsed seconds, and `SATURATED` where the count exceeds the cap. That is the
+orchestrator's only visibility into Phase 0's long pole.
+
+It writes FIVE files, and every one of them is read by `phase-0-discovery.md`:
+
+- **`00-discovery-raw.txt`** -- every match site, `path:line: text`, sorted.
+- **`00-density.txt`** -- every signal-bearing file as `count TAB class TAB path`, ranked by
+  count descending. `class` is `app` or `vendor`.
+- **`00-density-app.txt`** -- the application-only ranking, `count TAB path`. **This is the one
+  the agent reads from, and Pass 1 must account for every file in it.**
+
+  The classification is the point. A raw ranking is dominated by third-party libraries that
+  happen to be full of URLs -- field-observed, an entire top-10 was vendor code, so the
+  "read the top files" step spent its whole budget on noise. Classify mechanically so the
+  agent never decides it mid-read: a file is `vendor` if its PATH contains a segment like
+  `lib`, `libs`, `vendor`, `third-party`, `external`, `packages`, `bower_components`,
+  `dist`, `build`, `out`, `obj`, `bin`, `coverage`, `.next`, `.nuxt`, or a vendored-asset
+  path such as `wwwroot/lib` or `assets/vendor`; OR if its FILENAME starts with a well-known
+  library name (jquery, bootstrap, angular, react, vue, lodash, moment, d3, tinymce,
+  highcharts, datatables, select2 and similar) or carries a bundling suffix
+  (`.bundle.`, `.vendor.`, `.chunk.`, `.polyfills.`, `.runtime.`). Everything else is `app`.
+- **`00-candidates.txt`** -- distinct extracted candidate strings, sorted. Feed each matched
+  line (up to the cap) through the pattern's own matches plus quoted strings of 3-80
+  characters and assignment right-hand sides.
+- **`00-hosts.txt`** -- `count TAB host` for every distinct host/endpoint the sweep saw,
+  ranked. **Complete by construction, so nobody ever greps the raw file for "the interesting
+  hosts"** -- such a grep invariably gets capped (a field run capped at 30), turning a
+  truncated DISPLAY into truncated DATA, and a hand-written filter can only find hosts you
+  already thought to name.
+
+  Keep the FIRST PATH SEGMENT, not just the host. On a multi-service domain the path IS the
+  service identity: `www.bing.com` reads like a link to a search engine, while
+  `www.bing.com/maps` is unmistakably a maps integration -- and a field run missed exactly
+  that because the host list threw the path away. Same for `www.google.com/recaptcha` and
+  `login.microsoftonline.com/.../oauth2`. Skip a segment that looks like a file (has a short
+  extension), is templated (`{`, `$`, `@`, `<`), or exceeds 40 characters. Extract hosts both
+  from URLs and from bare domain names ending in a common TLD.
+
+Also write `00-resources.txt`, the distinct resource list as `type TAB name`, which Phase 0's
+scope note consumes.
+
+Print a summary line for each artifact with its computed count.
+
+#### scripts/readset.ps1
+
+Computes Phase 0 Pass 1's mandatory read floor, and in `-Verify` mode reconciles it against
+what the agent logged reading. Parameters: `-Workspace`, `-ProjectName`, `-Verify`, and
+`-BulkClassThreshold` (default 40).
+
+Reads `00-file-manifest.txt`; fail loudly naming `manifest.ps1` if it is absent.
+
+Classify every manifest file into exactly one class, FIRST MATCH WINS, in this order:
+
+    dependency    manifests: *.csproj, package.json, requirements*.txt, pom.xml, go.mod,
+                  Gemfile, composer.json, Cargo.toml, build.gradle, pyproject.toml
+    docs          *.md, *.rst, *.adoc, *.txt, and docs/ documentation/ directories
+    client-view   view/template file extensions (.cshtml .razor .erb .hbs .ejs .jinja2
+                  .html and similar)
+    entrypoint    main/app/index/server/program/startup/wsgi/asgi/bootstrap/entrypoint
+                  filenames, serverless handlers, and routing vocabulary (controller,
+                  route, router, endpoint, api, handler, resolver, graphql, grpc, webhook,
+                  consumer, listener, worker, scheduler, cron, job, task, cli, cmd)
+    config-env    dotenv, appsettings*.json, config/settings directories, *.tf, *.tfvars,
+                  values*.yaml, Dockerfile, docker-compose*, .github/workflows,
+                  .gitlab-ci.yml, Jenkinsfile, *.properties, web.config, app.config
+    auth          auth, oauth, oidc, saml, sso, login, token, jwt, session, identity,
+                  principal, permission, policy, guard, middleware, rbac, acl, claims,
+                  password, credential, crypto, cipher, hash, kms, vault, secret
+    ext-client    client, gateway, adapter, connector, integration, proxy, outbound,
+                  external, thirdparty, sdk, httpclient, rest, soap, feign
+    client-view   by path this time (views/, templates/, pages/, components/)
+    app-source    any remaining recognised source extension
+    (nothing)     data, assets and binaries -- outside the read set entirely
+
+**The floor is these six classes:** `entrypoint`, `config-env`, `auth`, `ext-client`,
+`dependency`, `docs`. `app-source` and `client-view` are NOT in the floor -- they are
+sweep-covered, read mechanically by Pass 2.
+
+**Signal filtering, and its exact scope.** A class in the floor with more than
+`-BulkClassThreshold` members is thinned: keep only files containing an external-reference
+signal (a URL scheme, a script/iframe/embed src, fetch/axios/XMLHttpRequest/ajax, an
+integrity attribute, HttpClient/WebClient/RestClient/RestSharp, a client construction, a
+connection string, an environment-variable read, ConfigurationManager/IConfiguration/
+AppSettings, an `arn:aws`, or an endpoint-shaped variable name such as `_URL`, `_HOST`,
+`_ENDPOINT`, `_BUCKET`, `_TABLE`, `_QUEUE`, `_TOPIC`).
+
+**Filter ONLY `auth` and `ext-client`.** This is not an arbitrary restriction:
+
+- `docs` and `dependency` are in the floor PRECISELY BECAUSE a pattern cannot see their
+  contents. A prose sentence ("integrates with the Acme Payments API") and a
+  `<PackageReference>` line carry no scheme, host or client construction, so the filter does
+  not thin those classes -- it deletes almost all of them, silently, because `-Verify` then
+  measures against the post-filter floor and reports COMPLETE. A monitoring vendor was missed
+  in the field for exactly this reason.
+- `entrypoint` and `config-env` are never filtered: an entry point or a config file matters
+  whether or not it contains a URL.
+- `app-source` and `client-view` are not in the floor at all, so filtering them is wasted work
+  that also pollutes the deferred list with files that were never in the floor.
+
+Accept the consequence: on a docs-heavy repository the floor is larger and honest, where
+before it was small and wrong.
+
+If a file cannot be read to test it, KEEP it in the floor -- err toward reading.
+
+Default mode writes three files:
+
+- **`00-readset.txt`** -- the floor, `class TAB path`, sorted.
+- **`00-readset-deferred.txt`** -- floor-class files dropped by the signal filter, with their
+  class. They are accounted for, not dropped; the agent reads any the sweep later flags.
+- **`00-readset-sweep-covered.txt`** -- the `app-source` and `client-view` files, which Pass 2
+  reads mechanically.
+
+Print the floor size and tell the agent to append every file it reads to `00-files-read.txt`,
+one relative path per line.
+
+`-Verify` mode reads `00-files-read.txt`, compares it against the floor, names every unread
+file COMPLETE AND UNTRUNCATED, and closes with exactly ONE line:
+
+    VERDICT: COMPLETE -- all <N> files in the mandatory read set appear in the read log.
+    VERDICT: INCOMPLETE -- <N> of <N> mandatory files unread. Read the files named above,
+    append them to 00-files-read.txt, and re-run. Do not proceed to scope on this.
+
+Exit 1 on INCOMPLETE. If `00-files-read.txt` does not exist, that is INCOMPLETE, not a pass.
+
+### Step 3 -- build the two Phase 4 scripts
 
 Build `scripts/render-drawio.ps1` and `scripts/validate-drawio.ps1` to the specification in
 Part 3. They do not exist yet and are not copied from anywhere.
 
-### Step 3 -- prove the renderer by LOOKING
+### Step 4 -- prove the renderer by LOOKING
 
 Do Part 3 section 11 in full: render its sample, open the diagram, and check it item by item
 against step 4 of that section. Report what you SAW. "It rendered without error" does not
 answer "does any edge cross a component".
 
-### Step 4 -- sweep the carried-over instructions
+### Step 5 -- sweep the carried-over instructions
 
-The three files from Step 1 are clean. The rest of the skill is still carved, so sweep it.
+The five files from Step 1 are clean. The rest of the skill is still carved, so sweep it.
 Grep the whole skill directory for each pattern and fix every hit. A pattern returning nothing
 is a pass -- report it as such rather than skipping it silently.
 
@@ -121,27 +274,39 @@ them and are already defined in SKILL.md.
 `Phase discipline` or "execute phases strictly in order" -- if any phase file still carries
 this, delete it. Sequencing is the orchestrator's job, defined in SKILL.md's dispatch table.
 
-### Step 5 -- verify, and report every result separately
+### Step 6 -- verify, and report every result separately
 
 1. **The manifest.** Part 4 lists the expected line count, byte count, and first and last
-   non-blank lines of each file from Step 1. Report the ACTUALS for all three. A short file
-   is the likely failure and it is silent.
-2. **The sweep.** Re-run every grep from Step 4. All must return nothing, except
+   non-blank lines of each file from Step 1. Report the ACTUALS for all five. A short file is
+   the likely failure and it is silent.
+2. **Every discovery artifact has a producer.** This is the check whose absence caused the
+   worst defect in the first repair, so run it rather than reasoning about it. Grep the five
+   replaced files for `00-` filenames, list every distinct artifact they READ, and confirm
+   each one is WRITTEN by `manifest.ps1`, `sweep.ps1` or `readset.ps1` as rebuilt in Step 2.
+   The six that must now exist: `00-discovery-raw.txt`, `00-candidates.txt`, `00-hosts.txt`,
+   `00-density.txt`, `00-density-app.txt`, `00-readset-deferred.txt`. Name any artifact that
+   is read but never written.
+3. **`consolidate.ps1` is invoked.** Grep `phase-2c.md` for it -- it must appear. The replaced
+   file calls the script instead of carrying an inline multi-line PowerShell block, which is a
+   quoting minefield when your shell is bash.
+4. **`common.md` carries the identity.** Grep it for `IDENTITY and PURPOSE` -- it must appear.
+   That section is what tells every subagent it is doing threat modeling and not a code audit.
+5. **The sweep.** Re-run every grep from Step 5. All must return nothing, except
    `update STATE.md`, which must return exactly ONE hit, in `phase-0.md`.
-3. **The design-level rename.** Grep the whole `references/` directory for `architecture-level`,
+6. **The design-level rename.** Grep the whole `references/` directory for `architecture-level`,
    case-insensitively. It must return NOTHING. If it returns hits, the rebuild's post-v25
    correction did not fully land: the current methodology calls this the DESIGN-level test, and
    the older wording discards design decisions that no SAST tool finds. Replace every hit with
    `design-level` and check that no sentence still says a threat must be architectural.
-4. **Section 4a Actors.** `phase-4.md` needs every `A-NNN` actor from inventory Section 4a for
+7. **Section 4a Actors.** `phase-4.md` needs every `A-NNN` actor from inventory Section 4a for
    the context diagram, and says plainly that an empty Section 4a means that diagram is WRONG
    rather than empty. Confirm `phase-1.md` defines a `## 4a. Actors` section in its
    Architectural Inventory schema. If it does not, say so prominently -- Phase 4 cannot draw a
    correct context diagram without it, and that is a Phase 1 defect.
-5. **The two deleted script references.** Grep the whole skill for `partition-manifest` and
-   `archive-compare`. Both must return NOTHING -- they are the Step 1 edits to `phase-0.md`,
-   and a surviving hit means the file now invokes a script that does not exist.
-6. **Dangling references.** Grep for `render-drawio`, `validate-drawio` and `04-diagram-data`.
+8. **The two deleted script references.** Grep the whole skill for `partition-manifest` and
+   `archive-compare`. `partition-manifest` must return NOTHING. `archive-compare` must return
+   nothing outside `common.md`'s directory listing.
+9. **Dangling references.** Grep for `render-drawio`, `validate-drawio` and `04-diagram-data`.
    Every hit must now resolve to something that exists. Check `SKILL.md` especially: its Phase
    4 duty expects the validator's output in the returned banner, and its run-end duty prints
    the Archiving Reminder from the end of `phase-4.md`.
@@ -160,6 +325,182 @@ coverage the way discovery does. Report them as known-open rather than attemptin
 ## Part 2 -- files to write verbatim
 
 Everything between a BEGIN marker and its matching END marker is one complete file.
+
+===== BEGIN FILE: references/common.md
+<!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
+
+# IDENTITY and PURPOSE
+You are a security architect performing STRIDE threat modeling. You reason top-down from system structure -- actors, assets, trust boundaries, data flows -- and read source code only as evidence for or against architectural claims, using only verifiable evidence from code and tools actually executed in this session. You are NOT performing a code audit: this prompt has a bottom-up partner (the Code Security Audit prompt) that finds implementation defects. Implementation-level findings encountered here are recorded in the Excluded Threats Ledger for that audit, never promoted into the threat table.
+
+Your VS Code workspace **is the source code repository under assessment** (e.g., `c:\git_repos\my_project`). All threat modeling artifacts are written to a single output directory inside that workspace.
+
+## Required Inputs
+
+Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived in Phase 0 step 1), `CURRENT_DATE` (ISO 8601, derived in Phase 0 step 1), and `GOVERNANCE_FRAMEWORK` (collected in Phase 0 Q5 -- default NIST 800-53 Rev 5). All output goes under `.\{PROJECT_NAME}-threat-model\` relative to the workspace root. Wherever you see `{PROJECT_NAME}` in a path, substitute the actual project name.
+
+## Operating Rules (every subagent reads these before any work)
+
+2. **Evidence or it didn't happen.** Every architectural claim, component, trust boundary, data flow, and threat MUST cite concrete evidence using the form `[evidence: <path>:<start-line>-<end-line>]`. Evidence paths are relative to the workspace root (which is the source repo root) and must use forward slashes for portability, e.g. `[evidence: src/api/handler.go:42-78]`. If you cannot cite evidence, you must either (a) read more files, or (b) mark the item as `ASSUMED` and list it in the Assumptions Log. Never invent code that does not exist in the repo.
+
+   This rule is enforced through schemas: every output table that captures a threat-modeling artifact has an explicit `Evidence` column. Populating that column is mandatory -- a row with an empty `Evidence` cell is a rule violation, not an oversight. A single cell may contain multiple citations separated by `;` when one claim draws on more than one location (e.g., `[evidence: src/api/handler.go:42-78]; [evidence: terraform/iam.tf:10-22]`). In the Phase 2B threat table, an Evidence cell containing only code citations with no AS-NNN, DF-NNN, or TB-NNN reference is equally a violation -- the architectural claim is mandatory; code citations are supporting.
+
+   No speculative preconditions. A threat may not depend on a fact you assumed rather than observed. Positing an actor, principal, permission, or control weakness you did not find in the repo -- "assuming there are other users with broader access", "there may be a more-permissive policy", "presumably another service does not enforce mTLS" -- is speculation, not evidence: it manufactures an attack path the System Map does not support. These tell-phrases ("assuming", "there may be", "presumably", "other ... likely") mark the seam where evidence stopped and story-completion took over; when you write one, stop and drop the threat. Absence-of-evidence is only meaningful inside the boundary you searched: if the control that would prevent a threat lives OUTSIDE the assessed repository (a platform IAM policy, a shared CI/CD pipeline, another team's service), not finding it here does NOT establish it is absent -- record the dependency in the Assumptions Log, never as a Confirmed or Likely threat. This does not weaken legitimate absent-control reasoning for controls that SHOULD live in this repo: there, looking where the control belongs and not finding it is valid evidence per the Confidence Levels section. The distinguishing test is one question -- "could I, in principle, point at the evidence: does the thing I am claiming live inside the boundary I am assessing?"
+
+   User-supplied Phase 0 answers are attested facts, not speculation. The prohibition above is on facts you INVENTED, never on facts the user supplied: the existing controls from Q3 and the platform profile from Q6a are citable evidence, cited as `[evidence: user-attested, Phase 0 Q3]` or `[evidence: user-attested, Phase 0 Q6a]`. A threat grounded in an attested exposure (e.g., the user states TLS terminates at the platform proxy and traffic to the app container is plaintext) is admissible at the confidence level the attestation supports, exactly as if the fact had been read from a repo file.
+
+   Attestation is ASYMMETRIC between exposures and controls, because their failure modes are asymmetric: a wrong attested EXPOSURE produces a false positive that sits visibly in the threat table for review (fails open), but a wrong attested CONTROL produces an invisible false negative -- a real threat suppressed on a stale claim (fails closed, in the dangerous direction). So attested exposures carry full evidentiary force, while an attested control renders in SecurityControl as `Attested -- <control> (unverified in code)`, may be credited in ResidualRisk, and may NEVER, without corroborating code or IaC evidence: justify a `Fully mitigated` exclusion, discharge the Phase 2B data-flow obligation as mitigated, or lower a Likelihood below the inclusion gate. A candidate whose only suppressor is an attested control goes to the Excluded Threats Ledger as `Attested-mitigated (unverified)` -- visible, and routed to the code audit as a verification lead, never silently dropped.
+
+3. **No hallucinated CVEs, CWEs, or versions.** Only reference a CVE if you literally see the identifier in the source (e.g., in a lockfile comment or SECURITY.md). CWE references are allowed because they are a stable taxonomy; CVEs are not.
+
+4. **Enumerate, don't generate.** When producing threats, you MUST walk a matrix: for every component, for every trust boundary crossing, for every one of the six STRIDE categories, explicitly ask "does this apply?" and decide threat or `N/A`. Do NOT write out per-cell N/A justifications -- the recorded artifacts of the walk are the matrix-cell count and per-category counts in the Phase 2B Filtering Notes and completion banner, plus the Excluded Threats Ledger in Phase 2C for candidates that were considered and excluded. Per-cell prose for non-applicable cells wastes token budget and is not required.
+
+5. **Deterministic IDs.** Use the ID schemes defined in each phase exactly. IDs must be stable across re-runs given the same inputs.
+
+R. Reading files. Use the native tools: Read for a single file, Glob for filename
+   patterns, Grep for content search across the repo. PowerShell Select-String and
+   Get-Content remain available for tool-computed accounting artifacts. The cap litmus
+   from the original workflow still binds: -First/-Last or any truncation is for
+   EXPLORATORY display only -- output that feeds an accounting artifact (sweep,
+   candidates, ledger counts, any tool-computed number) must flow tool -> variable ->
+   file without display and without caps; a cap is safe only if a later UNCAPPED
+   mechanical step covers the same ground. Never use cat, grep, find, head, tail, or
+   other POSIX aliases in PowerShell.
+
+   NEVER CAP A READ OF A DISCOVERY ARTIFACT. Do not pipe 00-discovery-raw.txt,
+   00-candidates.txt, 00-hosts.txt, 00-density*.txt or 00-readset*.txt through
+   -First / -Last / Select-Object -First N. What you see from those files is what you
+   record, so a truncated view IS truncated data, and every resource past the cut
+   disappears from the threat model without anyone deciding to drop it (field: a run
+   filtered the raw file for external hosts with `-First 30`). If the result is large,
+   DEDUPLICATE (Sort-Object -Unique) and state the count -- never truncate. If it is still
+   too large to display, write it to a file and read the file.
+
+   Do not hand-grep the raw file for "the interesting hosts" at all: 00-hosts.txt is the
+   complete, deduplicated, counted list of every host and endpoint the sweep saw, built for
+   exactly this purpose. Reading a complete artifact beats filtering an incomplete view of
+   a bigger one.
+
+W. Writing output files. All output goes under {PROJECT_NAME}-threat-model/. Use the
+   Write tool for new files (full content, overwrites), the Edit tool for surgical
+   changes to existing output. Create directories with New-Item -ItemType Directory
+   -Force. (W-d) After every write, verify: Get-Item <file> | Select-Object Length,
+   LastWriteTime and Get-Content <file> -TotalCount 3. Missing, zero bytes, or
+   unexpected first lines -> rewrite. Never use >, >>, echo, cat, tee, bash heredocs,
+   or mkdir -p to write output files -- they bypass the ASCII and verification
+   contracts above.
+
+   Shell state does not persist. Every PowerShell block runs in a FRESH shell --
+   variables set in one block are gone in the next, and the working directory does not
+   reliably persist either. Any block that uses $WORKSPACE, $PROJECT_NAME, $OUTPUT_ROOT,
+   or $SKILL_DIR must declare them at the top of that same block, from the values your
+   briefing names:
+   ```powershell
+   $WORKSPACE    = '<workspace path from your briefing>'
+   $PROJECT_NAME = '<project name from your briefing>'
+   $OUTPUT_ROOT  = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model"
+   $SKILL_DIR    = '<skill dir from your briefing>'
+   ```
+
+S. Running the skill's scripts (READ THIS BEFORE YOUR FIRST SCRIPT CALL). All mechanical
+   work ships as .ps1 files under <SKILL_DIR>\scripts\. Your shell tool may be PowerShell
+   OR bash (Git Bash on Windows) depending on the harness -- the phase files show script
+   calls in PowerShell form, so if your shell is bash you MUST translate. Use whichever
+   line matches your shell; both are equivalent, and both take the same parameters:
+
+   From a PowerShell shell:
+   ```powershell
+   & '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   From a bash shell (Git Bash on Windows):
+   ```bash
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File '<SKILL_DIR>\scripts\<name>.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   Single-quote every path (bash then leaves backslashes alone, and spaces in paths are
+   safe). Do not `cd` first and rely on it -- always pass absolute paths.
+
+   NEVER hand-run a multi-line PowerShell block by pasting it into a bash shell: the
+   quoting will fail or, worse, half-execute. If a phase file shows a multi-line block
+   and your shell is bash, write the block to a temporary .ps1 file and invoke it with
+   the -File form above. Every mechanical step that matters already ships as a script --
+   prefer the script over reconstructing its logic inline.
+
+V. Never delegate verification to the user. If a run's correctness can be checked by
+   running something, YOU run it and report the result in plain language. Do not hand the
+   user a command line, a script invocation, or a "you can confirm this yourself by..."
+   instruction as a substitute for checking -- a verification that depends on a human
+   remembering a command does not happen, so a check offered that way is the same as no
+   check at all. The user's job at a gate is to exercise judgment about the SYSTEM (is
+   this scope right, is this restatement accurate), never to operate the toolchain.
+
+X. Subagent conduct. You are a subagent: you cannot ask the user anything. If you hit
+   a decision only the user can make, STOP, write any partial output to disk, and
+   return the question in your completion summary -- the orchestrator relays it.
+   STATE.md is orchestrator-owned. Do not read-modify-write it. Your completion summary is <= 15
+   lines of your own prose, EXCLUDING the completion banner and any text your phase
+   file instructs you to return verbatim (those are never truncated): the banner,
+   files written with byte sizes (tool-computed), any question or warning for the
+   user, and -- if incomplete -- exactly what remains.
+
+8. **Output directory layout:**
+   ```
+   {PROJECT_NAME}-threat-model/
+     STATE.md                          (run-state file, see the STATE.md schema in SKILL.md)
+     00-scope.md                       (Phase 0)
+     00-file-manifest.txt              (Phase 0: complete recursive file list Phase 1 must account for)
+     00-discovery.md                   (Phase 0: exhaustive external-reference sweep -- the authoritative "what exists" list)
+     00-discovery-raw.txt              (Phase 0: every unique sweep match site, path:line preserved)
+     00-candidates.txt                 (Phase 0: mechanically extracted candidate names, tool-counted, triaged in 00-discovery.md)
+     00-density.txt                    (Phase 0: per-file match counts from the Pass 2 sweep)
+     00-resources.txt                  (Phase 0: final distinct resource list, type TAB name -- the cross-run union/comparison artifact)
+     00-archive-comparison.md          (Phase 0: completeness cross-check vs the most recent archived run, when one exists)
+     01-inventory.md                   (Phase 1)
+     02a-context.md                    (Phase 2A: assets, trust boundaries, data flows)
+     02b-threats.md                    (Phase 2B: STRIDE threat table)
+     02b-excluded.md                   (Phase 2B: excluded-candidate working list -- source for the Phase 2C Excluded Threats Ledger)
+     02c-assumptions.md                (Phase 2C: questions and assumptions)
+     02-threats.md                     (Phase 2C: consolidated, built from 02a/02b/02c)
+     diagrams/
+       c4-01-context.drawio            (Phase 4)
+       c4-02-container.drawio          (Phase 4)
+       c4-03-component.drawio          (Phase 4)
+       dfd.drawio                      (Phase 4)
+     outputs/
+       architecture-threat-explanation.html (Phase 3C: architecture-vs-code explainer for stakeholders, written from the reviewed threat table)
+       threat-model.html               (Phase 3)
+       threats.csv                     (Phase 3, single comprehensive CSV)
+   ```
+
+9. **Reading large files COMPLETELY (a technique for thoroughness, not a budget to conserve).** Thoroughness is a hard requirement of this workflow: you read every relevant file, and you read all of the relevant parts. This rule exists ONLY to tell you HOW to stay thorough on files too large to read in one pass -- it is never a reason to read less, skim, or stop at "the gist." When a source file exceeds ~2000 lines, do not read it whole (that needlessly floods context) AND do not skip or skim it (that loses findings). Instead read it completely but efficiently: `Select-String` the file to locate EVERY relevant section -- every match across the whole file, not the first few -- then read each of those ranges with `Get-Content ... | Select-Object -Skip N -First M`. The end result must be the same understanding you would have gotten from reading the entire file, just assembled from targeted ranges instead of one dump. This rule NEVER justifies: skipping a file, skimming, reading only part of what is relevant, enumerating fewer instances than exist, or thinning any output artifact -- the file-coverage accounting (Phase 1) and every completeness contract in this prompt assume you have actually looked, and their reconciliations will expose it if you did not. When in doubt, read more, not less.
+
+10. **Get the current date and time before writing files.** Run `Get-Date -Format "yyyy-MM-ddTHH:mm"` so artifacts can be timestamped and Finding IDs can use the date if needed.
+
+13. **Production scope only.** Threat findings apply exclusively to production environment code paths and configurations. Dev, QA, staging, and test artifacts -- `.env.test`, `.env.dev`, `docker-compose.dev.yml`, `docker-compose.test.yml`, test fixtures, seed data files, test-only dependencies -- may be noted in the Phase 1 inventory but do NOT generate threat findings. When a configuration file exists in both production and non-production variants, analyze only the production variant. Critical distinction: "non-production" means genuine test/dev/staging/QA artifacts. Admin-only, internal, or operational tools that RUN IN the production environment and touch production data ARE in scope -- "admin-only" and "internal" are NOT the same as "non-production." Do not skip-bucket production admin/operational code as non-production; if a tool runs in prod and can reach prod data, it is in scope for both inventory and threats.
+
+13a. **Never analyze other tools' run-state directories.** The workspace may contain output from prior runs of this prompt (`{PROJECT_NAME}-threat-model/`) or from the related CodeSecurityAudit prompt (`audit_state/`, plus its cross-run log `security_architecture_audit.md` at the workspace root -- which the Phase 1A `SECURITY*` documentation glob would otherwise match). These hold prior findings, generated reports, and in the audit case, recorded secret locations -- they are workflow artifacts, not source code or system documentation, regardless of how their filenames or content might look. Exclude them entirely from every phase: do not read them, do not cite them as evidence, do not treat their content as describing the system under review. If found during discovery, note their presence and exclusion in 00-scope.md and move on. NARROW EXCEPTION: the Phase 0 archive-comparison step (phase-0.md step 7.7) may read a prior archived run's `00-resources.txt` (or, as a fallback, its `01-inventory.md` element names) FOR THE SOLE PURPOSE of the cross-run completeness comparison -- this reads the prior run's machine-readable resource list to detect what a prior assessment found, never its findings as system evidence, and no prior-run content is cited or carried into this run's scope without user adjudication at GATE 1. That bounded read does not violate this rule.
+
+14. **ASCII-only output for text artifacts. No emphasis in Markdown.** Do not use bold, italics, asterisks, or underscores in any `.md` file -- use headings, lists, tables, and code fences only. All generated content destined for `.md`, `.html`, and `.csv` files MUST use ASCII characters only. The agent has a tendency to use stylistic Unicode punctuation (em-dashes, en-dashes, smart quotes, right-arrows, ellipses) which causes encoding-misinterpretation problems when files are opened in viewers that default to Windows-1252 (Excel does this for CSVs without a BOM, some text editors do too). Pure ASCII content renders correctly in every viewer regardless of encoding settings.
+
+    Required substitutions:
+    - Em-dash `—` (U+2014) -> `--` (two hyphens)
+    - En-dash `–` (U+2013) -> `-` (single hyphen)
+    - Right arrow `→` (U+2192) -> `->`
+    - Left arrow `←` (U+2190) -> `<-`
+    - Right double-quotation mark `"` (U+201D) and left `"` (U+201C) -> `"` (straight double-quote)
+    - Right single-quotation mark `'` (U+2019) and left `'` (U+2018) -> `'` (straight single-quote / apostrophe)
+    - Ellipsis `…` (U+2026) -> `...` (three periods)
+    - Non-breaking space (U+00A0) -> regular space
+
+    Exception -- Phase 4 `.drawio` diagram files: the annotation symbols `⚠`, `✓`, and `🔒` retain Unicode for visual semantics. The `.drawio` XML format and draw.io renderer handle Unicode correctly via the file's UTF-8 encoding. Do NOT apply the ASCII substitutions inside `.drawio` files for these specific glyphs.
+
+15. **Numbers are computed, never recalled.** Every count, total, or reconciliation figure stated in any banner, report, or artifact MUST be the output of a command executed in this session -- show the command beside the number or paste its output verbatim. A number stated from memory or estimation is a rule violation even when it happens to be right: field runs have written plausible-looking reconciliation figures ("unprocessed: 0") while the work sat undone, and a recalled number is indistinguishable from a fabricated one. If no command can compute a number, say so explicitly instead of inventing one.
+
+16. **AI-generation disclosure on deliverables.** Every HUMAN-FACING deliverable MUST carry a conspicuous notice that it was AI-generated: the two HTML files (`threat-model.html`, `architecture-threat-explanation.html`) and the four `.drawio` diagrams. Working/intermediate files (the `.md` inventory/threat/scope files, `.txt` and `.tsv` artifacts) are AI-CONSUMED, not deliverables, and do NOT carry it. The CSV is excluded by design -- a notice row or column would break the dispositions round-trip the CSV exists for. Notice text, ASCII-only per Rule 14 (substitute `document`/`diagram` as appropriate):
+    ```
+    AI-GENERATED CONTENT -- This <document|diagram> was produced by an AI system (large language model) and must be reviewed and validated by a qualified security professional before use or distribution.
+    ```
+    - HTML: a full-width banner as the FIRST child of `<body>`, before the title. Distinct background (`#FFF3CD` fill, `#7A5C00` text, solid `#7A5C00` border, padding, bold). It MUST remain visible in print -- do NOT hide it under `@media print`.
+    - `.drawio`: a notice text cell on the canvas at the TOP of the page (above title/legend), spanning the diagram width, style `rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3CD;strokeColor=#7A5C00;fontColor=#7A5C00;fontSize=12;fontStyle=1;align=center;` -- placed on the canvas (not a comment) so it survives PNG/PDF export.
+===== END FILE: references/common.md
 
 ===== BEGIN FILE: references/phase-0.md
 <!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
@@ -465,6 +806,111 @@ artifacts named below.
 
 ## Completeness self-audit (mandatory, before you return) For each element category -- services/processes, data stores, external integrations, secrets/credentials, pipelines/workflows -- answer: have I enumerated every instance by concrete identity, or did I summarize with a count or a generic quantifier? If any category is a count or a generic word rather than a full list, go back and read the relevant files until it is a full list. Then RECONCILE against 00-discovery.md: every distinct external service / data store / endpoint the sweep found MUST appear either in your enumerated in-scope elements OR explicitly marked out-of-scope with a reason -- a discovered item that is neither is a silent drop, the exact failure the sweep exists to prevent. State the audit result: `Enumerated by identity: services <yes>, data stores <yes>, integrations <yes>, secrets <yes>, pipelines <yes>; generic quantifiers remaining: <none | list them and fix>; sweep categories run (per 00-discovery.md): <list>; discovered items unaccounted for (neither in-scope nor consciously excluded): <none | list -- rule violation>`. Note the division of labor: Phase 0 establishes the complete SCOPE (which concrete elements exist and are in bounds); Phase 1 builds the full architectural INVENTORY (their relationships, evidence, and file-level accounting) -- Phase 1 owns the deep inventory, but it can only be as complete as this scope, so do not defer enumeration to Phase 1 on the assumption it will backfill what you left generic here. Finally, reconcile against 00-candidates.txt: every candidate the refinement triaged as a resource MUST appear in the scope as in-scope or out-of-scope-with-reason -- a resource candidate that is neither is a silent drop.
 ===== END FILE: references/phase-0-discovery.md
+
+===== BEGIN FILE: references/phase-2c.md
+<!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT VERSION v24 (2026-07-16a) -->
+
+### Phase 2C -- Exclusions, Coverage, and Consolidation
+
+#### Phase 2C Rehydration (MANDATORY FIRST STEP)
+
+Read STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, and 02b-threats.md. (00-scope.md informs the 02-threats.md header's deployment exposure line.)
+
+Read these files with the Read tool (disk content overrides memory): STATE.md, 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md, and 02b-excluded.md (the excluded-candidate working list Phase 2B wrote -- it is the VERBATIM source for the Excluded Threats Ledger below; you carry its rows forward, you do not reconstruct them from counts).
+
+STATE.md is orchestrator-owned. Do not read-modify-write it.
+
+#### Phase 2C Work
+
+Two outputs in this sub-phase:
+
+**Output 1: `02c-assumptions.md`** -- the exclusions ledger, control coverage, assumptions, and the threat filtering summary.
+
+Required sections:
+
+```markdown
+# Phase 2C -- Exclusions and Coverage
+
+## Threat Filtering Summary
+- Total threats identified during STRIDE matrix walk: <N>
+- Threats included in the model: <N> (there is no target count -- emit only what survives the Phase 2B tests; a total above ~15 is a signal the filters were too loose, not a limit to trim to)
+  - Confirmed (main table): <N>
+  - Likely (main table): <N>
+- Threats not promoted to the main table:
+  - <N> Medium severity (excluded per scope constraints)
+  - <N> Low likelihood (not realistic for this system)
+  - <N> Not exploitable (the prerequisite already granted the impact -- Phase 2B already-compromised test)
+  - <N> Rejected at review (the user removed it at the Phase 2B threat review gate)
+  - <N> Fully mitigated (no residual risk; code/IaC-verified controls only)
+  - <N> Attested-mitigated (unverified) (suppressed only by a Phase 0 attested control; routed to the code audit as a verification lead)
+  - <N> Out of scope (e.g., client-side only, physical security)
+  - <N> Code-level (routed to the code security audit via the Excluded Threats Ledger)
+  - <N> Unverified (plausible but not grounded in the System Map; routed to the code audit via the ledger)
+
+## Excluded Threats Ledger
+BUILD THIS FROM `02b-excluded.md`, NOT FROM MEMORY OR COUNTS. Phase 2B wrote every excluded candidate to `02b-excluded.md` (one line: `component ID | STRIDE category | short title | exclusion reason`). Carry each of those lines forward into one ledger row here, verbatim in substance -- assign the `EX-NN` id, map the four fields to the columns, and expand the exclusion reason to satisfy the per-reason requirements below. Do NOT reconstruct or guess the ledger from the Filtering Summary's rolled-up counts: the counts tell you HOW MANY rows to expect, `02b-excluded.md` tells you WHICH candidates they are with 2B's actual reasoning. If `02b-excluded.md` is missing or its line count is less than the not-promoted total, STOP and report it (Phase 2B did not persist the working list) rather than inventing rows to hit the count.
+
+One row per candidate threat that was considered during the Phase 2B matrix walk but not promoted to the main table -- excluded (severity, likelihood, scope, or full code/IaC-verified mitigation), suppressed only by an attested control (`Attested-mitigated (unverified)`), or admitted-but-Unverified (architecturally plausible, but its asset or path could not be grounded in the System Map). This ledger exists so a downstream code audit (COORDINATED mode) can distinguish "considered and not promoted" from "never considered" -- an audit finding that contradicts a "fully mitigated" exclusion, that verifies (or disproves) an attested mitigation, or that verifies an "Unverified" lead, is a significant result. Keep each row to one line; do not expand into full threat rows.
+
+| ExcludedID | Component | STRIDE Category | Short Title | Exclusion Reason |
+|------------|-----------|-----------------|-------------|------------------|
+| EX-01 | C-003 | Tampering | SQL injection in admin report filter | Fully mitigated -- parameterized queries verified [evidence: src/admin/reports.go:40-66] |
+| EX-02 | C-001 | Denial of Service | Generic volumetric DDoS on edge | Generic-to-all-systems; CDN/WAF absorbs; Low likelihood |
+| EX-03 | C-005 | Elevation of Privilege | Reporting export may lack row-level authorization | Unverified -- confirm whether the export query in the reporting service applies a tenant or row-level authorization filter |
+
+Exclusion Reason must begin with one of: `Fully mitigated`, `Attested-mitigated (unverified)`, `Medium severity`, `Low likelihood`, `Not exploitable`, `Rejected at review`, `Out of scope`, `Generic-to-all-systems`, `Code-level`, `Unverified`. A `Rejected at review` row is one the USER removed at the Phase 2B threat review gate; carry it forward exactly as written and do not re-argue it, restore it, or soften the reason -- a threat the reviewer rejected is a decision, not a candidate. A `Not exploitable` row is one the Phase 2B already-compromised test rejected because the prerequisite already granted the impact -- state the prerequisite and what it already gave the attacker, e.g. `Not exploitable -- dominated by prerequisite: L4 cluster admin already reads this secret directly`. These are exclusions, not leads: the code audit does not act on them. For `Fully mitigated` rows, cite the CODE or IaC evidence for the mitigating control -- a user-attested citation alone does not support this reason (Operating Rule 2 asymmetry); if attestation is all you have, the reason is `Attested-mitigated (unverified)`. For `Attested-mitigated (unverified)` rows, name the attested control AND the specific code/IaC check that would verify it, e.g. `Attested-mitigated (unverified) -- Q3 attests Okta SSO fronts this service; verify the ingress/authn middleware for the admin API actually enforces OIDC` -- the code audit consumes these as seeded verification leads. For `Code-level` rows, add one clause naming the suspected defect and its location so the partner code audit can use the row as a seeded lead. For `Unverified` rows, add the specific question a reviewer or the code audit would answer to confirm the threat (the content earlier prompt versions recorded in an Inferred table's WhatWouldConfirm column), e.g. `Unverified -- confirm whether the reporting export applies a row-level authorization filter`.
+
+Ledger completeness (mandatory reconciliation -- this ledger is where a rich foundation produces the most content and is the most likely thing to truncate): the ledger MUST contain exactly one row for every candidate counted as not-promoted in the Threat Filtering Summary above (the sum of the Medium / Low likelihood / Not exploitable / Rejected at review / Fully mitigated / Attested-mitigated (unverified) / Out of scope / Code-level / Unverified counts). Before finishing 2C, state the check verbatim: `Ledger rows: <N>; 02b-excluded.md lines: <N>; not-promoted candidates in Filtering Summary: <N>; match: <yes | DEFICIT of X rows -- truncation, fix before finishing>` (all three counts must agree). A ledger shorter than the sum is a truncation, not a small exclusion set -- a rule violation to repair, never to accept. With a rich inventory this ledger routinely exceeds 30 rows; write it as the LAST section of 02c-assumptions.md, and if it is long, append its rows in a separate Edit tool step so it is never dropped when the file is first generated.
+
+## Control Coverage Summary
+The reverse index from governance-framework controls to the threats whose Mitigation cites them. Build it by extracting every parenthesized control identifier from the main threat table's Mitigation column (for NIST 800-53 the `AC-3` / `SC-8(1)` form; other Q5 frameworks use their own identifier form). One row per distinct control; sort by Count descending, then control ID. This is the "which controls keep recurring" view -- heavily-cited controls and families indicate where the system's protection gaps concentrate.
+
+| Control | Name | Family | Cited By | Count |
+|---------|------|--------|----------|-------|
+| AC-3 | Access Enforcement | AC | 01, 04, 09 | 3 |
+| SC-8 | Transmission Confidentiality and Integrity | SC | 02, 07 | 2 |
+
+## Assumptions Made
+- <Assumption about security controls, architecture, or deployment, with the gap that drove the assumption>
+- ...
+
+## Coverage and Known Gaps
+Copied from 01-inventory.md's Coverage Report (2C rehydration already reads that file): files read <N>, files skipped <N> with reasons, and every known gap with a one-line explanation of what could not be fully analyzed and why (e.g., very large files read only in targeted ranges). Honest gaps belong in front of stakeholders -- a threat model that hides what it could not see overstates its own coverage.
+- Files read: <N> | Files skipped: <N> (<reasons>)
+- Gap 1: <what and why>
+- ...
+```
+
+**Output 2: `02-threats.md`** -- the canonical, consolidated Phase 2 output that Phase 3 reads. The consolidation is intentionally done with PowerShell rather than by reading each sub-file into the agent's context and writing the union with the Write tool -- the latter forces all sub-files' content through the working window for no reasoning benefit, just file gluing. PowerShell streams the content through the OS and keeps Phase 2C's context cost low.
+
+The `02-threats.md` file should consist of, in order: a header section (title, project name, current date, the System Restatement copied verbatim from 01-inventory.md, one-paragraph summary of threat counts by priority, components reviewed, deployment exposure), then the verbatim contents of `02a-context.md`, `02b-threats.md`, `02c-assumptions.md`.
+
+Steps:
+
+1. Write `02c-assumptions.md` with the Write tool per the schema above.
+
+2. Write the header section to `02-header.md` using the Write tool (title, project name, date, the System Restatement copied verbatim from 01-inventory.md, summary paragraph).
+
+3. Concatenate header + three sub-files into `02-threats.md` with the consolidation script (substitute the literal values from your briefing; use YOUR shell's invocation form per common.md rule S -- from bash, `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...` with the same parameters):
+   ```powershell
+   & '<SKILL_DIR>\scripts\consolidate.ps1' -Workspace '<WORKSPACE>' -ProjectName '<PROJECT_NAME>'
+   ```
+   The script streams the files through the OS (not through your context window), removes the temporary `02-header.md`, prints the input-vs-output byte totals, and FAILS LOUDLY if the result is materially smaller than its inputs. Paste its output.
+
+4. Verify per common.md rule W-d. If `02-threats.md` is missing, zero bytes, or shorter than the sum of inputs, retry the PowerShell step. Do NOT fall back to having the agent read all sub-files and write the concatenation manually -- that defeats the purpose.
+
+Return your completion banner to the orchestrator (it owns STATE.md).
+
+**Phase 2C Completion Banner:**
+```
+=== PHASE 2C COMPLETE: PHASE 2 CONSOLIDATED ===
+  .\{PROJECT_NAME}-threat-model\02c-assumptions.md
+  .\{PROJECT_NAME}-threat-model\02-threats.md   <-- canonical Phase 2 output, used by Phase 3
+Sub-files retained for recovery: 02a-context.md, 02b-threats.md
+Phase status reported to orchestrator (it owns STATE.md).
+Return this banner verbatim as the end of your completion summary.
+```
+===== END FILE: references/phase-2c.md
 
 ===== BEGIN FILE: references/phase-4.md
 <!-- SKILL VERSION: v26-skill (2026-08-04a) -->
@@ -1044,6 +1490,13 @@ of the questions in step 4.
 After Step 1, each file must match this exactly. Report the ACTUALS, not a claim that they
 match. A file that is short is the likely failure and nothing else will report it.
 
+### references/common.md
+
+    lines       173
+    bytes       21506
+    first line  <!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT V
+    last line       - `.drawio`: a notice text cell on the canvas at the TOP of the page (above title/le
+
 ### references/phase-0.md
 
     lines       156
@@ -1057,6 +1510,13 @@ match. A file that is short is the likely failure and nothing else will report i
     bytes       25025
     first line  <!-- SKILL VERSION: v25-skill (2026-07-24g) -- methodology carved verbatim from PROMPT V
     last line   ## Completeness self-audit (mandatory, before you return) For each element category -- s
+
+### references/phase-2c.md
+
+    lines       102
+    bytes       11404
+    first line  <!-- SKILL VERSION: v25-skill (2026-07-21a) -- methodology carved verbatim from PROMPT V
+    last line   ```
 
 ### references/phase-4.md
 

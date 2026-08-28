@@ -260,7 +260,20 @@ what the agent logged reading. Parameters: `-Workspace`, `-ProjectName`, `-Verif
 
 Reads `00-file-manifest.txt`; fail loudly naming `manifest.ps1` if it is absent.
 
-Classify every manifest file into exactly one class, FIRST MATCH WINS, in this order:
+**Skip agent tooling scratch before classifying anything.** A file whose path starts with
+`.claude/`, `.superpowers/`, `.vscode/`, `.idea/` or `.husky/` is excluded outright -- it is
+never classified, never floored, never counted against coverage. `.github` is deliberately NOT
+excluded; workflow definitions are genuine config evidence.
+
+This is not hypothetical. Running the rebuilt classifier against two real repositories put
+`.superpowers/brainstorm/.../state/server.pid` into the floor as an `entrypoint` (the path
+contains "server") and `.claude/settings.local.json` into it as `config-env`. Both are a local
+agent tool's working files, not the application under assessment, and each one displaces a
+real source file from a floor deliberately sized to be only just meetable. The partner code
+audit's classifier carries this same exclusion, added after the identical failure.
+
+Then classify every remaining manifest file into exactly one class, FIRST MATCH WINS, in this
+order:
 
     dependency    manifests: *.csproj, package.json, requirements*.txt, pom.xml, go.mod,
                   Gemfile, composer.json, Cargo.toml, build.gradle, pyproject.toml

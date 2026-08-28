@@ -36,9 +36,9 @@ that no source file contains the block delimiters before writing.
 
 ## What the agent does with them
 
-Create a repository at work for this one skill and copy all four files into its root:
+Create a repository for this one skill and copy all four files into its root:
 
-    <work-repo>/
+    <repo>/
       REBUILD-PROMPT.md
       PART-A-core.md
       PART-B-phases.md

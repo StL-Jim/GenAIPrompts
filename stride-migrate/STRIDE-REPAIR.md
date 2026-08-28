@@ -1,47 +1,11 @@
 # STRIDE skill repair -- one pass
 
-Copy this whole file to the machine holding the rebuilt STRIDE threat-model skill and give it
-to Claude Code with the skill directory in reach. It is entirely self-contained. Do not
-consult the monolith prompt for anything in here -- reconstructing from the monolith is the
-mistake this file corrects.
+Part 1 is what to do, in order. Parts 2 and 3 are material Part 1 refers to. Part 4 is how
+you prove it worked.
 
-Work through Part 1 in order. Parts 2 and 3 are material Part 1 refers to. Part 4 is how you
-prove it worked.
-
-## What is wrong, and why
-
-The skill was rebuilt by carving a monolithic source prompt. That premise was wrong. The
-monolith is an EARLIER, THINNER document, and several of the skill's files are not derivable
-from it at all -- they were rewritten when the skill was built, not carved. Measured file by
-file against the real skill:
-
-    phase-0-discovery.md    13% of its content exists in the monolith
-    phase-4.md              13%
-    common.md               38%
-    phase-0.md              42%
-    phase-2c.md             64%
-
-So the rebuild silently produced short versions of those. Nothing reports this; the files look
-complete. `phase-0-discovery.md` matters most: SKILL.md calls it the reading-heavy heart of the
-workflow, and a shallow discovery caps the entire run without any downstream check noticing.
-
-Four further problems come from the same carve:
-
-- **Two Phase 0 scripts were built to the wrong contract.** `phase-0-discovery.md` reads six
-  artifacts -- `00-discovery-raw.txt`, `00-candidates.txt`, `00-hosts.txt`, `00-density.txt`,
-  `00-density-app.txt`, `00-readset-deferred.txt` -- and the `sweep.ps1` and `readset.ps1` the
-  rebuild specified produce NONE of them. Step 2 rebuilds both to the real contract. Without
-  it, Step 1 installs a discovery phase that reads files which do not exist.
-- **Phase 4 calls scripts that do not exist.** `render-drawio.ps1` and `validate-drawio.ps1`
-  were never built, so Phase 4 produces no diagrams at all.
-- **`common.md` lost the IDENTITY and PURPOSE section.** It sits ABOVE the Operating Rules in
-  the source and the carve started below it, so the framing every subagent reads first --
-  security architect, reasoning top-down, source code as evidence for architectural claims,
-  explicitly NOT a code audit -- is absent from the skill entirely.
-- **The monolith was written for a different harness and for ONE linear agent.** It names
-  Continue.dev tools, tells each phase to update `STATE.md`, and tells it to wait for the user
-  to type `proceed`. In this skill the phases are SUBAGENTS: they cannot talk to the user, and
-  `STATE.md` belongs to the orchestrator alone -- four subagents run in parallel at Phase 3.
+DO NOT CONSULT THE MONOLITH PROMPT for anything in this file, even for context. The skill
+was built by reconstructing files from that monolith, and reconstructing from it is the
+defect being corrected here. Every file you need is in Part 2.
 
 ## Part 1 -- do this, in order
 

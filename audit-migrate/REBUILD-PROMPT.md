@@ -1,39 +1,10 @@
 # REBUILD: Code Security Audit Skill
 
-You are rebuilding a Claude Code skill on a machine that cannot install one from outside.
 This file is the procedure. Three companion files -- `PART-A-core.md`, `PART-B-phases.md`,
 `PART-C-review.md` -- carry the reference files verbatim. This file additionally specifies
 ten PowerShell scripts you must write from their contracts.
 
 Follow it in order. Everything here is ASCII; keep it that way in everything you write.
-
-
-## 0. How this differs from the STRIDE rebuild
-
-If you have seen `stride-migrate/REBUILD-PROMPT.md`, do not assume the same method. It does
-not apply here, and the reason matters.
-
-The STRIDE skill was CARVED from its monolithic prompt -- the text was moved verbatim and the
-carve was verified by checksum. So that rebuild is a split map: it points at monolith sections
-and says where each one goes.
-
-**This skill was REWRITTEN, not carved.** The archived `code-security-audit.md` monolith is
-91 KB; the skill built from it is 362 KB. Compared directly, the monolith's `PHASE 2` is a
-terse `INPUT / ACTIONS / OUTPUT` block while the skill's `phase-2.md` is expansive prose with
-orchestrator framing, GATE 1, and the reasoning for the phase's existence. Sampling
-distinctive lines from every reference file against the monolith: `schemas.md` matched 5 of 5
-and `global-rules.md` 2 of 2, but every phase file, plus `gate-2.md`, `judge.md` and
-`critic.md`, matched ZERO.
-
-So the monolith cannot supply the methodology here. It is an earlier, thinner document.
-Rebuilding from it would hand you a v1 spec and silently drop the whole conversion: GATE 2,
-the judge, the critic, the partition machinery, the read-floor verification.
-
-That is why PART A/B/C carry the reference files in full. **Do not consult the monolith for
-methodology.** If it is present on this machine, ignore it.
-
-The scripts are the opposite case: they are specified here in prose and you write them. Their
-correctness is checkable against a stated contract, and section 5 tells you how to check it.
 
 
 ## 1. Preflight -- verify, then STOP if anything is missing

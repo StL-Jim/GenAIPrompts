@@ -30,9 +30,23 @@ such edits -- every script they name either exists or is built by Step 2 or Step
    orchestrator to build the Phase 1 partition manifest after the Scope Proposal is approved.
    Delete that instruction. There is nothing to partition: Phase 1 is dispatched as a single
    agent that runs passes 1A, 1B and 1C in order.
-2. **`archive-compare.ps1`** -- one reference, in the step that compares this run's discovered
-   resources against the most recent archived run. Delete that step. The script does not exist
-   and on a first run there is no archived run to compare against.
+2. **`archive-compare.ps1`** -- one reference, inside step 7.7. **Delete only PART 2 of that
+   step, never the whole step.** Step 7.7 has two parts and they have different fates:
+
+   - **Part 1 writes `00-resources.txt` and MUST SURVIVE.** Step 8 depends on it and says so
+     out loud -- "already written in step 7.7". Delete the whole step and you break Phase 0's
+     scope note, which is a worse defect than the one you were fixing.
+   - **Part 2 is the archive comparison.** It runs `archive-compare.ps1`, which this build
+     does not have, and on a first run there is no archived run to compare against. Delete
+     Part 2 in full: the prose, the PowerShell block, the `00-archive-comparison.md` write,
+     and the paragraph about the "in prior, not in current" set.
+
+   Then reword what is left so it still reads: retitle 7.7 to name only the resource-list
+   write, drop the now-orphaned "Part 1 (always):" prefix, and fix two references the deletion
+   strands -- step 8's phrase "before the archive comparison that step performs against it",
+   and the `Archive comparison:` line in the Scope Proposal banner. Grep for `archive` in
+   `phase-0.md` afterwards; the only survivors should be the archived-run rules that have
+   nothing to do with the deleted script.
 
 Delete the surrounding instruction, not just the script name -- a step that says "run the
 comparison and write up the four sets" is not repaired by removing the word it invokes.
@@ -1451,8 +1465,16 @@ of the questions in step 4.
 
 ## Part 4 -- manifest
 
-After Step 1, each file must match this exactly. Report the ACTUALS, not a claim that they
-match. A file that is short is the likely failure and nothing else will report it.
+Check this immediately after writing each file in Step 1, BEFORE the two `phase-0.md` edits.
+Report the ACTUALS, not a claim that they match. A file that is short is the likely failure
+and nothing else will report it.
+
+**`phase-0.md` is the exception, and it is expected.** The counts below are the file AS
+WRITTEN VERBATIM. Step 1 then deletes the `partition-manifest` instruction and Part 2 of step
+7.7, which removes roughly 16 lines. So the sequence is: write the file, check it against the
+156 lines below, THEN make the edits. Afterwards it lands around 140 lines, and a final count
+in that region is correct rather than a truncation. The other four files are edited by nothing
+and must match exactly, before and after.
 
 ### references/common.md
 

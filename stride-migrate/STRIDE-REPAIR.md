@@ -188,8 +188,27 @@ When Phase 0 Q6a recorded a platform traffic path -- e.g. "Akamai WAF -> reverse
 These elements are absent from the repository BY CONSTRUCTION -- they are platform, not application code -- so no amount of file reading in Phase 1 will ever discover them. Without this rule they never enter the inventory, never reach a diagram, and the path from the user to the application has a hole in the middle exactly where the security controls sit. Field symptom: a container diagram showing neither the WAF nor the ingress, so the attested plaintext hop between proxy and container -- a threat the model DID emit -- had no visible endpoints to connect.
 ```
 
-Verify both: grep `phase-1.md` for `## Element Classification` and for `ATTESTED IN-PATH` --
-each must return exactly one hit.
+**Block 3 -- resolve the `A-<NNN>` ID collision.** The source skill assigns `A-<NNN>` to BOTH
+Actors (Section 4a) and Assumptions (Section 6). That is a live ambiguity, not a cosmetic one:
+Phase 2B's ThreatAgent privilege suffix has to resolve to an ACTOR, and a reference to `A-003`
+cannot be resolved when assumptions share the space. A Phase 1 agent hit this in a real run and
+had to invent a resolution mid-phase.
+
+After inserting Block 1, edit `phase-1.md` so the two ID spaces are distinct:
+
+- Actors (Section 4a) keep `A-<NNN>`. Phase 2B depends on that prefix.
+- Assumptions (Section 6) become `ASM-<NNN>`. Change the sentence that assigns them, and
+  every example ID in that section.
+
+State the rule once, near the top of the Architectural Inventory schema, so later phases can
+rely on it: `A-NNN is an ACTOR. ASM-NNN is an ASSUMPTION. The two never share a number space.`
+
+This is a deliberate divergence from the shipped skill, which carries the collision. It is
+taken because the ambiguity is load-bearing for Phase 2B rather than merely untidy.
+
+Verify all three: grep `phase-1.md` for `## Element Classification` and for `ATTESTED IN-PATH`
+-- each must return exactly one hit -- and confirm that Section 6's assumptions use `ASM-`
+while Section 4a's actors use `A-`.
 
 
 ### Step 2 -- rebuild sweep.ps1 and readset.ps1 to the contract below

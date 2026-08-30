@@ -372,9 +372,9 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
        $all += $m
    }
    $all | ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" } |
-     Sort-Object -Unique | Set-Content "$out\00-discovery-raw.txt"
+     Sort-Object -Unique | Set-Content "$out\00-discovery-raw.txt" -Encoding ASCII
    $all | Group-Object Path | Sort-Object Count -Descending |
-     ForEach-Object { "$($_.Count)`t$($_.Name)" } | Set-Content "$out\00-density.txt"
+     ForEach-Object { "$($_.Count)`t$($_.Name)" } | Set-Content "$out\00-density.txt" -Encoding ASCII
    $cand = @()
    $cand += $all.Matches.Value
    $cand += $all | ForEach-Object { [regex]::Matches($_.Line, '"([^"\s]{3,80})"|''([^''\s]{3,80})''') |
@@ -382,9 +382,11 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
    $cand += $all | ForEach-Object { [regex]::Matches($_.Line, '[=:]\s*["'']?([A-Za-z0-9][A-Za-z0-9._/-]{2,79})') |
        ForEach-Object { $_.Groups[1].Value } }
    $cand = $cand | Where-Object { $_ } | Sort-Object -Unique
-   $cand | Set-Content "$out\00-candidates.txt"
+   $cand | Set-Content "$out\00-candidates.txt" -Encoding ASCII
    "Candidates (tool-computed): $($cand.Count)"
    ```
+   Every artifact above states `-Encoding ASCII`. A BARE `Set-Content` defaults to the system ANSI codepage in PowerShell 5.1, not UTF-8, so the encoding is stated rather than left to the default. ASCII is correct here (Operating Rule 14 makes these artifacts ASCII by contract) and it cannot emit a BOM, satisfying Operating Rule 7(e).
+
    The artifacts: `00-discovery-raw.txt` is every unique match site WITH its path (a bare line divorced from its file turns a real resource reference into an unrecognizable code fragment -- field-proven); `00-density.txt` ranks files by match count; `00-candidates.txt` is every mechanically-extracted name -- match values, quoted no-whitespace literals, and value tokens after `=` or `:` (resource names never contain spaces, so most prose junk dies in the regex, not in your judgment).
 
    REFINEMENT -- MERGE THE TWO PICTURES (mandatory, before step 7.5). This is where belt and suspenders check each other:

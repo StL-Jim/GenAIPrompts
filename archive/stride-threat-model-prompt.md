@@ -364,10 +364,36 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
 
    Capture everything in variables and write three artifacts -- no display, no `-First` caps (truncation belongs to exploratory reads only, Operating Rule 6c), no per-line narration; this whole pass is one code block:
    ```powershell
+   # Self-contained per Operating Rule 7(f). $patterns is the EXACT list above -- it is
+   # written out here rather than left to be retyped, because a sweep whose pattern list
+   # is reconstructed from memory is not the same sweep twice, and shortening it is
+   # forbidden above. Extend per-stack; never remove one.
+   $WORKSPACE    = (Get-Location).Path
+   $PROJECT_NAME = Split-Path -Leaf $WORKSPACE
    $out = ".\$PROJECT_NAME-threat-model"
+   $patterns = @(
+     '://',
+     's3|bucket|dynamodb|sqs|sns|kinesis|rds|redis|kafka|rabbitmq|mongo|postgres|mysql|elastic|queue|topic',
+     'secret|password|token|api[_-]?key|access[_-]?key|credential',
+     '\.client\(|\.connect\(|new \w+Client|createClient|connectionString',
+     '_URL|_URI|_HOST|_ENDPOINT|_ADDR|_SERVER|_BROKER|_DSN|_QUEUE|_TOPIC|_BUCKET|_TABLE',
+     'arn:aws',
+     '\b(\d{1,3}\.){3}\d{1,3}\b',
+     '([a-z0-9-]+\.)+(com|net|org|io|cloud|internal|corp|local|gov|mil|edu|us)',
+     'getenv|environ\[|process\.env'
+   )
+   # EVERY file in the manifest, minus binary extensions (they stay in the manifest for
+   # Phase 1 accounting; they are skipped only for MATCHING). Resolved to full paths --
+   # the manifest holds workspace-relative paths with forward slashes.
+   $binaryRe = '\.(png|jpg|jpeg|gif|ico|pdf|zip|jar|gz|exe|dll|so|woff2?|ttf|mp4)$'
+   $scan = Get-Content "$out\00-file-manifest.txt" |
+     Where-Object { $_.Trim() -ne '' -and $_ -notmatch $binaryRe } |
+     ForEach-Object { Join-Path $WORKSPACE ($_ -replace '/','\') } |
+     Where-Object { Test-Path -LiteralPath $_ }
+   "sweeping $($scan.Count) files"
    $all = @()
    foreach ($p in $patterns) {
-       $m = Select-String -Path <all manifest files> -Pattern $p
+       $m = Select-String -Path $scan -Pattern $p -ErrorAction SilentlyContinue
        "pattern ${p}: $($m.Count) matches"       # per-pattern counts, recorded in 00-discovery.md
        $all += $m
    }

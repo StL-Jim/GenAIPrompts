@@ -105,7 +105,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
      02b-threats.md                    (Phase 2B: STRIDE threat table)
      02b-excluded.md                   (Phase 2B: excluded-candidate working list -- the VERBATIM source for Phase 2C's Excluded Threats Ledger, which runs in a separate session)
      02c-assumptions.md                (Phase 2C: questions and assumptions)
-     02-header.md                      (Phase 2C: intermediate header fragment for the consolidation)
+     02-header.md                      (Phase 2C: TRANSIENT -- the consolidation deletes it once 02-threats.md is built)
      02-threats.md                     (Phase 2C: consolidated, built from 02a/02b/02c)
      04-diagram-data.json              (Phase 4: what belongs on each diagram -- the renderer's only input)
      scripts/
@@ -249,7 +249,7 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
        $entry = "$PROJECT_NAME-threat-model*/"
        $current = Get-Content $excludeFile -Raw -ErrorAction SilentlyContinue
        if ($current -notmatch [regex]::Escape($entry)) {
-           Add-Content -Path $excludeFile -Value "`n# Added by STRIDE threat modeling agent`n$entry" -Encoding UTF8
+           Add-Content -Path $excludeFile -Value "`n# Added by STRIDE threat modeling agent`n$entry" -Encoding ASCII
            "Added '$entry' to .git/info/exclude"
        } else {
            "'$entry' already present in .git/info/exclude"
@@ -296,7 +296,10 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
               ($rel -match "(^|\\)($anyDepthExclude)(\\|$)") )
      } |
      ForEach-Object { $_.FullName.Substring($WORKSPACE.Length).TrimStart('\') -replace '\\','/' }
-   $manifest | Set-Content ".\$PROJECT_NAME-threat-model\00-file-manifest.txt" -Encoding UTF8
+   # NO BOM (Operating Rule 7(e)); absolute path, because [System.IO.File] resolves a
+   # relative path against .NET's working directory, which is NOT PowerShell's.
+   $manifestPath = Join-Path $WORKSPACE "$PROJECT_NAME-threat-model\00-file-manifest.txt"
+   [System.IO.File]::WriteAllLines($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding($false)))
    "Manifest file count: $($manifest.Count)"
    ```
    Record the total file count. Write the manifest to `00-file-manifest.txt` (one relative path per line). Phase 1 will assign EVERY file in this manifest to a component or a justified skip-bucket, and reconcile the totals -- so a file that gets silently overlooked becomes a visible rule violation, in this single run, with no prior run required to notice it. If the count is very large (thousands of files), still write the full manifest; the accounting in Phase 1 rolls low-relevance files into counted buckets rather than reading each.
@@ -1072,13 +1075,18 @@ Steps:
 
 3. Concatenate header + three sub-files into `02-threats.md` using PowerShell:
    ```powershell
-   $outDir = ".\$PROJECT_NAME-threat-model"
-   Get-Content `
+   # Self-contained per Operating Rule 7(f) -- shell state does not persist across blocks.
+   # $outDir is ABSOLUTE: [System.IO.File] resolves relative paths against .NET's working
+   # directory, not PowerShell's, and would silently write to the wrong place.
+   $PROJECT_NAME = Split-Path -Leaf (Get-Location).Path
+   $outDir = Join-Path (Get-Location).Path "$PROJECT_NAME-threat-model"
+   $lines = Get-Content `
      "$outDir\02-header.md",
      "$outDir\02a-context.md",
      "$outDir\02b-threats.md",
-     "$outDir\02c-assumptions.md" |
-     Set-Content "$outDir\02-threats.md" -Encoding UTF8
+     "$outDir\02c-assumptions.md"
+   # NO BOM (Operating Rule 7(e)): Phase 3 and Phase 4 both read this file.
+   [System.IO.File]::WriteAllLines("$outDir\02-threats.md", $lines, (New-Object System.Text.UTF8Encoding($false)))
    Remove-Item "$outDir\02-header.md"
    ```
 

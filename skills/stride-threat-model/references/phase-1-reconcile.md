@@ -45,6 +45,8 @@ Structure:
 ```markdown
 # Architectural Inventory
 
+ID spaces are disjoint. `C-NNN` component, `DS-NNN` data store, `EXT-NNN` external integration, `TB-NNN` trust boundary, `A-NNN` ACTOR, `ASM-NNN` ASSUMPTION. Actors and assumptions never share a number space -- later phases resolve `A-NNN` to an actor and nothing else.
+
 ## System Restatement
 <the user-confirmed one-paragraph restatement written at the end of Phase 1: what the system is, what it talks to, who its users are, and the kinds of sensitive data it holds -- do NOT press the user to nominate a single most-sensitive asset; asset criticality is looked up from the Phase 0 Q4 answer in Phase 2A, not attested here>
 
@@ -135,7 +137,9 @@ Derive actors from what the code and docs actually show -- authentication roles 
 Each TB entry must cite the evidence that establishes it (e.g., the Terraform security group, the k8s NetworkPolicy, or the absence thereof).
 
 ## 6. Assumptions Log
-Any architectural claim not backed by evidence. Each assumption gets `A-<NNN>` and must be resolved or explicitly accepted before Phase 2.
+Any architectural claim not backed by evidence. Each assumption gets `ASM-<NNN>` and must be resolved or explicitly accepted before Phase 2.
+
+`ASM-`, NOT `A-`. Section 4a above assigns `A-<NNN>` to actors, and a run that gives both the same prefix produces an inventory where `A-003` means two things and every downstream reference to it is ambiguous -- Phase 4 resolves `A-NNN` to an actor for the context diagram, and Phase 2B's ThreatAgent traces a prerequisite to an actor class. Field-hit: this collision was resolved mid-run by a user ruling at GATE 2, which worked only because a human noticed it.
 
 ## 7. Coverage Report
 File coverage reconciliation against 00-file-manifest.txt (this is the single-run completeness check -- a non-zero Unaccounted line is a rule violation to fix, not accept):

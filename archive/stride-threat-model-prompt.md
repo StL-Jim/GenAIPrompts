@@ -1341,14 +1341,15 @@ Header row must include both columns; data rows have either populated values or 
 
 After writing, validate by reading the first 3 lines with `Get-Content -TotalCount 3` and print them so the user can confirm the header row and the first data row look right.
 
-After the CSV and HTML are written, update STATE.md: mark `phase-3: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 4 (C4 + DFD diagrams). Required rehydration: 01-inventory.md, 02a-context.md, 02-threats.md.`
+Phase 3 has THREE deliverables, not two: the HTML (3A), the CSV (3B), and the stakeholder explainer (3C, below). Do NOT mark the phase complete after 3B. Only after 3C has been written and verified, update STATE.md: mark `phase-3: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 4 (C4 + DFD diagrams). Required rehydration: 01-inventory.md, 02a-context.md, 02-threats.md.` Marking it complete after 3B is a resumability defect: a session that ends between the two leaves STATE.md claiming Phase 3 finished while the explainer does not exist, and the resumed session goes straight to Phase 4 without it. Print the completion banner below only after 3C is on disk.
 
 **Phase 3 Completion Banner:**
 ```
 === PHASE 3 COMPLETE: EXPORTS WRITTEN ===
   .\{PROJECT_NAME}-threat-model\outputs\threat-model.html
   .\{PROJECT_NAME}-threat-model\outputs\threats.csv
-STATE.md updated: phase-3 marked complete.
+  .\{PROJECT_NAME}-threat-model\outputs\architecture-threat-explanation.html
+STATE.md updated: phase-3 marked complete (all three deliverables written).
 Type 'proceed' to begin Phase 4 (C4 + DFD Diagrams).
 ```
 

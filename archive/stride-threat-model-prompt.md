@@ -157,7 +157,7 @@ Three values drive this workflow: `PROJECT_NAME` (leaf directory name, derived i
     <short description, e.g. "phase-2b -- STRIDE threat table written to 02b-threats.md">
 
     ## Resume Instruction
-    <what the next session should do, e.g. "Begin at Phase 2C (Exclusions, Coverage, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.">
+    <what the next session should do, e.g. "Begin at Phase 2C (Exclusions, Coverage, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md, 02b-excluded.md.">
     ```
     Update STATE.md with the Edit tool for surgical updates, or rewrite the whole file with the Write tool if multiple sections change. A full rewrite MUST preserve the User Inputs section verbatim -- those answers are collected exactly once, in Phase 0 step 6, and every later phase depends on them. After every write, verify per Operating Rule 7(d).
 
@@ -238,6 +238,7 @@ If STATE.md does not exist, proceed to Phase 0. If it exists, read it and tell t
    New-Item -ItemType Directory -Path $OUTPUT_ROOT -Force | Out-Null
    New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'diagrams') -Force | Out-Null
    New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'outputs')  -Force | Out-Null
+   New-Item -ItemType Directory -Path (Join-Path $OUTPUT_ROOT 'scripts')  -Force | Out-Null
    Get-ChildItem -Path $OUTPUT_ROOT -Directory | Select-Object Name
    ```
 
@@ -601,7 +602,7 @@ Before printing the banner, print a System Restatement: one paragraph stating wh
 **Phase 1 Completion Banner:**
 ```
 === PHASE 1 COMPLETE: INVENTORY WRITTEN TO .\{PROJECT_NAME}-threat-model\01-inventory.md ===
-Component count: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
+Component count: <N>  |  Data stores: <N>  |  External integrations: <N>  |  Actors: <N>  |  Trust boundaries: <N>  |  Assumptions: <N>
 File coverage: <N> of <N> manifest files accounted for  |  Unaccounted: <N> (must be 0)
 System Restatement: recorded in 01-inventory.md (confirmed/corrected version).
 STATE.md updated: phase-1 marked complete.
@@ -955,7 +956,7 @@ THE OUTCOME OF A DISCUSSION IS RARELY KEEP-OR-DROP. Apply whichever of these fit
 
 BOOKKEEPING, for every outcome that removes a row from the main table (bookkeeping is not optional): remove the row from `02b-threats.md`; raise the matching count in its Threat Filtering Notes and recompute the totals that change (Operating Rule 15 -- counted, not recalled); and keep the removed threat's component, STRIDE category, short title and the agreed reason, because Phase 2C must carry it into the Excluded Threats Ledger with that reason. Phase 2C reconciles ledger rows against the not-promoted counts and STOPS on a mismatch, so a threat that merely vanishes from the table fails the run two phases later, in a place that gives no hint the cause was a decision here.
 
-Write the file with the Write tool. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Exclusions, Coverage, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md.`
+Write the file with the Write tool. After writing, update STATE.md: mark `phase-2b: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 2C (Exclusions, Coverage, Consolidation). Required rehydration: 00-scope.md, 01-inventory.md, 02a-context.md, 02b-threats.md, 02b-excluded.md -- 02b-excluded.md is the VERBATIM ledger source and 2C cannot reconstruct it.`
 
 EXCLUSION PROFILE (compute before returning your banner). Tally the excluded candidates BY REASON and report the profile in the banner below. Count them from `02b-excluded.md` -- Operating Rule 15, counted and never recalled -- list only reasons with a nonzero count, and check that they SUM to the total: a profile that does not sum means the working list did not capture every candidate, which is a defect to fix now rather than a rounding difference.
 
@@ -1330,7 +1331,7 @@ Header row must include both columns; data rows have either populated values or 
 
 After writing, validate by reading the first 3 lines with `Get-Content -TotalCount 3` and print them so the user can confirm the header row and the first data row look right.
 
-After the CSV and HTML are written, update STATE.md: mark `phase-3: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 4 (C4 + DFD diagrams). Required rehydration: 01-inventory.md, 02-threats.md.`
+After the CSV and HTML are written, update STATE.md: mark `phase-3: complete` with timestamp, set Last Completed Step, set Resume Instruction to `Begin at Phase 4 (C4 + DFD diagrams). Required rehydration: 01-inventory.md, 02a-context.md, 02-threats.md.`
 
 **Phase 3 Completion Banner:**
 ```

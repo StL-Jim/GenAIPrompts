@@ -98,6 +98,32 @@ Prioritize for government/financial systems: authentication bypass and credentia
 
 #### Phase 2B Work
 
+PARTITIONED RUNS -- read this first, then ignore it if it does not apply. If your briefing contains a line beginning `Partition:` you are ONE OF SEVERAL WORKERS walking this matrix in parallel, and four things change. If it does not, you are the only 2B agent, everything below is unchanged, and you can skip to the walk.
+
+1. WALK ONLY YOUR COMPONENTS. The briefing names them (`Partition: 2 of 4 -- components C-007, C-008, C-009, C-010, C-011`). A component outside your list belongs to another worker. Do not walk it, do not mention it, do not compensate for what you imagine another worker might miss -- a duplicate row costs the reconcile agent more than a gap does, because a gap is visible in the component-coverage check and a duplicate is not.
+
+2. A DATA FLOW BELONGS TO THE WORKER WHO OWNS ITS DESTINATION. The data-flow obligation below still binds, but only over your share: a flow is yours if its destination component is in your list. If the destination is outside the inventory entirely (an external SaaS, a user's browser), the flow belongs to whoever owns its SOURCE. A flow with neither end in your list is not yours and must not appear in your output. This rule exists because flows cross partition boundaries and judgement about "who should cover this" produces both double-coverage and holes.
+
+3. WRITE ONE FILE, NOT TWO: `{PROJECT_NAME}-threat-model/02b-part-<N>.md`, where `<N>` is your partition number. It has exactly two sections, in this order and with these headings:
+
+        ## Threats
+        <your threat table rows -- data rows only, no header row, no Filtering Notes>
+
+        ## Excluded
+        <your excluded lines, the same four-field form specified below>
+
+   Number your ThreatID column from `01` within your own partition. The reconcile agent renumbers across the merged set; two workers both emitting `01` is expected and handled.
+
+4. YOUR BANNER IS SHORT AND YOU DO NOT OFFER THE REVIEW GATE. Return only:
+
+        === PHASE 2B PARTITION <N> OF <M> COMPLETE ===
+        Components walked: <N> of <N> assigned   Promoted: <N>   Excluded: <N>
+        02b-part-<N>.md written
+
+   The Threat Filtering Notes, the exclusion profile, the STRIDE coverage counts and the "would you like to review each threat" offer all come from the reconcile agent, which is the only one that can see the whole table. Do not compute or emit them.
+
+Everything else in this file -- the criteria, the design-level test, the exploitability test, the L3/L4 cap, the Impact rules, the schema, the four audits -- applies to your partition exactly as written.
+
 Walk the STRIDE-per-element matrix as required by Operating Rule 4: for every component (and every boundary-crossing data flow), for every one of the six STRIDE categories, ask "does this apply?" Apply the prioritization rules above, including the design-level test and the already-compromised exploitability test. There is no count to reach.
 
 SAY WHERE YOU ARE AS YOU GO. After each component's six-category pass, emit exactly one line and nothing else:
